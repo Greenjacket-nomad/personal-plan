@@ -32,7 +32,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT);
         CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, UNIQUE(phase_index, metric_text));
-        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
         CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
         """
@@ -133,9 +133,9 @@ def get_recent_logs(days=7):
 def get_resources(phase_index=None):
     conn = get_db()
     if phase_index is not None:
-        cur = conn.execute("SELECT * FROM resources WHERE phase_index = ? OR phase_index IS NULL ORDER BY is_favorite DESC, created_at DESC", (phase_index,))
+        cur = conn.execute("SELECT * FROM resources WHERE phase_index = ? OR phase_index IS NULL ORDER BY week, day, is_favorite DESC, created_at DESC", (phase_index,))
     else:
-        cur = conn.execute("SELECT * FROM resources ORDER BY phase_index, is_favorite DESC, created_at DESC")
+        cur = conn.execute("SELECT * FROM resources ORDER BY phase_index, week, day, is_favorite DESC, created_at DESC")
     rows = cur.fetchall()
     conn.close()
 
@@ -173,6 +173,41 @@ def get_all_tags():
     return results
 
 
+def get_resources_by_week(phase_index, week):
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT * FROM resources WHERE phase_index = ? AND week = ? ORDER BY day, is_favorite DESC, created_at DESC",
+        (phase_index, week),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    grouped = {i: [] for i in range(1, 7)}
+    ungrouped = []
+    for r in rows:
+        item = dict(r)
+        item["tags"] = []
+        item["tag_colors"] = []
+        conn2 = get_db()
+        tag_rows = conn2.execute(
+            """
+            SELECT t.name, t.color FROM tags t
+            JOIN resource_tags rt ON t.id = rt.tag_id
+            WHERE rt.resource_id = ?
+            """,
+            (r["id"],),
+        ).fetchall()
+        conn2.close()
+        for t in tag_rows:
+            item["tags"].append(t["name"])
+            item["tag_colors"].append(t["color"])
+        d = r["day"]
+        if isinstance(d, int) and d in grouped:
+            grouped[d].append(item)
+        else:
+            ungrouped.append(item)
+    return grouped, ungrouped
+
+
 @app.route("/")
 def dashboard():
     init_if_needed()
@@ -194,6 +229,7 @@ def dashboard():
     overall_progress = (total_hours / curriculum_total * 100) if curriculum_total > 0 else 0
     recent_logs = get_recent_logs()
     resources = get_resources(current_phase)
+    grouped_week, ungrouped_week = get_resources_by_week(current_phase, current_week)
     all_tags = get_all_tags()
     phases_data = []
     for i, p in enumerate(curriculum["phases"]):
@@ -208,7 +244,7 @@ def dashboard():
         week_hours=week_hours, expected_weekly=expected_weekly, total_hours=total_hours,
         curriculum_total=curriculum_total, overall_progress=min(overall_progress, 100),
         completed_texts=completed_texts, recent_logs=recent_logs, phases=phases_data,
-        resources=resources, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
+        resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
         current_absolute_week=current_absolute_week, total_weeks=total_weeks)
 
 
@@ -320,13 +356,17 @@ def add_resource():
     resource_type = request.form.get("resource_type", "link")
     notes = request.form.get("notes", "").strip()
     phase_index = request.form.get("phase_index", "")
+    week_str = request.form.get("week", "").strip()
+    day_str = request.form.get("day", "").strip()
     if not title:
         flash("Title required", "error")
         return redirect(request.referrer or url_for("dashboard"))
     phase_idx = int(phase_index) if phase_index.isdigit() else None
+    week_val = int(week_str) if week_str.isdigit() else None
+    day_val = int(day_str) if day_str.isdigit() else None
     conn = get_db()
-    conn.execute("INSERT INTO resources (phase_index, title, url, resource_type, notes) VALUES (?, ?, ?, ?, ?)",
-        (phase_idx, title, url or None, resource_type, notes or None))
+    conn.execute("INSERT INTO resources (phase_index, week, day, title, url, resource_type, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (phase_idx, week_val, day_val, title, url or None, resource_type, notes or None))
     conn.commit()
     conn.close()
     flash(f"Added: {title}", "success")

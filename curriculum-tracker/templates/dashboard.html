@@ -176,15 +176,15 @@
                 {% endif %}
             </div>
 
-            <!-- Resources -->
+            <!-- Resources grouped by Day for current week -->
             <div class="card p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-gray-700"><i class="fas fa-book-open mr-2"></i>Resources</h3>
+                    <h3 class="font-bold text-gray-700"><i class="fas fa-book-open mr-2"></i>This Week's Tasks</h3>
                     <a href="/resources" class="text-purple-600 hover:text-purple-800 text-sm">View all →</a>
                 </div>
 
                 <form action="/add-resource" method="POST" class="mb-4 p-4 bg-gray-50 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
                         <input type="hidden" name="phase_index" value="{{ phase_index }}">
                         <input type="text" name="title" placeholder="Title *" required class="px-3 py-2 border rounded-lg">
                         <input type="url" name="url" placeholder="URL" class="px-3 py-2 border rounded-lg">
@@ -194,51 +194,90 @@
                             <option value="article">📄 Article</option>
                             <option value="docs">📚 Docs</option>
                             <option value="course">🎓 Course</option>
+                            <option value="project">🛠️ Project</option>
+                            <option value="lab">🔬 Lab</option>
+                            <option value="tutorial">📖 Tutorial</option>
+                            <option value="action">✅ Action</option>
                             <option value="note">📝 Note</option>
+                        </select>
+                        <select name="week" class="px-3 py-2 border rounded-lg">
+                            {% for w in range(1, phase.weeks + 1) %}
+                            <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>Week {{ w }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="day" class="px-3 py-2 border rounded-lg">
+                            {% for d in range(1,7) %}
+                            <option value="{{ d }}">Day {{ d }}</option>
+                            {% endfor %}
                         </select>
                         <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add</button>
                     </div>
                     <input type="text" name="notes" placeholder="Notes (optional)" class="w-full mt-2 px-3 py-2 border rounded-lg">
                 </form>
 
-                {% if resources %}
-                <div class="space-y-2">
-                    {% for r in resources %}
-                    <div class="flex items-center gap-3 p-3 rounded-lg {% if r.is_completed %}bg-green-50{% else %}bg-white border{% endif %}">
-                        <form action="/toggle-resource/{{ r.id }}" method="POST">
-                            <button class="w-6 h-6 rounded-full {% if r.is_completed %}bg-green-500 text-white{% else %}border-2 border-gray-300{% endif %} flex items-center justify-center">
-                                {% if r.is_completed %}<i class="fas fa-check text-xs"></i>{% endif %}
-                            </button>
-                        </form>
-                        <form action="/toggle-favorite/{{ r.id }}" method="POST">
-                            <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}">
-                                <i class="fas fa-star"></i>
-                            </button>
-                        </form>
-                        <span>{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
-                        <div class="flex-1">
-                            {% if r.url %}
-                            <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline {% if r.is_completed %}line-through{% endif %}">{{ r.title }}</a>
-                            {% else %}
-                            <span class="{% if r.is_completed %}line-through text-gray-500{% endif %}">{{ r.title }}</span>
-                            {% endif %}
-                            {% if r.tags %}
-                            <div class="flex gap-1 mt-1">
-                                {% for i in range(r.tags|length) %}
-                                <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                            {% if r.notes %}<p class="text-sm text-gray-500">{{ r.notes }}</p>{% endif %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for day in [1,2,3,4,5,6] %}
+                    <div class="border rounded">
+                        <div class="p-3 {% if day == 6 %}bg-yellow-50 border-b-2 border-yellow-300{% else %}bg-gray-50 border-b{% endif %}">
+                            <h4 class="font-semibold">Day {{ day }}{% if day == 6 %} • BUILD DAY{% endif %}</h4>
                         </div>
-                        <form action="/delete-resource/{{ r.id }}" method="POST">
-                            <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                        </form>
+                        <div class="p-3 space-y-3">
+                            {% for r in grouped_week_resources[day] %}
+                            <div class="flex items-start gap-3">
+                                <form action="/toggle-resource/{{ r.id }}" method="POST">
+                                    <button class="w-6 h-6 mt-1 rounded-full {% if r.is_completed %}bg-green-500 text-white{% else %}border-2 border-gray-300{% endif %} flex items-center justify-center">
+                                        {% if r.is_completed %}<i class="fas fa-check text-xs"></i>{% endif %}
+                                    </button>
+                                </form>
+                                <span class="mt-1 text-lg">{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'project' %}🛠️{% elif r.resource_type == 'lab' %}🔬{% elif r.resource_type == 'tutorial' %}📖{% elif r.resource_type == 'action' %}✅{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
+                                <div class="flex-1">
+                                    {% if r.url %}
+                                    <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline {% if r.is_completed %}line-through{% endif %}">{{ r.title }}</a>
+                                    {% else %}
+                                    <span class="{% if r.is_completed %}line-through text-gray-500{% endif %}">{{ r.title }}</span>
+                                    {% endif %}
+                                    {% if r.notes %}<p class="text-sm text-gray-500">{{ r.notes }}</p>{% endif %}
+                                </div>
+                                <form action="/toggle-favorite/{{ r.id }}" method="POST">
+                                    <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}"><i class="fas fa-star"></i></button>
+                                </form>
+                                <form action="/delete-resource/{{ r.id }}" method="POST">
+                                    <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <p class="text-gray-500 text-sm">No tasks for this day.</p>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
-                {% else %}
-                <p class="text-gray-500 text-center py-4">No resources yet. Add links, videos, or notes above!</p>
+
+                {% if ungrouped_week_resources and ungrouped_week_resources|length > 0 %}
+                <div class="mt-6">
+                    <h4 class="font-semibold mb-2">Ungrouped</h4>
+                    <div class="space-y-2">
+                        {% for r in ungrouped_week_resources %}
+                        <div class="flex items-center gap-3 p-3 rounded-lg bg-white border">
+                            <span class="text-lg">{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'project' %}🛠️{% elif r.resource_type == 'lab' %}🔬{% elif r.resource_type == 'tutorial' %}📖{% elif r.resource_type == 'action' %}✅{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
+                            <div class="flex-1">
+                                {% if r.url %}
+                                <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline">{{ r.title }}</a>
+                                {% else %}
+                                <span class="text-gray-800">{{ r.title }}</span>
+                                {% endif %}
+                                {% if r.notes %}<p class="text-sm text-gray-500">{{ r.notes }}</p>{% endif %}
+                            </div>
+                            <form action="/toggle-favorite/{{ r.id }}" method="POST">
+                                <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}"><i class="fas fa-star"></i></button>
+                            </form>
+                            <form action="/delete-resource/{{ r.id }}" method="POST">
+                                <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endif %}
             </div>
 
