@@ -1,0 +1,56 @@
+phases:
+  - name: "Phase 0: Prereqs & Core Concepts"
+    weeks: 3
+    hours: 52
+    metrics:
+      - "Can read any Python/JS code and explain what it does"
+      - "Can design a database schema on paper"
+      - "Can explain async/await to someone else"
+
+  - name: "Phase 1: Security & Architecture"
+    weeks: 3
+    hours: 48
+    metrics:
+      - "Can audit AI code for OWASP Top 10 vulnerabilities"
+      - "Have a security checklist you apply to every project"
+      - "Can specify auth requirements clearly"
+
+  - name: "Phase 2: Backend Architecture"
+    weeks: 3
+    hours: 40
+    metrics:
+      - "Can architect an entire backend from requirements"
+      - "Can spec a frontend and review AI implementation"
+      - "Can identify anti-patterns in generated code"
+
+  - name: "Phase 3: Frontend Architecture"
+    weeks: 2
+    hours: 30
+    metrics:
+      - "Can spec a frontend and review AI implementation"
+      - "Can identify anti-patterns in generated code"
+      - "Can design component architecture"
+
+  - name: "Phase 4: AI Integration"
+    weeks: 3
+    hours: 50
+    metrics:
+      - "Can design AI-powered features with clear prompts"
+      - "Understand cost implications of LLM choices"
+      - "Can architect a RAG system conceptually"
+
+  - name: "Phase 5: Payments & DevOps"
+    weeks: 2
+    hours: 30
+    metrics:
+      - "Understand Stripe payment flow completely"
+      - "Can deploy and debug production issues"
+      - "Know where to look when things break"
+
+  - name: "Phase 6: MVP Build Sprint"
+    weeks: 4
+    hours: 70
+    metrics:
+      - "MVP is live"
+      - "Has paying users"
+      - "You shipped it"

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resources - Curriculum Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">📚 All Resources</h1>
+                <p class="text-purple-200">{{ resources|length }} resources across all phases</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/export" class="text-white hover:text-purple-200"><i class="fas fa-download mr-2"></i>Export</a>
+            </div>
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-6 pt-4">
+        {% for category, message in messages %}
+        <div class="p-3 rounded-lg mb-2 {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Search & Filter -->
+        <div class="card p-4 mb-6">
+            <form method="GET" action="/resources" class="flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs text-gray-600 mb-1">Search</label>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div class="w-40">
+                    <label class="block text-xs text-gray-600 mb-1">Type</label>
+                    <select name="type" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">All Types</option>
+                        <option value="link" {% if filter_type == 'link' %}selected{% endif %}>🔗 Links</option>
+                        <option value="video" {% if filter_type == 'video' %}selected{% endif %}>🎬 Videos</option>
+                        <option value="article" {% if filter_type == 'article' %}selected{% endif %}>📄 Articles</option>
+                        <option value="docs" {% if filter_type == 'docs' %}selected{% endif %}>📚 Docs</option>
+                        <option value="course" {% if filter_type == 'course' %}selected{% endif %}>🎓 Courses</option>
+                        <option value="note" {% if filter_type == 'note' %}selected{% endif %}>📝 Notes</option>
+                    </select>
+                </div>
+                <div class="w-36">
+                    <label class="block text-xs text-gray-600 mb-1">Phase</label>
+                    <select name="phase" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">All Phases</option>
+                        {% for p in phases %}
+                        <option value="{{ p.index }}" {% if filter_phase == p.index|string %}selected{% endif %}>{{ p.name[:20] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-36">
+                    <label class="block text-xs text-gray-600 mb-1">Tag</label>
+                    <select name="tag" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">All Tags</option>
+                        {% for t in all_tags %}
+                        <option value="{{ t.name }}" {% if filter_tag == t.name %}selected{% endif %}>{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="w-36">
+                    <label class="block text-xs text-gray-600 mb-1">Status</label>
+                    <select name="status" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">All</option>
+                        <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>✅ Completed</option>
+                        <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}>⏳ Pending</option>
+                        <option value="favorites" {% if filter_status == 'favorites' %}selected{% endif %}>⭐ Favorites</option>
+                    </select>
+                </div>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg"><i class="fas fa-search mr-1"></i>Search</button>
+                <a href="/resources" class="text-gray-500 hover:text-gray-700 px-3 py-2">Clear</a>
+            </form>
+        </div>
+
+        <!-- Import Section -->
+        <div class="card p-4 mb-6">
+            <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-file-import mr-2"></i>Import Data</h3>
+            <form action="/import" method="POST" enctype="multipart/form-data" class="flex gap-4 items-center">
+                <input type="file" name="file" accept=".json" required class="flex-1 px-3 py-2 border rounded-lg">
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg"><i class="fas fa-upload mr-1"></i>Import</button>
+            </form>
+            <p class="text-sm text-gray-500 mt-2">Import a JSON file exported from another tracker instance.</p>
+        </div>
+
+        <!-- Tags Management -->
+        <div class="card p-4 mb-6">
+            <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-tags mr-2"></i>Tags</h3>
+            <div class="flex flex-wrap gap-2 mb-4">
+                {% for t in all_tags %}
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-white text-sm" style="background-color: {{ t.color }}">
+                    {{ t.name }}
+                    <form action="/delete-tag/{{ t.id }}" method="POST" class="inline" onsubmit="return confirm('Delete tag?')">
+                        <button class="hover:text-red-200"><i class="fas fa-times text-xs"></i></button>
+                    </form>
+                </span>
+                {% endfor %}
+                {% if not all_tags %}
+                <span class="text-gray-500">No tags yet</span>
+                {% endif %}
+            </div>
+            <form action="/add-tag" method="POST" class="flex gap-3">
+                <input type="text" name="name" placeholder="New tag name" required class="px-3 py-2 border rounded-lg">
+                <input type="color" name="color" value="#667eea" class="w-12 h-10 border rounded-lg cursor-pointer">
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add</button>
+            </form>
+        </div>
+
+        <!-- Resources List -->
+        <div class="card p-6">
+            {% if resources %}
+            <div class="space-y-3">
+                {% for r in resources %}
+                <div class="flex items-start gap-3 p-4 rounded-lg {% if r.is_completed %}bg-green-50{% else %}bg-gray-50{% endif %} border">
+                    <form action="/toggle-resource/{{ r.id }}?redirect=resources" method="POST">
+                        <button class="w-6 h-6 rounded-full {% if r.is_completed %}bg-green-500 text-white{% else %}border-2 border-gray-300 hover:border-green-500{% endif %} flex items-center justify-center">
+                            {% if r.is_completed %}<i class="fas fa-check text-xs"></i>{% endif %}
+                        </button>
+                    </form>
+                    <form action="/toggle-favorite/{{ r.id }}?redirect=resources" method="POST">
+                        <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}">
+                            <i class="fas fa-star"></i>
+                        </button>
+                    </form>
+                    <div class="text-2xl">
+                        {% if r.resource_type == 'video' %}🎬
+                        {% elif r.resource_type == 'article' %}📄
+                        {% elif r.resource_type == 'docs' %}📚
+                        {% elif r.resource_type == 'course' %}🎓
+                        {% elif r.resource_type == 'note' %}📝
+                        {% else %}🔗{% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            {% if r.url %}
+                            <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline {% if r.is_completed %}line-through{% endif %}">{{ r.title }}</a>
+                            {% else %}
+                            <span class="font-medium {% if r.is_completed %}line-through text-gray-500{% endif %}">{{ r.title }}</span>
+                            {% endif %}
+                            <span class="text-xs text-gray-400">Phase {{ r.phase_index + 1 }}</span>
+                        </div>
+                        {% if r.notes %}
+                        <p class="text-sm text-gray-600 mt-1">{{ r.notes }}</p>
+                        {% endif %}
+                        <div class="flex items-center gap-2 mt-2">
+                            {% if r.tags %}
+                            {% for i in range(r.tags|length) %}
+                            <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
+                            {% endfor %}
+                            {% endif %}
+                            <!-- Add tag form -->
+                            <form action="/add-tag-to-resource/{{ r.id }}" method="POST" class="inline-flex items-center gap-1">
+                                <select name="tag_id" class="text-xs px-2 py-1 border rounded">
+                                    <option value="">+ tag</option>
+                                    {% for t in all_tags %}
+                                    <option value="{{ t.id }}">{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="text-xs text-purple-600 hover:text-purple-800"><i class="fas fa-plus"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    <form action="/delete-resource/{{ r.id }}?redirect=resources" method="POST" onsubmit="return confirm('Delete resource?')">
+                        <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500">No resources found</p>
+                {% if search_query or filter_type or filter_phase or filter_tag or filter_status %}
+                <a href="/resources" class="text-purple-600 hover:underline">Clear filters</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Stats -->
+        {% if resources %}
+        <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-purple-600">{{ resources|length }}</div>
+                <div class="text-sm text-gray-500">Total</div>
+            </div>
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-green-600">{{ resources|selectattr('is_completed')|list|length }}</div>
+                <div class="text-sm text-gray-500">Completed</div>
+            </div>
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-yellow-600">{{ resources|selectattr('is_favorite')|list|length }}</div>
+                <div class="text-sm text-gray-500">Favorites</div>
+            </div>
+            <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ all_tags|length }}</div>
+                <div class="text-sm text-gray-500">Tags</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
