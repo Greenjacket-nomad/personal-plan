@@ -141,6 +141,11 @@
                         {% elif r.resource_type == 'article' %}📄
                         {% elif r.resource_type == 'docs' %}📚
                         {% elif r.resource_type == 'course' %}🎓
+                        {% elif r.resource_type == 'project' %}🛠️
+                        {% elif r.resource_type == 'lab' %}🔬
+                        {% elif r.resource_type == 'tutorial' %}📖
+                        {% elif r.resource_type == 'action' %}✅
+                        {% elif r.resource_type == 'deliverable' %}📦
                         {% elif r.resource_type == 'note' %}📝
                         {% else %}🔗{% endif %}
                     </div>

@@ -30,9 +30,9 @@ def init_db():
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
-        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT);
+        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER);
         CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, UNIQUE(phase_index, metric_text));
-        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT);
         CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
         CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
         """
@@ -95,16 +95,9 @@ def get_total_hours():
 
 
 def get_hours_for_phase(phase_index, curriculum):
-    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:phase_index])
-    phase_weeks = curriculum["phases"][phase_index]["weeks"]
-    start_date = get_config("start_date")
-    if not start_date:
-        return 0
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    phase_start = start + timedelta(weeks=weeks_before)
-    phase_end = phase_start + timedelta(weeks=phase_weeks)
+    # Query by phase_index column instead of date ranges
     conn = get_db()
-    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= ? AND date < ?", (phase_start.strftime("%Y-%m-%d"), phase_end.strftime("%Y-%m-%d")))
+    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = ?", (phase_index,))
     result = cur.fetchone()
     conn.close()
     return result["total"]
@@ -208,44 +201,150 @@ def get_resources_by_week(phase_index, week):
     return grouped, ungrouped
 
 
+def get_day_completion(phase_index, week, day):
+    """Get completion stats for a specific day. Returns (completed, total)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ? AND week = ? AND day = ?",
+        (phase_index, week, day)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    return (completed, total)
+
+
+def get_week_completion(phase_index, week):
+    """Get completion stats for a specific week. Returns (completed, total, percent)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ? AND week = ?",
+        (phase_index, week)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    percent = (completed / total * 100) if total > 0 else 0
+    return (completed, total, percent)
+
+
+def get_phase_completion(phase_index):
+    """Get completion stats for a specific phase. Returns (completed, total, percent)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ?",
+        (phase_index,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    percent = (completed / total * 100) if total > 0 else 0
+    return (completed, total, percent)
+
+
 @app.route("/")
-def dashboard():
+@app.route("/view/<int:view_phase>/<int:view_week>")
+def dashboard(view_phase=None, view_week=None):
     init_if_needed()
     curriculum = load_curriculum()
     current_phase = int(get_config("current_phase") or 0)
     current_week = int(get_config("current_week") or 1)
-    if current_phase >= len(curriculum["phases"]):
-        current_phase = len(curriculum["phases"]) - 1
-    phase = curriculum["phases"][current_phase]
+    
+    # Handle view mode (doesn't change state)
+    if view_phase is not None and view_week is not None:
+        # Validate view parameters
+        if view_phase >= len(curriculum["phases"]):
+            view_phase = len(curriculum["phases"]) - 1
+        if view_phase < 0:
+            view_phase = 0
+        phase = curriculum["phases"][view_phase]
+        if view_week < 1:
+            view_week = 1
+        if view_week > phase["weeks"]:
+            view_week = phase["weeks"]
+        # Use view values for display, but keep current_phase/current_week for state
+        display_phase = view_phase
+        display_week = view_week
+    else:
+        # Normal mode - use current phase/week
+        if current_phase >= len(curriculum["phases"]):
+            current_phase = len(curriculum["phases"]) - 1
+        display_phase = current_phase
+        display_week = current_week
+        view_phase = None
+        view_week = None
+    
+    phase = curriculum["phases"][display_phase]
     week_hours = get_current_week_hours()
     total_hours = get_total_hours()
     curriculum_total = sum(p["hours"] for p in curriculum["phases"])
     expected_weekly = phase["hours"] / phase["weeks"] if phase["weeks"] > 0 else 0
-    completed = get_completed_metrics(current_phase)
+    completed = get_completed_metrics(display_phase)
     completed_texts = {m["metric_text"] for m in completed}
     total_weeks = sum(p["weeks"] for p in curriculum["phases"])
-    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:current_phase])
-    current_absolute_week = weeks_before + current_week
+    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:display_phase])
+    current_absolute_week = weeks_before + display_week
     overall_progress = (total_hours / curriculum_total * 100) if curriculum_total > 0 else 0
     recent_logs = get_recent_logs()
-    resources = get_resources(current_phase)
-    grouped_week, ungrouped_week = get_resources_by_week(current_phase, current_week)
+    resources = get_resources(display_phase)
+    grouped_week, ungrouped_week = get_resources_by_week(display_phase, display_week)
     all_tags = get_all_tags()
     phases_data = []
     for i, p in enumerate(curriculum["phases"]):
         phase_completed = get_completed_metrics(i)
+        metrics_total = len(p.get("metrics", []))
         phases_data.append({
             "index": i, "name": p["name"], "weeks": p["weeks"], "hours": p["hours"],
             "logged": get_hours_for_phase(i, curriculum), "is_current": i == current_phase,
-            "is_complete": i < current_phase, "metrics_done": len(phase_completed),
-            "metrics_total": len(p.get("metrics", []))
+            "is_complete": len(phase_completed) == metrics_total if metrics_total > 0 else False, "metrics_done": len(phase_completed),
+            "metrics_total": metrics_total
         })
-    return render_template("dashboard.html", phase=phase, phase_index=current_phase, current_week=current_week,
+    
+    # Get search query if present
+    search_query = request.args.get("q", "").strip()
+    if search_query:
+        # Filter resources by search query (case-insensitive)
+        search_lower = search_query.lower()
+        filtered_grouped = {}
+        for day, day_resources in grouped_week.items():
+            filtered_day = [
+                r for r in day_resources
+                if search_lower in (r.get("title", "") or "").lower()
+                or search_lower in (r.get("notes", "") or "").lower()
+                or search_lower in (r.get("topic", "") or "").lower()
+            ]
+            if filtered_day:
+                filtered_grouped[day] = filtered_day
+        grouped_week = filtered_grouped
+        filtered_ungrouped = [
+            r for r in ungrouped_week
+            if search_lower in (r.get("title", "") or "").lower()
+            or search_lower in (r.get("notes", "") or "").lower()
+            or search_lower in (r.get("topic", "") or "").lower()
+        ]
+        ungrouped_week = filtered_ungrouped
+    
+    # Calculate completion rollups
+    phase_completed, phase_total, phase_percent = get_phase_completion(display_phase)
+    week_completed, week_total, week_percent = get_week_completion(display_phase, display_week)
+    day_completions = {}
+    for day in range(1, 7):
+        day_completed, day_total = get_day_completion(display_phase, display_week, day)
+        day_completions[day] = {"completed": day_completed, "total": day_total}
+    
+    return render_template("dashboard.html", phase=phase, phase_index=display_phase, current_week=display_week,
+        current_phase=current_phase, current_week_state=current_week, view_phase=view_phase, view_week=view_week,
         week_hours=week_hours, expected_weekly=expected_weekly, total_hours=total_hours,
         curriculum_total=curriculum_total, overall_progress=min(overall_progress, 100),
         completed_texts=completed_texts, recent_logs=recent_logs, phases=phases_data,
         resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
-        current_absolute_week=current_absolute_week, total_weeks=total_weeks)
+        current_absolute_week=current_absolute_week, total_weeks=total_weeks, search_query=search_query,
+        phase_completed=phase_completed, phase_total=phase_total, phase_percent=phase_percent,
+        week_completed=week_completed, week_total=week_total, week_percent=week_percent,
+        day_completions=day_completions)
 
 
 @app.route("/resources")
@@ -276,12 +375,14 @@ def log_hours():
     notes = request.form.get("notes", "").strip()
     if hours <= 0:
         return redirect(url_for("dashboard"))
+    # Get current phase_index for this log entry
+    current_phase = int(get_config("current_phase") or 0)
     conn = get_db()
     existing = conn.execute("SELECT id, hours FROM time_logs WHERE date = ?", (log_date,)).fetchone()
     if existing:
-        conn.execute("UPDATE time_logs SET hours = ?, notes = ? WHERE id = ?", (existing["hours"] + hours, notes, existing["id"]))
+        conn.execute("UPDATE time_logs SET hours = ?, notes = ?, phase_index = ? WHERE id = ?", (existing["hours"] + hours, notes, current_phase, existing["id"]))
     else:
-        conn.execute("INSERT INTO time_logs (date, hours, notes) VALUES (?, ?, ?)", (log_date, hours, notes))
+        conn.execute("INSERT INTO time_logs (date, hours, notes, phase_index) VALUES (?, ?, ?, ?)", (log_date, hours, notes, current_phase))
     conn.commit()
     conn.close()
     flash(f"Logged {hours} hours!", "success")
@@ -355,6 +456,7 @@ def add_resource():
     url = request.form.get("url", "").strip()
     resource_type = request.form.get("resource_type", "link")
     notes = request.form.get("notes", "").strip()
+    topic = request.form.get("topic", "").strip()
     phase_index = request.form.get("phase_index", "")
     week_str = request.form.get("week", "").strip()
     day_str = request.form.get("day", "").strip()
@@ -365,8 +467,8 @@ def add_resource():
     week_val = int(week_str) if week_str.isdigit() else None
     day_val = int(day_str) if day_str.isdigit() else None
     conn = get_db()
-    conn.execute("INSERT INTO resources (phase_index, week, day, title, url, resource_type, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (phase_idx, week_val, day_val, title, url or None, resource_type, notes or None))
+    conn.execute("INSERT INTO resources (phase_index, week, day, title, topic, url, resource_type, notes, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user')",
+        (phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None))
     conn.commit()
     conn.close()
     flash(f"Added: {title}", "success")
@@ -376,7 +478,45 @@ def add_resource():
 @app.route("/toggle-resource/<int:resource_id>", methods=["POST"])
 def toggle_resource(resource_id):
     conn = get_db()
+    # Get current state and resource details
+    resource = conn.execute("SELECT phase_index, week, day, is_completed FROM resources WHERE id = ?", (resource_id,)).fetchone()
+    if not resource:
+        conn.close()
+        return redirect(request.referrer or url_for("dashboard"))
+    
+    phase_index = resource["phase_index"]
+    week = resource["week"]
+    day = resource["day"]
+    was_completed = resource["is_completed"]
+    
+    # Toggle the resource
     conn.execute("UPDATE resources SET is_completed = NOT is_completed WHERE id = ?", (resource_id,))
+    
+    # If this is Day 6 (BUILD DAY), link to metrics
+    if day == 6 and phase_index is not None and week is not None:
+        curriculum = load_curriculum()
+        if phase_index < len(curriculum["phases"]):
+            phase = curriculum["phases"][phase_index]
+            metrics = phase.get("metrics", [])
+            # Map week to metric index: Week 1 → metrics[0], Week 2 → metrics[1], etc.
+            metric_index = week - 1  # week is 1-indexed, metrics are 0-indexed
+            if 0 <= metric_index < len(metrics):
+                metric_text = metrics[metric_index]
+                now_completed = not was_completed
+                
+                if now_completed:
+                    # Auto-complete the metric
+                    conn.execute(
+                        "INSERT OR IGNORE INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (?, ?, ?)",
+                        (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d"))
+                    )
+                else:
+                    # Auto-delete the metric
+                    conn.execute(
+                        "DELETE FROM completed_metrics WHERE phase_index = ? AND metric_text = ?",
+                        (phase_index, metric_text)
+                    )
+    
     conn.commit()
     conn.close()
     return redirect(request.referrer or url_for("dashboard"))
@@ -437,9 +577,9 @@ def delete_tag(tag_id):
 def export_data():
     conn = get_db()
     config = {r["key"]: r["value"] for r in conn.execute("SELECT * FROM config").fetchall()}
-    time_logs = [dict(r) for r in conn.execute("SELECT date, hours, notes FROM time_logs ORDER BY date").fetchall()]
+    time_logs = [dict(r) for r in conn.execute("SELECT date, hours, notes, phase_index FROM time_logs ORDER BY date").fetchall()]
     metrics = [dict(r) for r in conn.execute("SELECT phase_index, metric_text, completed_date FROM completed_metrics").fetchall()]
-    resources = [dict(r) for r in conn.execute("SELECT phase_index, title, url, resource_type, notes, is_completed, is_favorite FROM resources").fetchall()]
+    resources = [dict(r) for r in conn.execute("SELECT phase_index, week, day, title, topic, url, resource_type, notes, is_completed, is_favorite, source FROM resources").fetchall()]
     tags = [dict(r) for r in conn.execute("SELECT name, color FROM tags").fetchall()]
     conn.close()
     data = {"exported_at": datetime.now().isoformat(), "config": config, "time_logs": time_logs,
