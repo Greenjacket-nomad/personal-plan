@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curriculum Editor - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+        }
+        
+        [data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
+        }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        input, textarea, select {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            transition: all 150ms ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+        }
+        
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .collapsible-content.expanded {
+            max-height: 5000px;
+        }
+    </style>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body class="min-h-screen">
+    <header class="header py-6 px-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-primary"><i class="fas fa-edit mr-2"></i>Curriculum Editor</h1>
+                <p class="text-secondary">Manage your curriculum structure and resources</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/resources" class="text-primary"><i class="fas fa-database mr-2"></i>Resources</a>
+            </div>
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-6 pt-4">
+        {% for category, message in messages %}
+        <div class="p-3 rounded-lg mb-2 card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="max-w-7xl mx-auto p-6">
+        <div class="card p-6">
+            <div class="space-y-6">
+                {% for phase in curriculum_tree %}
+                <div class="border rounded-lg overflow-hidden">
+                    <!-- Phase Header -->
+                    <div class="collapsible-header p-4 bg-tertiary flex items-center justify-between" onclick="toggleCollapse('phase-{{ phase.index }}')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-chevron-right transition-transform" id="phase-{{ phase.index }}-icon"></i>
+                            <h2 class="text-xl font-bold text-primary">{{ phase.name }}</h2>
+                            <span class="text-sm text-secondary">({{ phase.resource_count }} resources)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Phase Content -->
+                    <div class="collapsible-content expanded" id="phase-{{ phase.index }}-content">
+                        <div class="p-4 space-y-4">
+                            {% for week in phase.weeks %}
+                            <div class="border rounded-lg">
+                                <!-- Week Header -->
+                                <div class="collapsible-header p-3 bg-tertiary flex items-center justify-between" onclick="toggleCollapse('week-{{ phase.index }}-{{ week.number }}')">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fas fa-chevron-right transition-transform" id="week-{{ phase.index }}-{{ week.number }}-icon"></i>
+                                        <h3 class="font-semibold text-primary">Week {{ week.number }}</h3>
+                                        <span class="text-sm text-secondary">({{ week.resource_count }} resources)</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Week Content -->
+                                <div class="collapsible-content expanded" id="week-{{ phase.index }}-{{ week.number }}-content">
+                                    <div class="p-3 space-y-3">
+                                        {% for day in week.days %}
+                                        <div class="border rounded-lg">
+                                            <!-- Day Header -->
+                                            <div class="collapsible-header p-3 bg-tertiary flex items-center justify-between" onclick="toggleCollapse('day-{{ phase.index }}-{{ week.number }}-{{ day.number }}')">
+                                                <div class="flex items-center gap-3">
+                                                    <i class="fas fa-chevron-right transition-transform" id="day-{{ phase.index }}-{{ week.number }}-{{ day.number }}-icon"></i>
+                                                    <h4 class="font-medium text-primary">Day {{ day.number }}</h4>
+                                                    <span class="text-sm text-secondary">({{ day.resources|length }} resources)</span>
+                                                </div>
+                                                <button onclick="event.stopPropagation(); addResource({{ phase.index }}, {{ week.number }}, {{ day.number }})" class="btn-secondary text-sm">
+                                                    <i class="fas fa-plus mr-1"></i>Add Resource
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- Day Content -->
+                                            <div class="collapsible-content expanded" id="day-{{ phase.index }}-{{ week.number }}-{{ day.number }}-content">
+                                                <div class="p-3 space-y-2">
+                                                    <!-- Add Resource Form (hidden by default) -->
+                                                    <div id="add-form-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="hidden mb-3 p-3 bg-tertiary rounded-lg">
+                                                        <form onsubmit="saveNewResource(event, {{ phase.index }}, {{ week.number }}, {{ day.number }})">
+                                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                                                <input type="text" name="title" placeholder="Resource Title *" required class="md:col-span-2">
+                                                                <input type="url" name="url" placeholder="URL (optional)" class="md:col-span-2">
+                                                                <select name="resource_type" required>
+                                                                    <option value="link"><i class="fas fa-link"></i> Link</option>
+                                                                    <option value="course"><i class="fas fa-graduation-cap"></i> Course</option>
+                                                                    <option value="docs"><i class="fas fa-book"></i> Docs</option>
+                                                                    <option value="article"><i class="fas fa-file-alt"></i> Article</option>
+                                                                    <option value="video"><i class="fas fa-video"></i> Video</option>
+                                                                    <option value="project"><i class="fas fa-tools"></i> Project</option>
+                                                                    <option value="lab"><i class="fas fa-flask"></i> Lab</option>
+                                                                    <option value="tutorial"><i class="fas fa-book-open"></i> Tutorial</option>
+                                                                    <option value="action"><i class="fas fa-check"></i> Action</option>
+                                                                    <option value="deliverable"><i class="fas fa-box"></i> Deliverable</option>
+                                                                    <option value="note"><i class="fas fa-pen"></i> Note</option>
+                                                                </select>
+                                                                <input type="number" name="estimated_minutes" placeholder="Time (minutes)" min="0">
+                                                                <select name="difficulty">
+                                                                    <option value="">Difficulty</option>
+                                                                    <option value="easy">Easy</option>
+                                                                    <option value="medium">Medium</option>
+                                                                    <option value="hard">Hard</option>
+                                                                </select>
+                                                            </div>
+                                                            <textarea name="notes" placeholder="Notes (optional)" rows="2" class="w-full mb-3"></textarea>
+                                                            <div class="flex gap-2">
+                                                                <button type="submit" class="btn-primary">Save</button>
+                                                                <button type="button" onclick="cancelAddResource({{ phase.index }}, {{ week.number }}, {{ day.number }})" class="btn-secondary">Cancel</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                    
+                                                    <!-- Resources List -->
+                                                    <div class="resource-list" data-day="{{ day.number }}" data-week="{{ week.number }}" data-phase="{{ phase.index }}">
+                                                        {% for resource in day.resources %}
+                                                        <div class="resource-item p-3 bg-tertiary rounded-lg mb-2 flex items-start gap-3" data-resource-id="{{ resource.id }}">
+                                                            <span class="drag-handle cursor-move mt-1 text-muted">
+                                                                <i class="fas fa-grip-vertical"></i>
+                                                            </span>
+                                                            <div class="flex-1">
+                                                                <div class="flex items-center gap-2 mb-1">
+                                                                    <span class="text-lg">
+                                                                        {% if resource.resource_type == 'video' %}<i class="fas fa-video"></i>
+                                                                        {% elif resource.resource_type == 'article' %}<i class="fas fa-file-alt"></i>
+                                                                        {% elif resource.resource_type == 'docs' %}<i class="fas fa-book"></i>
+                                                                        {% elif resource.resource_type == 'course' %}<i class="fas fa-graduation-cap"></i>
+                                                                        {% elif resource.resource_type == 'project' %}<i class="fas fa-tools"></i>
+                                                                        {% elif resource.resource_type == 'lab' %}<i class="fas fa-flask"></i>
+                                                                        {% elif resource.resource_type == 'tutorial' %}<i class="fas fa-book-open"></i>
+                                                                        {% elif resource.resource_type == 'action' %}<i class="fas fa-check"></i>
+                                                                        {% elif resource.resource_type == 'deliverable' %}<i class="fas fa-box"></i>
+                                                                        {% elif resource.resource_type == 'note' %}<i class="fas fa-pen"></i>
+                                                                        {% else %}<i class="fas fa-link"></i>{% endif %}
+                                                                    </span>
+                                                                    <input type="text" value="{{ resource.title }}" class="resource-title flex-1" data-resource-id="{{ resource.id }}" onblur="updateResourceField({{ resource.id }}, 'title', this.value)">
+                                                                    {% if resource.url %}
+                                                                    <a href="{{ resource.url }}" target="_blank" class="text-accent"><i class="fas fa-external-link-alt"></i></a>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="flex gap-2 text-sm text-secondary">
+                                                                    {% if resource.estimated_minutes %}
+                                                                    <span>{{ resource.estimated_minutes }} min</span>
+                                                                    {% endif %}
+                                                                    {% if resource.difficulty %}
+                                                                    <span>{{ resource.difficulty }}</span>
+                                                                    {% endif %}
+                                                                </div>
+                                                                {% if resource.notes %}
+                                                                <textarea class="resource-notes w-full mt-2 text-sm" data-resource-id="{{ resource.id }}" onblur="updateResourceField({{ resource.id }}, 'notes', this.value)">{{ resource.notes }}</textarea>
+                                                                {% endif %}
+                                                            </div>
+                                                            <button onclick="deleteResource({{ resource.id }})" class="btn-secondary text-sm" style="color: var(--error); border-color: var(--error);">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleCollapse(id) {
+            const content = document.getElementById(id + '-content');
+            const icon = document.getElementById(id + '-icon');
+            content.classList.toggle('expanded');
+            icon.style.transform = content.classList.contains('expanded') ? 'rotate(90deg)' : 'rotate(0deg)';
+        }
+        
+        function addResource(phase, week, day) {
+            const form = document.getElementById(`add-form-${phase}-${week}-${day}`);
+            form.classList.remove('hidden');
+        }
+        
+        function cancelAddResource(phase, week, day) {
+            const form = document.getElementById(`add-form-${phase}-${week}-${day}`);
+            form.classList.add('hidden');
+            form.querySelector('form').reset();
+        }
+        
+        function saveNewResource(event, phase, week, day) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            formData.append('phase_index', phase);
+            formData.append('week', week);
+            formData.append('day', day);
+            
+            fetch('/api/resource', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to add resource'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Failed to add resource');
+            });
+        }
+        
+        function updateResourceField(resourceId, field, value) {
+            fetch(`/api/resource/${resourceId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({[field]: value})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error updating resource');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Failed to update resource');
+            });
+        }
+        
+        function deleteResource(resourceId) {
+            if (!confirm('Are you sure? This cannot be undone.')) {
+                return;
+            }
+            
+            fetch(`/api/resource/${resourceId}`, {
+                method: 'DELETE'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to delete resource'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Failed to delete resource');
+            });
+        }
+        
+        // Initialize drag-and-drop
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.resource-list').forEach(list => {
+                new Sortable(list, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function(evt) {
+                        const resourceId = parseInt(evt.item.dataset.resourceId);
+                        const newPosition = evt.newIndex;
+                        const day = parseInt(list.dataset.day);
+                        const week = parseInt(list.dataset.week);
+                        const phase = parseInt(list.dataset.phase);
+                        
+                        fetch(`/api/resource/${resourceId}/reorder`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                new_position: newPosition,
+                                day: day,
+                                week: week,
+                                phase_index: phase
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.success) {
+                                console.error('Reorder failed:', data.error);
+                                location.reload(); // Reload to fix order
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error:', err);
+                            location.reload();
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+

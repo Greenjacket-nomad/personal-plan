@@ -4,42 +4,264 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resources - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* CSS Variable System - Same as dashboard */
         :root {
-            --bg-primary: #f3f4f6;
-            --bg-card: #ffffff;
-            --text-primary: #111827;
-            --border-color: #e5e7eb;
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
         }
+        
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-card: #1f2937;
-            --text-primary: #f9fafb;
-            --border-color: #374151;
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
         }
-        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Dynamic tag colors - set via JavaScript */
+        .tag-dynamic[data-color] {
+            background-color: transparent;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        [data-theme="light"] .glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="url"],
+        input[type="file"],
+        textarea,
+        select {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            transition: all 150ms ease;
+        }
+        
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        a {
+            transition: color 150ms ease;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        .resource-card {
+            transition: all 150ms ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .resource-card:hover {
+            border-left-color: var(--accent);
+            background: var(--bg-tertiary);
+        }
+        
+        /* Utility Classes - Same as dashboard */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-error { color: var(--error); }
+        
+        .flash-error { background: rgba(255, 61, 0, 0.1); border-color: var(--error); color: var(--error); }
+        .flash-success { background: rgba(0, 200, 83, 0.1); border-color: var(--success); color: var(--success); }
+        .flash-info { background: rgba(0, 212, 255, 0.1); border-color: var(--accent); color: var(--accent); }
+        
+        .resource-status-complete { background: var(--success); color: white; }
+        .resource-status-progress { background: linear-gradient(90deg, var(--warning), transparent); border: 2px solid var(--warning); color: var(--warning); }
+        .resource-status-skipped { background: var(--bg-tertiary); color: var(--text-muted); }
+        .resource-status-default { border: 2px solid var(--border); color: var(--text-muted); }
+        .resource-status-default:hover { border-color: var(--accent); color: var(--accent); }
+        
+        .resource-completed { text-decoration: line-through; color: var(--text-muted); }
+        .resource-link { color: var(--accent); }
+        
+        .btn-favorite { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-favorite.active { color: var(--warning); }
+        .btn-favorite:hover { color: var(--warning); }
+        
+        .btn-delete { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-delete:hover { color: var(--error); }
+        
+        .details-summary { color: var(--text-secondary); transition: all 150ms ease; }
+        .details-summary:hover { color: var(--text-primary); }
+        .details-content { border-left: 2px solid var(--border); }
+        
+        .difficulty-easy { background: var(--success); }
+        .difficulty-medium { background: var(--warning); }
+        .difficulty-hard { background: var(--error); }
+        
+        .empty-state { color: var(--text-secondary); }
+        .empty-state-icon { color: var(--text-muted); opacity: 0.3; }
+        
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { opacity: 0.9; }
+        
+        .stat-number { font-weight: 700; }
+        .color-input { border: 1px solid var(--border); border-radius: 8px; }
     </style>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         })();
+        
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
     </script>
 </head>
-<body class="min-h-screen" style="background-color: var(--bg-primary)">
-    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold">📚 All Resources</h1>
-                <p class="text-purple-200">{{ resources|length }} resources across all phases</p>
+                <h1 class="text-2xl font-bold text-primary"><i class="fas fa-book mr-2"></i>All Resources</h1>
+                <p class="text-secondary">{{ resources|length }} resources across all phases</p>
             </div>
             <div class="flex items-center gap-4">
-                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                <a href="/export" class="text-white hover:text-purple-200"><i class="fas fa-download mr-2"></i>Export</a>
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/curriculum/edit" class="text-primary"><i class="fas fa-edit mr-2"></i>Edit Curriculum</a>
+                <a href="/export" class="text-primary"><i class="fas fa-download mr-2"></i>Export</a>
             </div>
         </div>
     </header>
@@ -48,7 +270,7 @@
     {% if messages %}
     <div class="max-w-7xl mx-auto px-6 pt-4">
         {% for category, message in messages %}
-        <div class="p-3 rounded-lg mb-2 {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        <div class="p-3 rounded-lg mb-2 card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
@@ -59,24 +281,24 @@
         <div class="card p-4 mb-6">
             <form method="GET" action="/resources" class="flex flex-wrap gap-4 items-end">
                 <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs text-gray-600 mb-1">Search</label>
-                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="w-full px-3 py-2 border rounded-lg">
+                    <label class="block text-xs mb-1 text-secondary">Search</label>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="w-full">
                 </div>
                 <div class="w-40">
-                    <label class="block text-xs text-gray-600 mb-1">Type</label>
-                    <select name="type" class="w-full px-3 py-2 border rounded-lg">
+                    <label class="block text-xs mb-1 text-secondary">Type</label>
+                    <select name="type" class="w-full">
                         <option value="">All Types</option>
-                        <option value="link" {% if filter_type == 'link' %}selected{% endif %}>🔗 Links</option>
-                        <option value="video" {% if filter_type == 'video' %}selected{% endif %}>🎬 Videos</option>
-                        <option value="article" {% if filter_type == 'article' %}selected{% endif %}>📄 Articles</option>
-                        <option value="docs" {% if filter_type == 'docs' %}selected{% endif %}>📚 Docs</option>
-                        <option value="course" {% if filter_type == 'course' %}selected{% endif %}>🎓 Courses</option>
-                        <option value="note" {% if filter_type == 'note' %}selected{% endif %}>📝 Notes</option>
+                        <option value="link" {% if filter_type == 'link' %}selected{% endif %}><i class="fas fa-link"></i> Links</option>
+                        <option value="video" {% if filter_type == 'video' %}selected{% endif %}><i class="fas fa-video"></i> Videos</option>
+                        <option value="article" {% if filter_type == 'article' %}selected{% endif %}><i class="fas fa-file-alt"></i> Articles</option>
+                        <option value="docs" {% if filter_type == 'docs' %}selected{% endif %}><i class="fas fa-book"></i> Docs</option>
+                        <option value="course" {% if filter_type == 'course' %}selected{% endif %}><i class="fas fa-graduation-cap"></i> Courses</option>
+                        <option value="note" {% if filter_type == 'note' %}selected{% endif %}><i class="fas fa-pen"></i> Notes</option>
                     </select>
                 </div>
                 <div class="w-36">
-                    <label class="block text-xs text-gray-600 mb-1">Phase</label>
-                    <select name="phase" class="w-full px-3 py-2 border rounded-lg">
+                    <label class="block text-xs mb-1 text-secondary">Phase</label>
+                    <select name="phase" class="w-full">
                         <option value="">All Phases</option>
                         {% for p in phases %}
                         <option value="{{ p.index }}" {% if filter_phase == p.index|string %}selected{% endif %}>{{ p.name[:20] }}</option>
@@ -84,8 +306,8 @@
                     </select>
                 </div>
                 <div class="w-36">
-                    <label class="block text-xs text-gray-600 mb-1">Tag</label>
-                    <select name="tag" class="w-full px-3 py-2 border rounded-lg">
+                    <label class="block text-xs mb-1 text-secondary">Tag</label>
+                    <select name="tag" class="w-full">
                         <option value="">All Tags</option>
                         {% for t in all_tags %}
                         <option value="{{ t.name }}" {% if filter_tag == t.name %}selected{% endif %}>{{ t.name }}</option>
@@ -93,49 +315,49 @@
                     </select>
                 </div>
                 <div class="w-36">
-                    <label class="block text-xs text-gray-600 mb-1">Status</label>
-                    <select name="status" class="w-full px-3 py-2 border rounded-lg">
+                    <label class="block text-xs mb-1 text-secondary">Status</label>
+                    <select name="status" class="w-full">
                         <option value="">All</option>
-                        <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>✅ Completed</option>
-                        <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}>⏳ Pending</option>
-                        <option value="favorites" {% if filter_status == 'favorites' %}selected{% endif %}>⭐ Favorites</option>
+                        <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}><i class="fas fa-check"></i> Completed</option>
+                        <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}><i class="fas fa-clock"></i> Pending</option>
+                        <option value="favorites" {% if filter_status == 'favorites' %}selected{% endif %}><i class="fas fa-star"></i> Favorites</option>
                     </select>
                 </div>
-                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg"><i class="fas fa-search mr-1"></i>Search</button>
-                <a href="/resources" class="text-gray-500 hover:text-gray-700 px-3 py-2">Clear</a>
+                <button type="submit" class="btn-primary px-5 py-2"><i class="fas fa-search mr-1"></i>Search</button>
+                <a href="/resources" class="btn-secondary px-3 py-2">Nevermind</a>
             </form>
         </div>
 
         <!-- Import Section -->
         <div class="card p-4 mb-6">
-            <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-file-import mr-2"></i>Import Data</h3>
+            <h3 class="font-bold mb-3 text-primary"><i class="fas fa-file-import mr-2"></i>Import Data</h3>
             <form action="/import" method="POST" enctype="multipart/form-data" class="flex gap-4 items-center">
-                <input type="file" name="file" accept=".json" required class="flex-1 px-3 py-2 border rounded-lg">
-                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg"><i class="fas fa-upload mr-1"></i>Import</button>
+                <input type="file" name="file" accept=".json" required class="flex-1">
+                <button type="submit" class="px-5 py-2 rounded-lg transition-all btn-success"><i class="fas fa-upload mr-1"></i>Import</button>
             </form>
-            <p class="text-sm text-gray-500 mt-2">Import a JSON file exported from another tracker instance.</p>
+            <p class="text-sm mt-2 text-secondary">Import a JSON file exported from another tracker instance.</p>
         </div>
 
         <!-- Tags Management -->
         <div class="card p-4 mb-6">
-            <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-tags mr-2"></i>Tags</h3>
+            <h3 class="font-bold mb-3 text-primary"><i class="fas fa-tags mr-2"></i>Tags</h3>
             <div class="flex flex-wrap gap-2 mb-4">
                 {% for t in all_tags %}
-                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-white text-sm" style="background-color: {{ t.color }}">
+                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-white text-sm tag-dynamic" data-color="{{ t.color }}">
                     {{ t.name }}
                     <form action="/delete-tag/{{ t.id }}" method="POST" class="inline" onsubmit="return confirm('Delete tag?')">
-                        <button class="hover:text-red-200"><i class="fas fa-times text-xs"></i></button>
+                        <button class="transition-all" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'"><i class="fas fa-times text-xs"></i></button>
                     </form>
                 </span>
                 {% endfor %}
                 {% if not all_tags %}
-                <span class="text-gray-500">No tags yet</span>
+                <span class="text-secondary">No tags yet</span>
                 {% endif %}
             </div>
             <form action="/add-tag" method="POST" class="flex gap-3">
-                <input type="text" name="name" placeholder="New tag name" required class="px-3 py-2 border rounded-lg">
-                <input type="color" name="color" value="#667eea" class="w-12 h-10 border rounded-lg cursor-pointer">
-                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add</button>
+                <input type="text" name="name" placeholder="New tag name" required class="">
+                <input type="color" name="color" value="#667eea" class="w-12 h-10 cursor-pointer color-input">
+                <button type="submit" class="btn-primary px-4 py-2"><i class="fas fa-plus mr-1"></i>Add</button>
             </form>
         </div>
 
@@ -144,14 +366,10 @@
             {% if resources %}
             <div class="space-y-3">
                 {% for r in resources %}
-                <div class="flex items-start gap-3 p-3 bg-white rounded border">
-                    <form action="/toggle-resource/{{ r.id }}?redirect=resources" method="POST">
+                <div class="flex items-start gap-3 p-3 card rounded resource-card {% if r.id in overdue_resource_ids %}border-l-4{% endif %}" {% if r.id in overdue_resource_ids %}style="border-left-color: var(--error);"{% endif %}>
+                    <form action="/toggle-resource/{{ r.id }}?redirect=resources" method="POST" class="toggle-resource-form" data-resource-id="{{ r.id }}" data-current-status="{{ r.get('status', 'not_started') }}">
                         {% set status = r.get('status', 'not_started') %}
-                        <button class="w-8 h-8 rounded-full flex items-center justify-center transition-all
-                            {% if status == 'complete' %}bg-green-500 text-white
-                            {% elif status == 'in_progress' %}bg-gradient-to-r from-yellow-400 to-transparent border-2 border-yellow-400 text-yellow-700
-                            {% elif status == 'skipped' %}bg-gray-300 text-gray-600
-                            {% else %}border-2 border-gray-300 text-gray-400 hover:border-purple-400{% endif %}"
+                        <button type="button" class="w-8 h-8 rounded-full flex items-center justify-center transition-all {% if status == 'complete' %}resource-status-complete{% elif status == 'in_progress' %}resource-status-progress{% elif status == 'skipped' %}resource-status-skipped{% else %}resource-status-default{% endif %}"
                             title="Click to cycle status">
                             {% if status == 'complete' %}<i class="fas fa-check text-sm"></i>
                             {% elif status == 'in_progress' %}<i class="fas fa-circle-notch text-sm"></i>
@@ -160,99 +378,160 @@
                         </button>
                     </form>
                     <form action="/toggle-favorite/{{ r.id }}?redirect=resources" method="POST">
-                        <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}">
+                        <button class="btn-favorite {% if r.is_favorite %}active{% endif %}">
                             <i class="fas fa-star"></i>
                         </button>
                     </form>
                     <div class="text-2xl">
-                        {% if r.resource_type == 'video' %}🎬
-                        {% elif r.resource_type == 'article' %}📄
-                        {% elif r.resource_type == 'docs' %}📚
-                        {% elif r.resource_type == 'course' %}🎓
-                        {% elif r.resource_type == 'project' %}🛠️
-                        {% elif r.resource_type == 'lab' %}🔬
-                        {% elif r.resource_type == 'tutorial' %}📖
-                        {% elif r.resource_type == 'action' %}✅
-                        {% elif r.resource_type == 'deliverable' %}📦
-                        {% elif r.resource_type == 'note' %}📝
-                        {% else %}🔗{% endif %}
+                        {% if r.resource_type == 'video' %}<i class="fas fa-video"></i>
+                        {% elif r.resource_type == 'article' %}<i class="fas fa-file-alt"></i>
+                        {% elif r.resource_type == 'docs' %}<i class="fas fa-book"></i>
+                        {% elif r.resource_type == 'course' %}<i class="fas fa-graduation-cap"></i>
+                        {% elif r.resource_type == 'project' %}<i class="fas fa-tools"></i>
+                        {% elif r.resource_type == 'lab' %}<i class="fas fa-flask"></i>
+                        {% elif r.resource_type == 'tutorial' %}<i class="fas fa-book-open"></i>
+                        {% elif r.resource_type == 'action' %}<i class="fas fa-check"></i>
+                        {% elif r.resource_type == 'deliverable' %}<i class="fas fa-box"></i>
+                        {% elif r.resource_type == 'note' %}<i class="fas fa-pen"></i>
+                        {% else %}<i class="fas fa-link"></i>{% endif %}
                     </div>
                     <div class="flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <div class="flex-1">
                                 {% if r.topic %}
-                                <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">{{ r.topic|title }}</p>
+                                <p class="text-xs uppercase tracking-wide mb-1 text-secondary">{{ r.topic|title }}</p>
+                                {% endif %}
+                                <div class="inline-edit-title" data-resource-id="{{ r.id }}">
+                                {% if r.id in overdue_resource_ids %}
+                                <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold mb-1" style="background: var(--error); color: white;">Overdue</span>
                                 {% endif %}
                                 {% if r.url %}
-                                <a href="{{ r.url }}" target="_blank" class="text-base font-semibold text-purple-700 hover:text-purple-900 hover:underline {% if status == 'complete' %}line-through text-gray-400{% endif %} block">{{ r.title }}</a>
+                                <a href="{{ r.url }}" target="_blank" class="text-base font-semibold hover:underline block transition-all {% if status == 'complete' %}resource-completed{% else %}resource-link{% endif %} inline-edit-display">
+                                    <span>{{ r.title }}</span>
+                                    <i class="fas fa-edit text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </a>
                                 {% else %}
-                                <span class="text-base font-semibold {% if status == 'complete' %}line-through text-gray-400{% else %}text-gray-900{% endif %} block">{{ r.title }}</span>
+                                <span class="text-base font-semibold block {% if status == 'complete' %}resource-completed{% else %}text-primary{% endif %} inline-edit-display cursor-pointer group">
+                                    <span>{{ r.title }}</span>
+                                    <i class="fas fa-edit text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </span>
                                 {% endif %}
+                                    <input type="text" value="{{ r.title }}" class="inline-edit-input hidden w-full text-base font-semibold" data-resource-id="{{ r.id }}" data-field="title">
+                                </div>
                             </div>
                             {% if resource_hours.get(r.id) %}
-                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full whitespace-nowrap">{{ "%.1f"|format(resource_hours[r.id]) }}h</span>
+                            <span class="tag text-xs px-2 py-1 whitespace-nowrap">{{ "%.1f"|format(resource_hours[r.id]) }}h</span>
                             {% endif %}
                         </div>
                         
-                        {% if r.notes %}
-                        <details class="text-sm text-gray-600 mt-2">
-                            <summary class="cursor-pointer hover:text-gray-800">View details</summary>
-                            <div class="mt-2 pl-2 border-l-2 border-gray-200">
-                                {% if 'Tasks:' in r.notes %}
-                                    {% set parts = r.notes.split('|') %}
-                                    {% for part in parts %}
-                                        {% if part.strip().startswith('Tasks:') %}
-                                            <p class="mb-1"><strong>Tasks:</strong> {{ part.replace('Tasks:', '').strip() }}</p>
-                                        {% elif part.strip().startswith('Why:') %}
-                                            <p><strong>Why:</strong> {{ part.replace('Why:', '').strip() }}</p>
-                                        {% endif %}
-                                    {% endfor %}
-                                {% else %}
-                                    <p>{{ r.notes }}</p>
-                                {% endif %}
-                            </div>
-                        </details>
-                        {% endif %}
+                        <div class="inline-edit-notes mt-2" data-resource-id="{{ r.id }}">
+                            {% if r.notes %}
+                            <details class="text-sm text-secondary">
+                                <summary class="cursor-pointer details-summary">View details</summary>
+                                <div class="mt-2 pl-2 details-content inline-edit-display">
+                                    {% if 'Tasks:' in r.notes %}
+                                        {% set parts = r.notes.split('|') %}
+                                        {% for part in parts %}
+                                            {% if part.strip().startswith('Tasks:') %}
+                                                <p class="mb-1"><strong>Tasks:</strong> {{ part.replace('Tasks:', '').strip() }}</p>
+                                            {% elif part.strip().startswith('Why:') %}
+                                                <p><strong>Why:</strong> {{ part.replace('Why:', '').strip() }}</p>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p>{{ r.notes }}</p>
+                                    {% endif %}
+                                    <i class="fas fa-edit text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </div>
+                            </details>
+                            {% else %}
+                            <span class="text-sm text-secondary cursor-pointer inline-edit-display group">
+                                <i class="fas fa-plus mr-1"></i>Add notes
+                                <i class="fas fa-edit text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                            </span>
+                            {% endif %}
+                            <textarea class="inline-edit-input hidden w-full text-sm mt-2" data-resource-id="{{ r.id }}" data-field="notes" rows="3">{{ r.notes or '' }}</textarea>
+                        </div>
                         
                         {% if r.tags %}
                         <div class="flex gap-1 mt-2">
                             {% for i in range(r.tags|length) %}
-                            <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
+                            <span class="text-xs px-2 py-0.5 rounded-full text-white tag-dynamic" data-color="{{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
                             {% endfor %}
                         </div>
                         {% endif %}
-                        {% if r.estimated_minutes or r.difficulty %}
-                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
-                            {% if r.estimated_minutes %}
-                            <span class="flex items-center gap-1">
-                                <i class="far fa-clock"></i>
-                                {% if r.estimated_minutes < 60 %}{{ r.estimated_minutes }} min
-                                {% else %}{{ "%.1f"|format(r.estimated_minutes / 60) }} hr{% endif %}
-                            </span>
-                            {% endif %}
-                            {% if r.difficulty %}
-                            <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium
-                                {% if r.difficulty == 'easy' %}bg-green-500
-                                {% elif r.difficulty == 'medium' %}bg-yellow-500
-                                {% elif r.difficulty == 'hard' %}bg-red-500{% endif %}">
-                                {{ r.difficulty|title }}
-                            </span>
-                            {% endif %}
+                        <div class="flex items-center gap-2 text-xs mt-2 text-secondary">
+                            <div class="inline-edit-time" data-resource-id="{{ r.id }}">
+                                {% if r.estimated_minutes %}
+                                <span class="flex items-center gap-1 cursor-pointer inline-edit-display group">
+                                    <i class="far fa-clock"></i>
+                                    <span>{% if r.estimated_minutes < 60 %}{{ r.estimated_minutes }} min{% else %}{{ "%.1f"|format(r.estimated_minutes / 60) }} hr{% endif %}</span>
+                                    <i class="fas fa-edit text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </span>
+                                {% else %}
+                                <span class="flex items-center gap-1 cursor-pointer inline-edit-display group text-muted">
+                                    <i class="far fa-clock"></i>
+                                    <span>Add time</span>
+                                    <i class="fas fa-edit text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </span>
+                                {% endif %}
+                                <input type="number" value="{{ r.estimated_minutes or '' }}" placeholder="Minutes" min="0" class="inline-edit-input hidden w-24" data-resource-id="{{ r.id }}" data-field="estimated_minutes">
+                            </div>
+                            <div class="inline-edit-difficulty" data-resource-id="{{ r.id }}">
+                                {% if r.difficulty %}
+                                <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium cursor-pointer inline-edit-display group {% if r.difficulty == 'easy' %}difficulty-easy{% elif r.difficulty == 'medium' %}difficulty-medium{% elif r.difficulty == 'hard' %}difficulty-hard{% endif %}">
+                                    {{ r.difficulty|title }}
+                                    <i class="fas fa-edit text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </span>
+                                {% else %}
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer inline-edit-display group text-muted border border-dashed">
+                                    Add difficulty
+                                    <i class="fas fa-edit text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                                </span>
+                                {% endif %}
+                                <select class="inline-edit-input hidden" data-resource-id="{{ r.id }}" data-field="difficulty">
+                                    <option value="">None</option>
+                                    <option value="easy" {% if r.difficulty == 'easy' %}selected{% endif %}>Easy</option>
+                                    <option value="medium" {% if r.difficulty == 'medium' %}selected{% endif %}>Medium</option>
+                                    <option value="hard" {% if r.difficulty == 'hard' %}selected{% endif %}>Hard</option>
+                                </select>
+                            </div>
                         </div>
-                        {% endif %}
                     </div>
-                    <form action="/delete-resource/{{ r.id }}?redirect=resources" method="POST" onsubmit="return confirm('Delete resource?')">
-                        <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    <form action="/delete-resource/{{ r.id }}?redirect=resources" method="POST" onsubmit="return confirm('Yeet this into the void?')">
+                        <button class="btn-delete"><i class="fas fa-trash"></i></button>
                     </form>
+                    
+                    <!-- File Attachments -->
+                    <div class="mt-3 pt-3 border-t border-primary">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-semibold text-primary">Attachments</span>
+                            <button onclick="toggleAttachmentForm({{ r.id }})" class="btn-secondary text-xs">
+                                <i class="fas fa-paperclip mr-1"></i>Attach File
+                            </button>
+                        </div>
+                        <div id="attach-form-{{ r.id }}" class="hidden mb-2">
+                            <form enctype="multipart/form-data" onsubmit="uploadAttachment(event, {{ r.id }})">
+                                <input type="file" name="file" required class="text-sm mb-2">
+                                <div class="flex gap-2">
+                                    <button type="submit" class="btn-primary text-xs">Ship it</button>
+                                    <button type="button" onclick="toggleAttachmentForm({{ r.id }})" class="btn-secondary text-xs">Nevermind</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div id="attachments-{{ r.id }}" class="space-y-1">
+                            <!-- Attachments loaded via JS -->
+                        </div>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
             <div class="text-center py-12">
-                <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
-                <p class="text-gray-500">No resources found</p>
+                <i class="fas fa-folder-open text-6xl mb-4 empty-state-icon"></i>
+                <p class="empty-state">No resources found</p>
                 {% if search_query or filter_type or filter_phase or filter_tag or filter_status %}
-                <a href="/resources" class="text-purple-600 hover:underline">Clear filters</a>
+                <a href="/resources" class="transition-all text-accent">Clear filters</a>
                 {% endif %}
             </div>
             {% endif %}
@@ -262,23 +541,248 @@
         {% if resources %}
         <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="card p-4 text-center">
-                <div class="text-2xl font-bold text-purple-600">{{ resources|length }}</div>
-                <div class="text-sm text-gray-500">Total</div>
+                <div class="text-2xl font-bold text-accent stat-number">{{ resources|length }}</div>
+                <div class="text-sm text-secondary">Total</div>
             </div>
             <div class="card p-4 text-center">
-                <div class="text-2xl font-bold text-green-600">{{ resources|selectattr('is_completed')|list|length }}</div>
-                <div class="text-sm text-gray-500">Completed</div>
+                <div class="text-2xl font-bold text-success stat-number">{{ resources|selectattr('is_completed')|list|length }}</div>
+                <div class="text-sm text-secondary">Completed</div>
             </div>
             <div class="card p-4 text-center">
-                <div class="text-2xl font-bold text-yellow-600">{{ resources|selectattr('is_favorite')|list|length }}</div>
-                <div class="text-sm text-gray-500">Favorites</div>
+                <div class="text-2xl font-bold text-warning stat-number">{{ resources|selectattr('is_favorite')|list|length }}</div>
+                <div class="text-sm text-secondary">Favorites</div>
             </div>
             <div class="card p-4 text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ all_tags|length }}</div>
-                <div class="text-sm text-gray-500">Tags</div>
+                <div class="text-2xl font-bold text-accent stat-number">{{ all_tags|length }}</div>
+                <div class="text-sm text-secondary">Tags</div>
             </div>
         </div>
         {% endif %}
     </div>
+    <script>
+        // Inline editing functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Title editing
+            document.querySelectorAll('.inline-edit-title .inline-edit-display').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'I') return;
+                    const container = this.closest('.inline-edit-title');
+                    const display = container.querySelector('.inline-edit-display');
+                    const input = container.querySelector('.inline-edit-input');
+                    display.classList.add('hidden');
+                    input.classList.remove('hidden');
+                    input.focus();
+                    input.select();
+                });
+            });
+            
+            document.querySelectorAll('.inline-edit-title .inline-edit-input').forEach(input => {
+                input.addEventListener('blur', function() {
+                    saveField(this);
+                });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    } else if (e.key === 'Escape') {
+                        cancelEdit(this);
+                    }
+                });
+            });
+            
+            // Notes editing
+            document.querySelectorAll('.inline-edit-notes .inline-edit-display').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'I') return;
+                    const container = this.closest('.inline-edit-notes');
+                    const display = container.querySelector('.inline-edit-display');
+                    const input = container.querySelector('.inline-edit-input');
+                    if (display) display.style.display = 'none';
+                    input.classList.remove('hidden');
+                    input.focus();
+                });
+            });
+            
+            document.querySelectorAll('.inline-edit-notes .inline-edit-input').forEach(input => {
+                input.addEventListener('blur', function() {
+                    saveField(this);
+                });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        cancelEdit(this);
+                    }
+                });
+            });
+            
+            // Time estimate editing
+            document.querySelectorAll('.inline-edit-time .inline-edit-display').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'I') return;
+                    const container = this.closest('.inline-edit-time');
+                    const display = container.querySelector('.inline-edit-display');
+                    const input = container.querySelector('.inline-edit-input');
+                    display.classList.add('hidden');
+                    input.classList.remove('hidden');
+                    input.focus();
+                });
+            });
+            
+            document.querySelectorAll('.inline-edit-time .inline-edit-input').forEach(input => {
+                input.addEventListener('blur', function() {
+                    saveField(this);
+                });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    } else if (e.key === 'Escape') {
+                        cancelEdit(this);
+                    }
+                });
+            });
+            
+            // Difficulty editing
+            document.querySelectorAll('.inline-edit-difficulty .inline-edit-display').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'I') return;
+                    const container = this.closest('.inline-edit-difficulty');
+                    const display = container.querySelector('.inline-edit-display');
+                    const select = container.querySelector('.inline-edit-input');
+                    display.classList.add('hidden');
+                    select.classList.remove('hidden');
+                    select.focus();
+                });
+            });
+            
+            document.querySelectorAll('.inline-edit-difficulty .inline-edit-input').forEach(select => {
+                select.addEventListener('change', function() {
+                    saveField(this);
+                });
+                select.addEventListener('blur', function() {
+                    saveField(this);
+                });
+                select.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        cancelEdit(this);
+                    }
+                });
+            });
+            
+            // Set dynamic tag colors
+            document.querySelectorAll('.tag-dynamic[data-color]').forEach(function(el) {
+                const color = el.getAttribute('data-color');
+                if (color) {
+                    el.style.setProperty('background-color', color);
+                }
+            });
+        });
+        
+        function saveField(input) {
+            const resourceId = input.dataset.resourceId;
+            const field = input.dataset.field;
+            let value = input.value;
+            
+            if (field === 'estimated_minutes') {
+                value = value ? parseInt(value) : null;
+            } else if (field === 'difficulty') {
+                value = value || null;
+            }
+            
+            fetch(`/api/resource/${resourceId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({[field]: value})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Reload to show updated values
+                } else {
+                    alert('Error updating resource');
+                    cancelEdit(input);
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Failed to update resource');
+                cancelEdit(input);
+            });
+        }
+        
+        function cancelEdit(input) {
+            const container = input.closest('[class*="inline-edit"]');
+            const display = container.querySelector('.inline-edit-display');
+            input.classList.add('hidden');
+            if (display) {
+                display.classList.remove('hidden');
+                if (display.style.display === 'none') {
+                    display.style.display = '';
+                }
+            }
+        }
+        
+        // File attachments
+        function toggleAttachmentForm(resourceId) {
+            const form = document.getElementById(`attach-form-${resourceId}`);
+            form.classList.toggle('hidden');
+        }
+        
+        function uploadAttachment(event, resourceId) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            
+            fetch(`/upload/resource/${resourceId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadAttachments(resourceId);
+                    event.target.reset();
+                    toggleAttachmentForm(resourceId);
+                } else {
+                    alert('Oops, something went sideways: ' + (data.error || 'Upload failed'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Oops, something went sideways');
+            });
+        }
+        
+        function loadAttachments(resourceId) {
+            fetch(`/api/attachments/resource/${resourceId}`)
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById(`attachments-${resourceId}`);
+                    if (data.attachments && data.attachments.length > 0) {
+                        let html = '';
+                        data.attachments.forEach(att => {
+                            const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(att.file_type);
+                            html += `<div class="flex items-center gap-2 text-sm p-2 rounded bg-tertiary">
+                                ${isImage ? `<img src="/uploads/${att.filename}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file"></i>`}
+                                <a href="/uploads/${att.filename}" target="_blank" class="flex-1 text-primary hover:text-accent">${att.original_filename}</a>
+                                <form action="/attachment/${att.id}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?')">
+                                    <button type="submit" class="text-error"><i class="fas fa-trash text-xs"></i></button>
+                                </form>
+                            </div>`;
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = '<p class="text-xs text-secondary">No attachments</p>';
+                    }
+                })
+                .catch(err => console.error('Error loading attachments:', err));
+        }
+        
+        // Load attachments on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[id^="attachments-"]').forEach(el => {
+                const resourceId = el.id.replace('attachments-', '');
+                loadAttachments(resourceId);
+            });
+        });
+    </script>
 </body>
 </html>

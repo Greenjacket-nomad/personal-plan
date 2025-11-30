@@ -4,42 +4,169 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Journal - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #f3f4f6;
-            --bg-card: #ffffff;
-            --text-primary: #111827;
-            --border-color: #e5e7eb;
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
         }
+        
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-card: #1f2937;
-            --text-primary: #f9fafb;
-            --border-color: #374151;
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
         }
-        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Remove inline style from body tag - handled by CSS above */
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        [data-theme="light"] .glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        textarea {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            transition: all 150ms ease;
+            width: 100%;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        a {
+            transition: color 150ms ease;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        input[type="radio"]:checked + span {
+            opacity: 1 !important;
+        }
+        
+        /* Utility Classes */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        
+        .flash-error { background: rgba(255, 61, 0, 0.1); border-color: var(--error); color: var(--error); }
+        .flash-success { background: rgba(0, 200, 83, 0.1); border-color: var(--success); color: var(--success); }
+        .flash-info { background: rgba(0, 212, 255, 0.1); border-color: var(--accent); color: var(--accent); }
+        
+        .journal-entry { border-left: 4px solid var(--accent); }
+        .hidden-field { display: none; }
+        .btn-delete-danger { color: var(--error); border-color: var(--error); }
+        .btn-delete-danger { color: var(--error); border-color: var(--error); }
     </style>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
 </head>
-<body class="min-h-screen" style="background-color: var(--bg-primary)">
-    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold">📓 Learning Journal</h1>
-                <p class="text-purple-200">Daily reflections and insights</p>
+                <h1 class="text-2xl font-bold text-primary"><i class="fas fa-book-open mr-2"></i>Learning Journal</h1>
+                <p class="text-secondary">Daily reflections and insights</p>
             </div>
             <div class="flex items-center gap-4">
-                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                <a href="/activity" class="text-white hover:text-purple-200"><i class="fas fa-history mr-2"></i>Activity</a>
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/activity" class="text-primary"><i class="fas fa-history mr-2"></i>Activity</a>
             </div>
         </div>
     </header>
@@ -48,80 +175,232 @@
     {% if messages %}
     <div class="max-w-4xl mx-auto px-6 pt-4">
         {% for category, message in messages %}
-        <div class="p-3 rounded-lg mb-2 {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        <div class="p-3 rounded-lg mb-2 card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
     {% endwith %}
 
     <div class="max-w-4xl mx-auto p-6">
-        <!-- Today's Entry Form -->
+        <!-- Today's Entry Form / Edit Form -->
         <div class="card p-6 mb-6">
-            <h2 class="font-bold text-gray-700 mb-4"><i class="fas fa-pen mr-2"></i>Today's Entry</h2>
-            <form action="/journal" method="POST">
-                <input type="hidden" name="date" value="{{ today }}">
-                <textarea name="content" rows="6" placeholder="What did I learn today?&#10;What was challenging?&#10;What's the plan for tomorrow?" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 mb-3"></textarea>
+                    <h2 class="font-bold mb-4 text-primary"><i class="fas fa-pen mr-2"></i>{% if editing %}Edit Entry{% else %}Today's Reflection{% endif %}</h2>
+            <form action="{% if editing %}/journal/{{ editing.id }}/edit{% else %}/journal{% endif %}" method="POST">
+                <input type="hidden" name="date" value="{{ editing.date if editing else today }}">
+                <textarea name="content" rows="6" placeholder="What did I learn today?&#10;What was challenging?&#10;What's the plan for tomorrow?">{% if editing %}{{ editing.content or '' }}{% endif %}</textarea>
                 
-                <div class="flex items-center gap-4 mb-4">
-                    <label class="text-sm text-gray-600">Mood:</label>
+                <div class="flex items-center gap-4 mb-4 mt-3">
+                    <label class="text-sm text-secondary">Mood:</label>
                     <div class="flex gap-2">
                         <label class="cursor-pointer">
-                            <input type="radio" name="mood" value="great" class="hidden peer">
-                            <span class="text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all">😊</span>
+                            <input type="radio" name="mood" value="great" class="hidden peer" {% if editing and editing.mood == 'great' %}checked{% endif %}>
+                            <i class="fas fa-smile text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
                         </label>
                         <label class="cursor-pointer">
-                            <input type="radio" name="mood" value="okay" class="hidden peer">
-                            <span class="text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all">😐</span>
+                            <input type="radio" name="mood" value="okay" class="hidden peer" {% if editing and editing.mood == 'okay' %}checked{% endif %}>
+                            <i class="fas fa-meh text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
                         </label>
                         <label class="cursor-pointer">
-                            <input type="radio" name="mood" value="struggling" class="hidden peer">
-                            <span class="text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all">😫</span>
+                            <input type="radio" name="mood" value="struggling" class="hidden peer" {% if editing and editing.mood == 'struggling' %}checked{% endif %}>
+                            <i class="fas fa-tired text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
                         </label>
                         <label class="cursor-pointer">
-                            <input type="radio" name="mood" value="fire" class="hidden peer">
-                            <span class="text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all">🔥</span>
+                            <input type="radio" name="mood" value="fire" class="hidden peer" {% if editing and editing.mood == 'fire' %}checked{% endif %}>
+                            <i class="fas fa-fire-alt text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
                         </label>
                     </div>
                 </div>
+
+                <div class="mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="link_to_day" id="link-to-day" onchange="toggleCurriculumDayFields()" {% if editing and editing.phase_index is not none %}checked{% endif %}>
+                        <span class="text-sm text-secondary">Link to curriculum day</span>
+                    </label>
+                    <div id="curriculum-day-fields" class="mt-3 grid grid-cols-3 gap-3 {% if editing and editing.phase_index is not none %}{% else %}hidden-field{% endif %}">
+                        <select name="phase_index" class="">
+                            <option value="">Phase</option>
+                            {% for p in phases %}
+                            <option value="{{ p.index }}" {% if (editing and editing.phase_index == p.index) or (not editing and today_position and today_position.expected_phase == p.index) %}selected{% endif %}>Phase {{ p.index + 1 }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="week" class="">
+                            <option value="">Week</option>
+                            {% for w in range(1, 20) %}
+                            <option value="{{ w }}" {% if (editing and editing.week == w) or (not editing and today_position and today_position.expected_week == w) %}selected{% endif %}>Week {{ w }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="day" class="">
+                            <option value="">Day</option>
+                            {% for d in range(1, 6) %}
+                            <option value="{{ d }}" {% if (editing and editing.day == d) or (not editing and today_position and today_position.expected_day == d) %}selected{% endif %}>Day {{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
                 
-                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"><i class="fas fa-save mr-2"></i>Save Entry</button>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn-primary px-6 py-2" onclick="celebrateJournalSave()"><i class="fas fa-save mr-2"></i>{% if editing %}Update{% else %}Ship it{% endif %}</button>
+                    {% if editing %}
+                    <a href="/journal" class="btn-secondary px-6 py-2">Nevermind</a>
+                    {% endif %}
+                </div>
+                
+                <!-- File Attachments -->
+                <div class="mt-4 pt-4 border-t border-primary">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-semibold text-primary">Attachments</span>
+                        <button onclick="toggleJournalAttachmentForm()" class="btn-secondary text-xs">
+                            <i class="fas fa-paperclip mr-1"></i>Attach File
+                        </button>
+                    </div>
+                    <div id="journal-attach-form" class="hidden mb-2">
+                        <form enctype="multipart/form-data" onsubmit="uploadJournalAttachment(event, {% if editing %}{{ editing.id }}{% else %}null{% endif %})">
+                            <input type="file" name="file" required class="text-sm mb-2">
+                            <div class="flex gap-2">
+                                <button type="submit" class="btn-primary text-xs">Ship it</button>
+                                <button type="button" onclick="toggleJournalAttachmentForm()" class="btn-secondary text-xs">Nevermind</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="journal-attachments" class="space-y-1">
+                        <!-- Attachments loaded via JS -->
+                    </div>
+                </div>
             </form>
         </div>
 
         <!-- Past Entries -->
         <div class="card p-6">
-            <h2 class="font-bold text-gray-700 mb-4"><i class="fas fa-book-open mr-2"></i>Past Entries</h2>
+            <h2 class="font-bold mb-4 text-primary"><i class="fas fa-book-open mr-2"></i>Past Entries</h2>
             {% if entries %}
             <div class="space-y-4">
                 {% for entry in entries %}
-                <div class="p-4 bg-gray-50 rounded-lg border-l-4 border-purple-500">
+                <div class="p-4 glass rounded-lg journal-entry">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="font-semibold text-gray-800">{{ entry.date }}</span>
-                        {% if entry.mood %}
-                        <span class="text-2xl">
-                            {% if entry.mood == 'great' %}😊
-                            {% elif entry.mood == 'okay' %}😐
-                            {% elif entry.mood == 'struggling' %}😫
-                            {% elif entry.mood == 'fire' %}🔥{% endif %}
-                        </span>
-                        {% endif %}
+                        <div class="flex-1">
+                            <span class="font-semibold text-primary">{{ entry.date }}</span>
+                            {% if entry.phase_index is not none %}
+                            <span class="text-sm text-secondary ml-2">
+                                <i class="fas fa-link mr-1"></i>Linked to: Phase {{ entry.phase_index + 1 }}, Week {{ entry.week }}, Day {{ entry.day }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-3">
+                            {% if entry.mood %}
+                            <span class="text-2xl">
+                                {% if entry.mood == 'great' %}<i class="fas fa-smile"></i>
+                                {% elif entry.mood == 'okay' %}<i class="fas fa-meh"></i>
+                                {% elif entry.mood == 'struggling' %}<i class="fas fa-tired"></i>
+                                {% elif entry.mood == 'fire' %}<i class="fas fa-fire-alt"></i>{% endif %}
+                            </span>
+                            {% endif %}
+                            <a href="/journal/{{ entry.id }}/edit" class="btn-secondary px-3 py-1 text-sm"><i class="fas fa-edit mr-1"></i>Edit</a>
+                            <form action="/journal/{{ entry.id }}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?');">
+                                <button type="submit" class="btn-secondary btn-delete-danger px-3 py-1 text-sm"><i class="fas fa-trash mr-1"></i>Delete</button>
+                            </form>
+                        </div>
                     </div>
                     {% if entry.content %}
-                    <p class="text-gray-700 whitespace-pre-wrap">{{ entry.content }}</p>
+                    <p class="whitespace-pre-wrap text-primary">{{ entry.content }}</p>
                     {% else %}
-                    <p class="text-gray-400 italic">No content</p>
+                    <p class="italic text-muted">No content</p>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-12 text-gray-500">
+            <div class="text-center py-12 text-secondary">
                 <i class="fas fa-book text-6xl mb-4 opacity-20"></i>
-                <p>No journal entries yet. Start reflecting on your learning journey!</p>
+                <p>Nothing here yet—time to start reflecting!</p>
             </div>
             {% endif %}
         </div>
     </div>
+    <script src="/static/celebrations.js"></script>
+    <script>
+        function toggleCurriculumDayFields() {
+            const checkbox = document.getElementById('link-to-day');
+            const fields = document.getElementById('curriculum-day-fields');
+            if (checkbox.checked) {
+                fields.classList.remove('hidden-field');
+            } else {
+                fields.classList.add('hidden-field');
+            }
+        }
+        
+        function celebrateJournalSave() {
+            const entry = document.querySelector('.journal-entry');
+            if (entry) {
+                slideIn(entry);
+            }
+            showToast('Reflection logged', 'success', 'star');
+        }
+        
+        function toggleJournalAttachmentForm() {
+            const form = document.getElementById('journal-attach-form');
+            form.classList.toggle('hidden');
+        }
+        
+        function uploadJournalAttachment(event, journalId) {
+            event.preventDefault();
+            if (!journalId) {
+                alert('Save the journal entry first before attaching files');
+                return;
+            }
+            
+            const formData = new FormData(event.target);
+            
+            fetch(`/upload/journal/${journalId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadJournalAttachments(journalId);
+                    event.target.reset();
+                    toggleJournalAttachmentForm();
+                } else {
+                    alert('Oops, something went sideways: ' + (data.error || 'Upload failed'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Oops, something went sideways');
+            });
+        }
+        
+        function loadJournalAttachments(journalId) {
+            fetch(`/api/attachments/journal/${journalId}`)
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('journal-attachments');
+                    if (data.attachments && data.attachments.length > 0) {
+                        let html = '';
+                        data.attachments.forEach(att => {
+                            const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(att.file_type);
+                            html += `<div class="flex items-center gap-2 text-sm p-2 rounded bg-tertiary">
+                                ${isImage ? `<img src="/uploads/${att.filename}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file"></i>`}
+                                <a href="/uploads/${att.filename}" target="_blank" class="flex-1 text-primary hover:text-accent">${att.original_filename}</a>
+                                <form action="/attachment/${att.id}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?')">
+                                    <button type="submit" class="text-error"><i class="fas fa-trash text-xs"></i></button>
+                                </form>
+                            </div>`;
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = '<p class="text-xs text-secondary">No attachments</p>';
+                    }
+                })
+                .catch(err => console.error('Error loading attachments:', err));
+        }
+        
+        // Load attachments if editing
+        {% if editing %}
+        document.addEventListener('DOMContentLoaded', function() {
+            loadJournalAttachments({{ editing.id }});
+        });
+        {% endif %}
+    </script>
 </body>
 </html>
-

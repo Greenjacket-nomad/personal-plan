@@ -4,29 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/celebrations.js"></script>
     <style>
-        /* Theme Variables */
+        /* CSS Variable System */
         :root {
-            --bg-primary: #f3f4f6;
+            --bg-primary: #f8f7f4;
             --bg-secondary: #ffffff;
-            --bg-card: #ffffff;
-            --text-primary: #111827;
-            --text-secondary: #6b7280;
-            --border-color: #e5e7eb;
-            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
         }
         
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-secondary: #1f2937;
-            --bg-card: #1f2937;
-            --text-primary: #f9fafb;
-            --text-secondary: #9ca3af;
-            --border-color: #374151;
-            --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
+        }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         
         body {
@@ -35,29 +61,322 @@
             transition: background-color 0.3s ease, color 0.3s ease;
         }
         
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        /* Remove inline style from body tag - handled by CSS above */
         
-        .card { 
-            background: var(--bg-card);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
         }
         
+        .stat-number {
+            font-weight: 700;
+            font-size: 2rem;
+        }
+        
+        /* Glass Effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        [data-theme="light"] .glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        /* Inputs */
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="url"],
+        textarea,
+        select {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            transition: all 150ms ease;
+        }
+        
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+        
+        /* Tags/Badges */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        /* Progress Bars */
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.3s ease;
+            background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        /* Theme Toggle */
         .theme-toggle {
             cursor: pointer;
             font-size: 1.5rem;
-            background: rgba(255,255,255,0.2);
-            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 0.5rem;
-            transition: all 0.3s;
+            transition: all 150ms ease;
         }
         
         .theme-toggle:hover {
-            background: rgba(255,255,255,0.3);
-            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
         }
+        
+        /* Links */
+        a {
+            transition: color 150ms ease;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        /* Resource Cards */
+        .resource-card {
+            transition: all 150ms ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .resource-card:hover {
+            border-left-color: var(--accent);
+            background: var(--bg-tertiary);
+        }
+        
+        /* Utility Classes - Text Colors */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-error { color: var(--error); }
+        
+        /* Utility Classes - Backgrounds */
+        .bg-tertiary { background: var(--bg-tertiary); }
+        .bg-secondary { background: var(--bg-secondary); }
+        
+        /* Utility Classes - Borders */
+        .border-accent { border-color: var(--accent); }
+        .border-success { border-color: var(--success); }
+        .border-warning { border-color: var(--warning); }
+        .border-error { border-color: var(--error); }
+        
+        /* Utility Classes - Interactive States */
+        .hover-accent:hover { color: var(--accent); }
+        .hover-error:hover { color: var(--error); }
+        .hover-warning:hover { color: var(--warning); }
+        
+        /* Utility Classes - Status Colors */
+        .status-complete { background: var(--success); color: white; }
+        .status-progress { background: linear-gradient(90deg, var(--warning), transparent); border: 2px solid var(--warning); color: var(--warning); }
+        .status-skipped { background: var(--bg-tertiary); color: var(--text-muted); }
+        .status-default { border: 2px solid var(--border); color: var(--text-muted); }
+        
+        .status-default:hover { border-color: var(--accent); color: var(--accent); }
+        
+        /* Utility Classes - Flash Messages */
+        .flash-error { background: rgba(255, 61, 0, 0.1); border-color: var(--error); color: var(--error); }
+        .flash-success { background: rgba(0, 200, 83, 0.1); border-color: var(--success); color: var(--success); }
+        .flash-info { background: rgba(0, 212, 255, 0.1); border-color: var(--accent); color: var(--accent); }
+        
+        /* Utility Classes - Progress Bar Colors */
+        .progress-success { background: linear-gradient(90deg, var(--success), #00e676); }
+        .progress-warning { background: linear-gradient(90deg, var(--warning), #ffc400); }
+        .progress-error { background: linear-gradient(90deg, var(--error), #ff6d00); }
+
+        .status-badge-on-track { background: var(--success); color: white; }
+        .status-badge-ahead { background: var(--warning); color: white; }
+        .status-badge-behind { background: var(--error); color: white; }
+        .hidden-field { display: none; }
+        .hidden-form { display: none; }
+        .btn-close-flash { color: inherit; }
+        
+        /* Dynamic progress bars - set via JavaScript */
+        .progress-fill[data-width] {
+            width: 0%;
+        }
+        
+        /* Dynamic tag colors - set via JavaScript */
+        .tag-dynamic[data-color] {
+            background-color: transparent;
+        }
+        
+        /* Utility Classes - Metric States */
+        .metric-complete { background: rgba(0, 200, 83, 0.1); border-color: var(--success); }
+        .metric-incomplete { background: var(--bg-tertiary); border-color: var(--border); }
+        
+        /* Utility Classes - Day Card States */
+        .day-build { border-color: var(--warning); }
+        .day-complete { border-color: var(--success); }
+        .day-partial { border-color: var(--warning); }
+        .day-default { border-color: var(--border); }
+        
+        .day-header-build { border-color: var(--warning); color: var(--warning); }
+        .day-header-complete { border-color: var(--success); color: var(--success); }
+        .day-header-partial { border-color: var(--warning); color: var(--warning); }
+        .day-header-default { border-color: var(--border); color: var(--text-primary); }
+        
+        /* Utility Classes - Favorite/Delete Buttons */
+        .btn-favorite { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-favorite.active { color: var(--warning); }
+        .btn-favorite:hover { color: var(--warning); }
+        
+        .btn-delete { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-delete:hover { color: var(--error); }
+        
+        /* Utility Classes - Phase States */
+        .phase-current { background: rgba(0, 212, 255, 0.15); border-color: var(--accent); border-width: 2px; }
+        .phase-complete { background: rgba(0, 200, 83, 0.1); border-color: var(--success); }
+        .phase-default { background: var(--bg-tertiary); border-color: var(--border); }
+        
+        /* Utility Classes - View Banner */
+        .view-banner { border-left: 4px solid var(--accent); }
+        
+        /* Utility Classes - Stat Labels */
+        .stat-label { color: var(--text-secondary); font-size: 0.875rem; }
+        .stat-sublabel { color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem; }
+        
+        /* Utility Classes - Drag Handle */
+        .drag-handle { color: var(--text-muted); transition: all 150ms ease; }
+        .drag-handle:hover { color: var(--text-secondary); }
+        
+        /* Utility Classes - Deliverable Banner */
+        .deliverable-banner { border-left: 4px solid var(--warning); }
+        
+        /* Utility Classes - Resource Status Buttons */
+        .resource-status-complete { background: var(--success); color: white; }
+        .resource-status-progress { background: linear-gradient(90deg, var(--warning), transparent); border: 2px solid var(--warning); color: var(--warning); }
+        .resource-status-skipped { background: var(--bg-tertiary); color: var(--text-muted); }
+        .resource-status-default { border: 2px solid var(--border); color: var(--text-muted); }
+        .resource-status-default:hover { border-color: var(--accent); color: var(--accent); }
+        
+        /* Utility Classes - Resource Text States */
+        .resource-completed { text-decoration: line-through; color: var(--text-muted); }
+        .resource-link { color: var(--accent); }
+        .resource-link.completed { text-decoration: line-through; color: var(--text-muted); }
+        
+        /* Utility Classes - Details Summary */
+        .details-summary { color: var(--text-secondary); transition: all 150ms ease; }
+        .details-summary:hover { color: var(--text-primary); }
+        
+        /* Utility Classes - Difficulty Badges */
+        .difficulty-easy { background: var(--success); }
+        .difficulty-medium { background: var(--warning); }
+        .difficulty-hard { background: var(--error); }
+        
+        /* Utility Classes - Empty States */
+        .empty-state { color: var(--text-secondary); }
+        .empty-state-icon { color: var(--text-muted); opacity: 0.3; }
+        
+        /* Utility Classes - Journal Entry */
+        .journal-entry { border-left: 4px solid var(--accent); }
+        .journal-summary { color: var(--text-primary); transition: all 150ms ease; }
+        .journal-summary:hover { color: var(--accent); }
+        
+        /* Utility Classes - Details Border */
+        .details-content { border-left: 2px solid var(--border); }
+        
+        /* Utility Classes - Bulk Actions */
+        .bulk-bar { border-top: 2px solid var(--accent); border-radius: 0; }
+        .bulk-btn-success { background: var(--success); color: white; }
+        .bulk-btn-success:hover { opacity: 0.9; }
+        .bulk-btn-warning { background: var(--warning); color: white; }
+        .bulk-btn-warning:hover { opacity: 0.9; }
+        .bulk-btn-skip { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+        .bulk-btn-skip:hover { background: var(--bg-secondary); }
+        .bulk-btn-error { background: var(--error); color: white; }
+        .bulk-btn-error:hover { opacity: 0.9; }
     </style>
     <script>
         // Load theme before page renders to prevent flash
@@ -69,41 +388,45 @@
         })();
     </script>
 </head>
-<body class="min-h-screen" style="background-color: var(--bg-primary)">
-    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-between items-center mb-3">
                 <div>
-                    <h1 class="text-2xl font-bold">🎓 Curriculum Tracker</h1>
-                    <p class="text-purple-200">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
+                    <h1 class="text-2xl font-bold text-primary"><i class="fas fa-graduation-cap mr-2"></i>Curriculum Tracker</h1>
+                    <p class="text-secondary">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
                 </div>
                 <div class="flex items-center gap-6">
-                <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
-                    <span class="theme-icon"></span>
-                </button>
-                <a href="/journal" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Journal</a>
-                <a href="/activity" class="text-white hover:text-purple-200"><i class="fas fa-history mr-2"></i>Activity</a>
-                <a href="/resources" class="text-white hover:text-purple-200"><i class="fas fa-database mr-2"></i>Resources</a>
-                <a href="/export" class="text-white hover:text-purple-200"><i class="fas fa-download mr-2"></i>Export</a>
+                    <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                        <span class="theme-icon"></span>
+                    </button>
+                    <a href="/journal" class="text-primary"><i class="fas fa-book mr-2"></i>Journal</a>
+                    <a href="/activity" class="text-primary"><i class="fas fa-history mr-2"></i>Activity</a>
+                    <a href="/resources" class="text-primary"><i class="fas fa-database mr-2"></i>Resources</a>
+                    <a href="/export" class="text-primary"><i class="fas fa-download mr-2"></i>Export</a>
                     <div class="text-right">
-                        <div class="text-3xl font-bold">{{ "%.1f"|format(overall_progress) }}%</div>
-                        <div class="text-purple-200">Progress</div>
-                        <div class="text-sm text-purple-300 mt-1">{{ "%.1f"|format(total_hours) }} / 408h total</div>
+                        <div class="stat-number text-accent">{{ "%.1f"|format(overall_progress) }}%</div>
+                        <div class="stat-label">Progress</div>
+                        <div class="stat-sublabel">
+                            <div>This Week: {{ "%.1f"|format(week_hours) }}/24h</div>
+                            <div>Total: {{ "%.1f"|format(total_hours) }}/408h</div>
+                            <div>Phase Target: {{ phase.hours }}h</div>
+                        </div>
                     </div>
                 </div>
             </div>
             <!-- Streak Display -->
-            <div class="flex items-center gap-6 text-sm bg-white bg-opacity-10 rounded-lg px-4 py-2">
-                <div class="flex items-center gap-2">
-                    <span>🔥</span>
+            <div class="flex items-center gap-6 text-sm glass rounded-lg px-4 py-2">
+                <div class="flex items-center gap-2 text-primary">
+                    <i class="fas fa-fire"></i>
                     <span class="font-semibold">{{ current_streak }} day streak</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span>📅</span>
+                <div class="flex items-center gap-2 text-primary">
+                    <i class="fas fa-calendar"></i>
                     <span>{{ week_activity }}/7 this week</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span>🏆</span>
+                <div class="flex items-center gap-2 text-primary">
+                    <i class="fas fa-trophy"></i>
                     <span>{{ longest_streak }} best</span>
                 </div>
             </div>
@@ -114,9 +437,9 @@
     {% if messages %}
     <div class="max-w-7xl mx-auto px-6 pt-4" id="flash-messages">
         {% for category, message in messages %}
-        <div class="flash-message p-3 rounded-lg mb-2 flex items-center justify-between {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+        <div class="flash-message p-3 rounded-lg mb-2 flex items-center justify-between card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">
             <span>{{ message }}</span>
-            <button onclick="this.parentElement.remove()" class="ml-4 text-lg font-bold opacity-50 hover:opacity-100">&times;</button>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-lg font-bold opacity-50 hover:opacity-100 btn-close-flash">&times;</button>
         </div>
         {% endfor %}
     </div>
@@ -136,39 +459,250 @@
     {% endif %}
     {% endwith %}
 
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Start Date Setup Card -->
+        {% if not start_date %}
+        <div class="card p-6 mb-6 border-2 border-accent">
+            <h2 class="text-xl font-bold text-primary mb-2"><i class="fas fa-calendar-check mr-2"></i>Set Your Start Date</h2>
+            <p class="text-secondary mb-4">Choose when your curriculum begins to enable schedule tracking.</p>
+            <form action="/settings/start-date" method="POST" class="flex gap-4 items-end">
+                <div class="flex-1">
+                    <label class="block text-sm text-secondary mb-1">Start Date</label>
+                    <input type="date" name="start_date" required class="w-full" value="{{ today if today else '' }}">
+                </div>
+                <button type="submit" class="btn-primary px-6 py-2"><i class="fas fa-save mr-2"></i>Save</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Continue Where You Left Off Card -->
+        {% if continue_resource %}
+        <div class="card p-6 mb-6 border-2 border-accent">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold text-primary mb-2"><i class="fas fa-play-circle mr-2"></i>Continue Where You Left Off</h2>
+                    <a href="/view/{{ continue_resource.phase_index }}/{{ continue_resource.week }}#resource-{{ continue_resource.id }}" class="text-lg font-semibold text-accent hover:underline">
+                        {{ continue_resource.title }}
+                    </a>
+                    <p class="text-sm text-secondary mt-1">
+                        Phase {{ continue_resource.phase_index + 1 }}, Week {{ continue_resource.week }}, Day {{ continue_resource.day }}
+                    </p>
+                </div>
+                <a href="/view/{{ continue_resource.phase_index }}/{{ continue_resource.week }}#resource-{{ continue_resource.id }}" class="btn-primary px-6 py-3">
+                    Continue <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Today View Section -->
+        {% if start_date and today_position %}
+        <div class="card p-6 mb-6">
+            <h2 class="text-xl font-bold text-primary mb-4"><i class="fas fa-calendar-day mr-2"></i>Today</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-sm text-secondary mb-1">Expected Position</p>
+                    <p class="text-lg font-semibold text-primary">
+                        Phase {{ today_position.expected_phase + 1 }}, Week {{ today_position.expected_week }}, Day {{ today_position.expected_day }}
+                    </p>
+                    {% set expected_absolute_week = (today_position.expected_phase * 100) + today_position.expected_week %}
+                    {% set actual_absolute_week = (current_phase * 100) + current_week %}
+                    {% set days_diff = actual_absolute_week - expected_absolute_week %}
+                    {% if days_diff == 0 %}
+                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold status-badge-on-track">Right on schedule</span>
+                    {% elif days_diff > 0 %}
+                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold status-badge-ahead">{{ days_diff }} week{% if days_diff > 1 %}s{% endif %} ahead</span>
+                    {% else %}
+                        <span class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold status-badge-behind">Playing catch-up ({{ -days_diff }} week{% if -days_diff > 1 %}s{% endif %})</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-sm text-secondary mb-1">Resources Due Today</p>
+                    <p class="text-lg font-semibold text-primary">{{ expected_resources|length }} resources</p>
+                    {% if expected_resources %}
+                    <ul class="mt-2 space-y-1">
+                        {% for r in expected_resources[:3] %}
+                        <li class="text-sm text-secondary"><i class="fas fa-circle text-xs mr-1"></i>{{ r.title[:40] }}{% if r.title|length > 40 %}...{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-sm text-secondary mb-1">Hours Logged Today</p>
+                    <p class="text-lg font-semibold text-primary">{% if hours_today == 0 %}Fresh slate today{% else %}{{ "%.1f"|format(hours_today) }}h / 4h{% endif %}</p>
+                    <div class="mt-2 w-full bg-tertiary rounded-full h-2">
+                        <div class="progress-fill h-2 rounded-full" data-width="{{ min((hours_today / 4 * 100), 100) }}"></div>
+                    </div>
+                </div>
+            </div>
+            {% if projected_end_date %}
+            <div class="mt-4 pt-4 border-t border-primary">
+                <p class="text-sm text-secondary">Projected completion:</p>
+                <p class="text-lg font-semibold text-primary">{{ projected_end_date }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Overdue Days Warning -->
+        {% if overdue_days and overdue_days|length > 0 %}
+        <div class="card p-6 mb-6 border-2" style="border-color: var(--error);">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold" style="color: var(--error);">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>You have {{ overdue_days|length }} overdue day{{ 's' if overdue_days|length > 1 else '' }}
+                </h2>
+            </div>
+            <div class="space-y-2">
+                {% for day in overdue_days[:5] %}
+                <div class="flex items-center justify-between p-2 rounded-lg" style="background: rgba(255, 61, 0, 0.1);">
+                    <span class="text-primary">
+                        Phase {{ day.phase_index + 1 }}, Week {{ day.week }}, Day {{ day.day }}
+                        <span class="text-secondary text-sm ml-2">({{ day.completed }}/{{ day.total_resources }} complete)</span>
+                    </span>
+                    <span class="text-sm text-secondary">{{ day.scheduled_date }}</span>
+                </div>
+                {% endfor %}
+                {% if overdue_days|length > 5 %}
+                <p class="text-sm text-secondary mt-2">...and {{ overdue_days|length - 5 }} more</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Burndown Chart -->
+        {% if burndown_data and start_date %}
+        <div class="card p-6 mb-6">
+            <h2 class="text-xl font-bold text-primary mb-4"><i class="fas fa-chart-line mr-2"></i>Progress Burndown</h2>
+            <div class="mb-4 flex items-center gap-4 text-sm">
+                <div>
+                    <span class="text-secondary">Total:</span>
+                    <span class="font-semibold text-primary ml-1">{{ burndown_data.total }}h</span>
+                </div>
+                <div>
+                    <span class="text-secondary">Logged:</span>
+                    <span class="font-semibold text-success ml-1">{{ "%.1f"|format(burndown_data.logged) }}h</span>
+                </div>
+                <div>
+                    <span class="text-secondary">Remaining:</span>
+                    <span class="font-semibold text-primary ml-1">{{ "%.1f"|format(burndown_data.remaining) }}h</span>
+                </div>
+            </div>
+            <canvas id="burndown-chart" height="300"></canvas>
+        </div>
+        {% endif %}
+
+        <!-- Journal Entry Widget -->
+        <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleJournalWidget()">
+                <h2 class="text-xl font-bold text-primary"><i class="fas fa-book-open mr-2"></i>Journal Entry</h2>
+                <i class="fas fa-chevron-down transition-transform" id="journal-chevron"></i>
+            </div>
+            <div id="journal-widget-content">
+                {% if today_journal %}
+                <div class="mb-4 p-4 glass rounded-lg">
+                    <p class="text-sm text-secondary mb-2">Today's Entry:</p>
+                    <p class="text-primary whitespace-pre-wrap">{{ today_journal.content }}</p>
+                    {% if today_journal.mood %}
+                    <p class="mt-2 text-lg">
+                        {% if today_journal.mood == 'great' %}<i class="fas fa-smile"></i>
+                        {% elif today_journal.mood == 'okay' %}<i class="fas fa-meh"></i>
+                        {% elif today_journal.mood == 'struggling' %}<i class="fas fa-tired"></i>
+                        {% elif today_journal.mood == 'fire' %}<i class="fas fa-fire-alt"></i>{% endif %}
+                    </p>
+                    {% endif %}
+                    <a href="/journal/{{ today_journal.id }}/edit" class="btn-secondary mt-2 inline-block">Edit Entry</a>
+                </div>
+                {% else %}
+                <form action="/journal" method="POST">
+                    <input type="hidden" name="date" value="{{ today }}">
+                    <textarea name="content" rows="4" placeholder="What did I learn today? What was challenging? What's the plan for tomorrow?" class="w-full mb-4"></textarea>
+                    
+                    <div class="mb-4">
+                        <label class="text-sm text-secondary mb-2 block">Mood:</label>
+                        <div class="flex gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="mood" value="great" class="hidden peer">
+                                <i class="fas fa-smile text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="mood" value="okay" class="hidden peer">
+                                <i class="fas fa-meh text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="mood" value="struggling" class="hidden peer">
+                                <i class="fas fa-tired text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="mood" value="fire" class="hidden peer">
+                                <i class="fas fa-fire-alt text-2xl opacity-40 peer-checked:opacity-100 hover:scale-110 transition-all"></i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="link_to_day" id="link-to-day" onchange="toggleCurriculumDayFields()">
+                            <span class="text-sm text-secondary">Link to curriculum day</span>
+                        </label>
+                        <div id="curriculum-day-fields" class="mt-3 grid grid-cols-3 gap-3 hidden-field">
+                            <select name="phase_index" class="">
+                                <option value="">Phase</option>
+                                {% for p in phases %}
+                                <option value="{{ p.index }}" {% if today_position and today_position.expected_phase == p.index %}selected{% endif %}>Phase {{ p.index + 1 }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="week" class="">
+                                <option value="">Week</option>
+                                {% for w in range(1, 20) %}
+                                <option value="{{ w }}" {% if today_position and today_position.expected_week == w %}selected{% endif %}>Week {{ w }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="day" class="">
+                                <option value="">Day</option>
+                                {% for d in range(1, 6) %}
+                                <option value="{{ d }}" {% if today_position and today_position.expected_day == d %}selected{% endif %}>Day {{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary"><i class="fas fa-save mr-2"></i>Save Entry</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
         <!-- Sidebar -->
         <div class="lg:col-span-1 space-y-4">
             <div class="card p-4">
-                <h2 class="font-bold text-gray-700 mb-3">📚 Phases</h2>
+                <h2 class="font-bold mb-3 text-primary"><i class="fas fa-book mr-2"></i>Phases</h2>
                 {% for p in phases %}
                 <form action="/jump-to-phase/{{ p.index }}" method="POST" class="mb-2">
-                    <button type="submit" class="w-full text-left p-3 rounded-lg transition-all
-                        {% if p.is_current %}bg-purple-100 border-2 border-purple-500
-                        {% elif p.is_complete %}bg-green-50 border border-green-200
-                        {% else %}bg-gray-50 hover:bg-gray-100 border border-gray-200{% endif %}">
+                    <button type="submit" class="w-full text-left p-3 rounded-lg transition-all card {% if p.is_current %}phase-current{% elif p.is_complete %}phase-complete{% else %}phase-default{% endif %}">
                         <div class="flex items-center gap-2">
-                            {% if p.is_complete %}<i class="fas fa-check-circle text-green-500"></i>
-                            {% elif p.is_current %}<i class="fas fa-play-circle text-purple-500"></i>
-                            {% else %}<i class="far fa-circle text-gray-400"></i>{% endif %}
+                            {% if p.is_complete %}<i class="fas fa-check-circle text-success"></i>
+                            {% elif p.is_current %}<i class="fas fa-play-circle text-accent"></i>
+                            {% else %}<i class="far fa-circle text-muted"></i>{% endif %}
                             {% set short_name = p.name.replace('PHASE ' + (p.index + 1)|string + ': ', '')|title %}
-                            <span class="text-sm font-medium">{{ p.index + 1 }}. {{ short_name }}</span>
+                            <span class="text-sm font-medium text-primary">{{ p.index + 1 }}. {{ short_name }}</span>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1 ml-6">{{ p.metrics_done }}/{{ p.metrics_total }} · {{ "%.0f"|format(p.logged) }}/{{ p.hours }}h</div>
+                        <div class="text-xs mt-1 ml-6 text-secondary">{{ p.metrics_done }}/{{ p.metrics_total }} · {{ "%.0f"|format(p.logged) }}/{{ p.hours }}h</div>
                     </button>
                 </form>
                 {% endfor %}
             </div>
             <div class="card p-4 space-y-2">
                 <form action="/prev-week" method="POST">
-                    <button class="w-full bg-gray-100 hover:bg-gray-200 py-2 px-4 rounded-lg text-sm"><i class="fas fa-arrow-left mr-2"></i>Previous</button>
+                    <button class="btn-secondary w-full text-sm"><i class="fas fa-arrow-left mr-2"></i>Previous</button>
                 </form>
                 <form action="/next-week" method="POST">
-                    <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm">Next<i class="fas fa-arrow-right ml-2"></i></button>
+                    <button class="btn-primary w-full text-sm">Next<i class="fas fa-arrow-right ml-2"></i></button>
                 </form>
             </div>
             <div class="card p-4">
-                <a href="/calendar" class="block text-center py-2 px-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm text-blue-700 font-medium">
+                <a href="/calendar" class="block text-center py-2 px-4 btn-secondary text-sm font-medium">
                     <i class="fas fa-calendar mr-2"></i>Calendar
                 </a>
             </div>
@@ -176,15 +710,18 @@
 
         <!-- Main -->
         <div class="lg:col-span-3 space-y-6">
-            <!-- Phase Card -->
-            <div class="card p-6">
+            <!-- Bento Grid Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Phase Card - Full Width -->
+                <div class="lg:col-span-12">
+                    <div class="card p-6">
                 <!-- Breadcrumb -->
-                <div class="mb-3 text-sm text-gray-600">
-                    <span class="font-medium text-purple-600">{{ phase.name|replace('PHASE ' + (phase_index + 1)|string + ': ', '')|title }}</span>
+                <div class="mb-3 text-sm text-secondary">
+                    <span class="font-medium text-accent">{{ phase.name|replace('PHASE ' + (phase_index + 1)|string + ': ', '')|title }}</span>
                     <span class="mx-2">›</span>
                     <span>Week {{ current_week }} of {{ phase.weeks }}</span>
                     {% if view_phase is not none and (view_phase != current_phase or view_week != current_week_state) %}
-                    <span class="ml-3 text-blue-600">
+                    <span class="ml-3 text-accent">
                         <i class="fas fa-eye mr-1"></i>Viewing Week {{ view_week }} (Your progress: Phase {{ current_phase + 1 }} Week {{ current_week_state }})
                     </span>
                     {% endif %}
@@ -192,20 +729,20 @@
                 
                 <!-- View Mode Banner -->
                 {% if view_phase is not none and (view_phase != current_phase or view_week != current_week_state) %}
-                <div class="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded flex items-center justify-between">
-                    <span class="text-sm text-blue-800"><i class="fas fa-eye mr-2"></i>👁 Viewing different week — not your current position</span>
-                    <a href="/" class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Return to Current</a>
+                <div class="mb-4 p-3 glass rounded-lg flex items-center justify-between view-banner">
+                    <span class="text-sm text-accent"><i class="fas fa-eye mr-2"></i>Viewing different week — not your current position</span>
+                    <a href="/" class="text-sm btn-primary px-3 py-1">Return to Current</a>
                 </div>
                 {% endif %}
                 
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800">{{ phase.name }}</h2>
-                        <p class="text-sm text-gray-600 mt-1">{{ phase_completed }}/{{ phase_total }} resources ({{ "%.0f"|format(phase_percent) }}%)</p>
+                        <h2 class="text-xl font-bold text-primary">{{ phase.name }}</h2>
+                        <p class="text-sm mt-1 text-secondary">{{ phase_completed }}/{{ phase_total }} resources ({{ "%.0f"|format(phase_percent) }}%)</p>
                     </div>
                     <div class="text-right">
-                        <div class="text-2xl font-bold text-purple-600">{{ phase.hours }}h</div>
-                        <div class="text-sm text-gray-500">phase target</div>
+                        <div class="text-2xl font-bold text-accent">{{ phase.hours }}h</div>
+                        <div class="text-sm text-muted">phase target</div>
                     </div>
                 </div>
                 
@@ -223,7 +760,7 @@
                     {% endif %}
                     {% set query_string = '?' + query_parts|join('&') if query_parts else '' %}
                     <a href="/view/{{ phase_index }}/{{ w }}{{ query_string }}" 
-                       class="px-4 py-2 text-sm font-semibold rounded-lg transition-all {% if w == current_week and view_phase is none %}bg-purple-600 text-white{% elif w == view_week and view_phase == phase_index %}bg-blue-500 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                       class="px-4 py-2 text-sm font-semibold rounded-lg transition-all {% if w == current_week and view_phase is none %}btn-primary{% elif w == view_week and view_phase == phase_index %}btn-primary{% else %}btn-secondary{% endif %}">
                         W{{ w }}
                         {% if w_comp.get('is_complete') %}<i class="fas fa-check-circle ml-1 text-xs"></i>
                         {% elif w_comp.get('is_partial') %}<i class="fas fa-circle text-xs ml-1"></i>{% endif %}
@@ -232,82 +769,97 @@
                 </div>
                 
                 <!-- Week Summary -->
-                <div class="mb-4 p-3 bg-blue-50 rounded-lg">
-                    <p class="text-sm font-medium text-gray-700">Week {{ current_week }}: {{ week_completed }}/{{ week_total }} complete ({{ "%.0f"|format(week_percent) }}%)</p>
+                <div class="mb-4 p-3 glass rounded-lg">
+                    <p class="text-sm font-medium text-primary">Week {{ current_week }}: {{ week_completed }}/{{ week_total }} complete ({{ "%.0f"|format(week_percent) }}%)</p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div class="bg-gray-50 rounded-xl p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span>This Week</span>
-                            <span class="font-bold {% if week_hours >= expected_weekly %}text-green-600{% elif week_hours >= expected_weekly * 0.5 %}text-yellow-600{% else %}text-red-500{% endif %}">
-                                {{ "%.1f"|format(week_hours) }}/{{ "%.1f"|format(expected_weekly) }}h
-                            </span>
-                        </div>
-                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full {% if week_hours >= expected_weekly %}bg-green-500{% elif week_hours >= expected_weekly * 0.5 %}bg-yellow-500{% else %}bg-red-400{% endif %}"
-                                style="width: {% if expected_weekly > 0 %}{{ ([week_hours / expected_weekly * 100, 100]|min)|round(1) }}{% else %}0{% endif %}%"></div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 rounded-xl p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span>Total</span>
-                            <span class="font-bold text-purple-600">{{ "%.1f"|format(total_hours) }}/{{ curriculum_total }}h</span>
-                        </div>
-                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full bg-purple-500 rounded-full" style="width: {{ overall_progress }}%"></div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 rounded-xl p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span>Metrics</span>
-                            <span class="font-bold text-blue-600">{{ completed_texts|length }}/{{ phase.metrics|length }}</span>
-                        </div>
-                        <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full bg-blue-500 rounded-full" style="width: {{ completed_texts|length / phase.metrics|length * 100 if phase.metrics|length > 0 else 0 }}%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-tasks mr-2"></i>Success Metrics</h3>
+                <h3 class="font-bold mb-3 text-primary"><i class="fas fa-tasks mr-2"></i>Success Metrics</h3>
                 <div class="space-y-2">
                     {% for metric in phase.metrics %}
-                    <div class="flex items-center gap-3 p-3 rounded-lg {% if metric in completed_texts %}bg-green-50 border border-green-200{% else %}bg-gray-50 border border-gray-200{% endif %}">
+                    <div class="flex items-center gap-3 p-3 rounded-lg card {% if metric in completed_texts %}metric-complete{% else %}metric-incomplete{% endif %} success-metric-card" data-metric="{{ metric }}" data-phase="{{ phase_index }}">
                         {% if metric in completed_texts %}
                         <form action="/uncomplete-metric" method="POST">
                             <input type="hidden" name="phase_index" value="{{ phase_index }}">
                             <input type="hidden" name="metric_text" value="{{ metric }}">
-                            <button class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center"><i class="fas fa-check text-xs"></i></button>
+                            <button class="w-6 h-6 rounded-full flex items-center justify-center transition-all status-complete"><i class="fas fa-check text-xs"></i></button>
                         </form>
-                        <span class="text-green-700 line-through">{{ metric }}</span>
+                        <span class="line-through text-success flex-1 cursor-pointer" onclick="toggleMetricDetails(this)">{{ metric }}</span>
+                        <i class="fas fa-chevron-down text-xs text-secondary cursor-pointer" onclick="toggleMetricDetails(this)"></i>
                         {% else %}
                         <form action="/complete-metric" method="POST">
                             <input type="hidden" name="phase_index" value="{{ phase_index }}">
                             <input type="hidden" name="metric_text" value="{{ metric }}">
-                            <button class="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-green-500"></button>
+                            <button class="w-6 h-6 rounded-full border-2 transition-all status-default"></button>
                         </form>
-                        <span class="text-gray-700">{{ metric }}</span>
+                        <span class="text-primary flex-1 cursor-pointer" onclick="toggleMetricDetails(this)">{{ metric }}</span>
+                        <i class="fas fa-chevron-down text-xs text-secondary cursor-pointer" onclick="toggleMetricDetails(this)"></i>
                         {% endif %}
+                        <div class="metric-details hidden w-full mt-2 p-2 rounded bg-tertiary">
+                            <p class="text-sm text-secondary">Loading linked resources...</p>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
-            </div>
-
-            <!-- Log Hours -->
-            <div class="card p-6">
-                <h3 class="font-bold text-gray-700 mb-4"><i class="fas fa-clock mr-2"></i>Log Time</h3>
+                    </div>
+                </div>
+                
+                <!-- Stats Cards - Smaller Grid -->
+                <div class="lg:col-span-4">
+                    <div class="card p-4">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-primary">This Week</span>
+                            <span class="font-bold {% if week_hours >= expected_weekly %}text-success{% elif week_hours >= expected_weekly * 0.5 %}text-warning{% else %}text-error{% endif %}">
+                                {{ "%.1f"|format(week_hours) }}/{{ "%.1f"|format(expected_weekly) }}h
+                            </span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill {% if week_hours >= expected_weekly %}progress-success{% elif week_hours >= expected_weekly * 0.5 %}progress-warning{% else %}progress-error{% endif %}" data-width="{% if expected_weekly > 0 %}{{ ([week_hours / expected_weekly * 100, 100]|min)|round(1) }}{% else %}0{% endif %}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-4">
+                    <div class="card p-4">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-primary">Total</span>
+                            <span class="font-bold text-accent">{{ "%.1f"|format(total_hours) }}/{{ curriculum_total }}h</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" data-width="{{ overall_progress }}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-4">
+                    <div class="card p-4">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-primary">Metrics</span>
+                            <span class="font-bold text-accent">{{ completed_texts|length }}/{{ phase.metrics|length }}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" data-width="{{ completed_texts|length / phase.metrics|length * 100 if phase.metrics|length > 0 else 0 }}"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Log Hours - Medium Card -->
+                <div class="lg:col-span-6">
+                    <div class="card p-6">
+                <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleLogTime()">
+                    <h3 class="font-bold text-primary"><i class="fas fa-clock mr-2"></i>Log Time</h3>
+                    <i class="fas fa-chevron-down transition-transform" id="log-time-chevron"></i>
+                </div>
+                <div id="log-time-content" class="hidden-field">
                 <form action="/log" method="POST" class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Hours</label>
-                        <input type="number" name="hours" step="0.25" min="0.25" value="1" class="w-full px-3 py-2 border rounded-lg">
+                        <label class="block text-xs mb-1 text-secondary">Hours</label>
+                        <input type="number" name="hours" step="0.25" min="0.25" value="1" class="w-full">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Date</label>
-                        <input type="date" name="date" value="{{ today }}" class="w-full px-3 py-2 border rounded-lg">
+                        <label class="block text-xs mb-1 text-secondary">Date</label>
+                        <input type="date" name="date" value="{{ today }}" class="w-full">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Week (opt)</label>
-                        <select name="week" class="w-full px-3 py-2 border rounded-lg">
+                        <label class="block text-xs mb-1 text-secondary">Week (opt)</label>
+                        <select name="week" class="w-full">
                             <option value="">Any</option>
                             {% for w in range(1, phase.weeks + 1) %}
                             <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>W{{ w }}</option>
@@ -315,8 +867,8 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Day (opt)</label>
-                        <select name="day" class="w-full px-3 py-2 border rounded-lg">
+                        <label class="block text-xs mb-1 text-secondary">Day (opt)</label>
+                        <select name="day" class="w-full">
                             <option value="">Any</option>
                             {% for d in range(1, 7) %}
                             <option value="{{ d }}">D{{ d }}</option>
@@ -324,8 +876,8 @@
                         </select>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-xs text-gray-600 mb-1">Resource (opt)</label>
-                        <select name="resource_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <label class="block text-xs mb-1 text-secondary">Resource (opt)</label>
+                        <select name="resource_id" class="w-full text-sm">
                             <option value="">General time</option>
                             {% for day in [1,2,3,4,5,6] %}
                                 {% if grouped_week_resources[day] %}
@@ -339,152 +891,88 @@
                         </select>
                     </div>
                     <div class="col-span-2 md:col-span-6">
-                        <label class="block text-xs text-gray-600 mb-1">Notes</label>
-                        <input type="text" name="notes" placeholder="What did you study?" class="w-full px-3 py-2 border rounded-lg">
+                        <label class="block text-xs mb-1 text-secondary">Notes</label>
+                        <input type="text" name="notes" placeholder="What did you study?" class="w-full">
                     </div>
                     <div class="col-span-2 md:col-span-6">
-                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg w-full md:w-auto"><i class="fas fa-plus mr-1"></i>Log Time</button>
+                        <button type="submit" class="btn-primary w-full md:w-auto"><i class="fas fa-plus mr-1"></i>Log Time</button>
                     </div>
                 </form>
                 {% if recent_logs %}
                 <div class="mt-4 flex flex-wrap gap-2">
                     {% for log in recent_logs %}
-                    <div class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-sm">
-                        <span class="text-gray-600">{{ log.date }}</span>
-                        <span class="font-bold text-purple-600">{{ log.hours }}h</span>
+                    <div class="inline-flex items-center gap-2 tag">
+                        <span class="text-secondary">{{ log.date }}</span>
+                        <span class="font-bold text-accent">{{ log.hours }}h</span>
                         <form action="/delete-log/{{ log.date }}" method="POST" class="inline">
-                            <button class="text-gray-400 hover:text-red-500"><i class="fas fa-times text-xs"></i></button>
+                            <button class="btn-delete transition-all"><i class="fas fa-times text-xs"></i></button>
                         </form>
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
+                </div>
             </div>
-
-            <!-- Resources grouped by Day for current week -->
-            <div class="card p-6">
+                </div>
+                
+                <!-- Resources - Full Width -->
+                <div class="lg:col-span-12">
+                    <div class="card p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-gray-700"><i class="fas fa-book-open mr-2"></i>This Week's Tasks</h3>
-                    <a href="/resources" class="text-purple-600 hover:text-purple-800 text-sm">View all →</a>
+                    <h3 class="font-bold text-primary"><i class="fas fa-book-open mr-2"></i>This Week's Tasks</h3>
+                    <a href="/resources" class="text-sm text-accent">View all →</a>
                 </div>
                 
                 <!-- Search & Filter Box -->
                 <form method="GET" action="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="mb-4">
                     <div class="flex flex-wrap gap-2">
-                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="flex-1 min-w-[200px] px-3 py-2 border rounded-lg">
-                        <select name="tag" class="px-3 py-2 border rounded-lg">
+                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="flex-1 min-w-[200px]">
+                        <select name="tag" class="">
                             <option value="">All Tags</option>
                             {% for t in all_tags %}
                             <option value="{{ t.name }}" {% if request.args.get('tag') == t.name %}selected{% endif %}>{{ t.name }}</option>
                             {% endfor %}
                         </select>
-                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-search mr-1"></i>Filter</button>
+                        <button type="submit" class="btn-primary px-4 py-2"><i class="fas fa-search mr-1"></i>Filter</button>
                         {% if search_query or request.args.get('tag') %}
-                        <a href="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">Clear</a>
+                        <a href="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="btn-secondary px-4 py-2">Clear</a>
                         {% endif %}
                     </div>
                 </form>
                 
                 {% if search_query and (grouped_week_resources|length == 0 and (ungrouped_week_resources is not defined or ungrouped_week_resources|length == 0)) %}
-                <div class="mb-4 p-4 bg-gray-50 rounded-lg text-center">
-                    <p class="text-gray-500">No results for '{{ search_query }}'</p>
+                <div class="mb-4 p-4 card rounded-lg text-center">
+                    <p class="text-secondary">No results for '{{ search_query }}'</p>
                 </div>
                 {% endif %}
-
-                <form action="/add-resource" method="POST" class="mb-4 p-4 bg-gray-50 rounded-lg">
-                    <div class="space-y-3">
-                        <!-- Row 1: Phase, Week, Day -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <select name="phase_index" class="px-3 py-2 border rounded-lg md:col-span-1">
-                                {% for p in phases %}
-                                <option value="{{ p.index }}" {% if p.index == phase_index %}selected{% endif %}>{{ p.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <select name="week" class="px-3 py-2 border rounded-lg">
-                                <option value="">Any Week</option>
-                                {% for w in range(1, phase.weeks + 1) %}
-                                <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>Week {{ w }}</option>
-                                {% endfor %}
-                            </select>
-                            <select name="day" class="px-3 py-2 border rounded-lg">
-                                <option value="">Any Day</option>
-                                {% for d in range(1,7) %}
-                                <option value="{{ d }}">Day {{ d }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <!-- Row 2: Title -->
-                        <input type="text" name="title" placeholder="Resource Title *" required class="w-full px-3 py-2 border rounded-lg">
-                        <!-- Row 3: URL -->
-                        <input type="url" name="url" placeholder="URL (optional)" class="w-full px-3 py-2 border rounded-lg">
-                        <!-- Row 4: Type and Notes -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <select name="resource_type" class="px-3 py-2 border rounded-lg">
-                                <option value="link">🔗 Link</option>
-                                <option value="course">🎓 Course</option>
-                                <option value="docs">📚 Docs</option>
-                                <option value="article">📄 Article</option>
-                                <option value="video">🎬 Video</option>
-                                <option value="project">🛠️ Project</option>
-                                <option value="lab">🔬 Lab</option>
-                                <option value="tutorial">📖 Tutorial</option>
-                                <option value="action">✅ Action</option>
-                                <option value="deliverable">📦 Deliverable</option>
-                                <option value="note">📝 Note</option>
-                            </select>
-                            <input type="text" name="notes" placeholder="Notes (optional)" class="md:col-span-2 px-3 py-2 border rounded-lg">
-                        </div>
-                        <!-- Row 5: Estimates (optional) -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <select name="estimated_minutes" class="px-3 py-2 border rounded-lg">
-                                <option value="">Time estimate (optional)</option>
-                                <option value="15">15 min</option>
-                                <option value="30">30 min</option>
-                                <option value="60">1 hour</option>
-                                <option value="90">1.5 hours</option>
-                                <option value="120">2 hours</option>
-                                <option value="180">3 hours</option>
-                                <option value="240">4 hours</option>
-                            </select>
-                            <select name="difficulty" class="px-3 py-2 border rounded-lg">
-                                <option value="">Difficulty (optional)</option>
-                                <option value="easy">🟢 Easy</option>
-                                <option value="medium">🟡 Medium</option>
-                                <option value="hard">🔴 Hard</option>
-                            </select>
-                        </div>
-                        <!-- Row 6: Submit -->
-                        <button type="submit" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add Resource</button>
-                    </div>
-                </form>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {% for day in [1,2,3,4,5,6] %}
                     {% set day_comp = day_completions.get(day, {'completed': 0, 'total': 0}) %}
                     {% set is_complete = day_comp.completed == day_comp.total and day_comp.total > 0 %}
                     {% set is_partial = day_comp.completed > 0 and day_comp.completed < day_comp.total %}
-                    <div class="border rounded-lg overflow-hidden {% if day == 6 %}border-yellow-400{% elif is_complete %}border-green-400{% elif is_partial %}border-amber-400{% else %}border-gray-300{% endif %}">
-                        <div class="p-4 border-l-4 {% if day == 6 %}bg-yellow-50 border-yellow-500{% elif is_complete %}bg-green-50 border-green-500{% elif is_partial %}bg-amber-50 border-amber-500{% else %}bg-gray-50 border-gray-400{% endif %}">
-                            <h4 class="font-bold text-lg {% if day == 6 %}text-yellow-900{% elif is_complete %}text-green-900{% elif is_partial %}text-amber-900{% else %}text-gray-700{% endif %}">
+                    <div class="card rounded-lg overflow-hidden {% if day == 6 %}day-build{% elif is_complete %}day-complete{% elif is_partial %}day-partial{% else %}day-default{% endif %}">
+                        <div class="p-4 border-l-4 glass rounded-t-lg {% if day == 6 %}border-warning{% elif is_complete %}border-success{% elif is_partial %}border-warning{% else %}{% endif %}">
+                            <h4 class="font-bold text-lg {% if day == 6 %}day-header-build{% elif is_complete %}day-header-complete{% elif is_partial %}day-header-partial{% else %}day-header-default{% endif %}">
                                 Day {{ day }}{% if day == 6 %} • BUILD DAY{% endif %}: {{ day_comp.completed }}/{{ day_comp.total }}
                                 {% if is_complete %}<i class="fas fa-check-circle ml-1"></i>{% elif is_partial %}<i class="fas fa-circle-notch ml-1"></i>{% endif %}
                             </h4>
                             {% if day == 6 and phase.metrics and (current_week - 1) < phase.metrics|length %}
-                            <div class="mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 rounded">
-                                <p class="text-xs font-semibold text-yellow-800">📦 DELIVERABLE:</p>
-                                <p class="text-sm text-yellow-900">{{ phase.metrics[current_week - 1] }}</p>
-                                <p class="text-xs text-yellow-700 mt-1">(linked to Week {{ current_week }} Day 6)</p>
+                            <div class="mt-2 p-2 glass rounded deliverable-banner">
+                                <p class="text-xs font-semibold text-warning"><i class="fas fa-box mr-1"></i>DELIVERABLE:</p>
+                                <p class="text-sm text-primary">{{ phase.metrics[current_week - 1] }}</p>
+                                <p class="text-xs mt-1 text-secondary">(linked to Week {{ current_week }} Day 6)</p>
                             </div>
                             {% endif %}
                         </div>
                         <div class="p-3 space-y-3 day-resources-container" data-day="{{ day }}" data-week="{{ current_week }}" data-phase="{{ phase_index }}">
                             {% for r in grouped_week_resources[day] %}
-                            <div class="flex items-start gap-3 p-3 bg-white rounded border" data-resource-id="{{ r.id }}">
-                                <span class="drag-handle cursor-move text-gray-400 hover:text-gray-600 mt-1">
+                            <div class="flex items-start gap-3 p-3 card rounded resource-card" data-resource-id="{{ r.id }}">
+                                <span class="drag-handle cursor-move mt-1">
                                     <i class="fas fa-grip-vertical"></i>
                                 </span>
                                 <input type="checkbox" class="resource-checkbox w-5 h-5 mt-1" onchange="toggleSelection({{ r.id }}, this)">
-                                <form action="/toggle-resource/{{ r.id }}" method="POST">
+                                <form action="/toggle-resource/{{ r.id }}" method="POST" class="toggle-resource-form" data-resource-id="{{ r.id }}" data-current-status="{{ r.get('status', 'not_started') }}">
                                     {% if search_query %}
                                     <input type="hidden" name="q" value="{{ search_query }}">
                                     {% endif %}
@@ -492,11 +980,7 @@
                                     <input type="hidden" name="tag" value="{{ request.args.get('tag') }}">
                                     {% endif %}
                                     {% set status = r.get('status', 'not_started') %}
-                                    <button class="w-8 h-8 mt-1 rounded-full flex items-center justify-center transition-all
-                                        {% if status == 'complete' %}bg-green-500 text-white
-                                        {% elif status == 'in_progress' %}bg-gradient-to-r from-yellow-400 to-transparent border-2 border-yellow-400 text-yellow-700
-                                        {% elif status == 'skipped' %}bg-gray-300 text-gray-600
-                                        {% else %}border-2 border-gray-300 text-gray-400 hover:border-purple-400{% endif %}"
+                                    <button type="button" class="w-8 h-8 mt-1 rounded-full flex items-center justify-center transition-all {% if status == 'complete' %}resource-status-complete{% elif status == 'in_progress' %}resource-status-progress{% elif status == 'skipped' %}resource-status-skipped{% else %}resource-status-default{% endif %}"
                                         title="{% if status == 'complete' %}Complete - click to restart{% elif status == 'in_progress' %}In Progress - click to complete{% elif status == 'skipped' %}Skipped - click to restart{% else %}Not Started - click to start{% endif %}">
                                         {% if status == 'complete' %}<i class="fas fa-check text-sm"></i>
                                         {% elif status == 'in_progress' %}<i class="fas fa-circle-notch text-sm"></i>
@@ -504,27 +988,27 @@
                                         {% else %}<i class="far fa-circle text-sm"></i>{% endif %}
                                     </button>
                                 </form>
-                                <span class="mt-1 text-lg">{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'project' %}🛠️{% elif r.resource_type == 'lab' %}🔬{% elif r.resource_type == 'tutorial' %}📖{% elif r.resource_type == 'action' %}✅{% elif r.resource_type == 'deliverable' %}📦{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
+                                <span class="mt-1 text-lg">{% if r.resource_type == 'video' %}<i class="fas fa-video"></i>{% elif r.resource_type == 'article' %}<i class="fas fa-file-alt"></i>{% elif r.resource_type == 'docs' %}<i class="fas fa-book"></i>{% elif r.resource_type == 'course' %}<i class="fas fa-graduation-cap"></i>{% elif r.resource_type == 'project' %}<i class="fas fa-tools"></i>{% elif r.resource_type == 'lab' %}<i class="fas fa-flask"></i>{% elif r.resource_type == 'tutorial' %}<i class="fas fa-book-open"></i>{% elif r.resource_type == 'action' %}<i class="fas fa-check"></i>{% elif r.resource_type == 'deliverable' %}<i class="fas fa-box"></i>{% elif r.resource_type == 'note' %}<i class="fas fa-pen"></i>{% else %}<i class="fas fa-link"></i>{% endif %}</span>
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="flex-1">
                                             {% if r.topic %}
-                                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">{{ r.topic|title }}</p>
+                                            <p class="text-xs uppercase tracking-wide mb-1 text-secondary">{{ r.topic|title }}</p>
                                             {% endif %}
                                             {% if r.url %}
-                                            <a href="{{ r.url }}" target="_blank" class="text-base font-semibold text-purple-700 hover:text-purple-900 hover:underline {% if r.is_completed %}line-through text-gray-400{% endif %} block">{{ r.title }}</a>
+                                            <a href="{{ r.url }}" target="_blank" class="text-base font-semibold hover:underline block transition-all {% if r.is_completed %}resource-completed{% else %}resource-link{% endif %}">{{ r.title }}</a>
                                             {% else %}
-                                            <span class="text-base font-semibold {% if r.is_completed %}line-through text-gray-400{% else %}text-gray-900{% endif %} block">{{ r.title }}</span>
+                                            <span class="text-base font-semibold block {% if r.is_completed %}resource-completed{% else %}text-primary{% endif %}">{{ r.title }}</span>
                                             {% endif %}
                                         </div>
                                         {% if r.get('logged_hours') %}
-                                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full whitespace-nowrap">{{ "%.1f"|format(r.logged_hours) }}h</span>
+                                        <span class="tag text-xs px-2 py-1 whitespace-nowrap">{{ "%.1f"|format(r.logged_hours) }}h</span>
                                         {% endif %}
                                     </div>
                                     {% if r.notes %}
-                                    <details class="text-sm text-gray-600">
-                                        <summary class="cursor-pointer hover:text-gray-800">View details</summary>
-                                        <div class="mt-2 pl-2 border-l-2 border-gray-200">
+                                    <details class="text-sm text-secondary">
+                                        <summary class="cursor-pointer details-summary">View details</summary>
+                                        <div class="mt-2 pl-2 details-content">
                                             {% if 'Tasks:' in r.notes %}
                                                 {% set parts = r.notes.split('|') %}
                                                 {% for part in parts %}
@@ -543,12 +1027,12 @@
                                     {% if r.tags %}
                                     <div class="flex gap-1 mt-2">
                                         {% for i in range(r.tags|length) %}
-                                        <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full text-white tag-dynamic" data-color="{{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
                                         {% endfor %}
                                     </div>
                                     {% endif %}
                                     {% if r.estimated_minutes or r.difficulty %}
-                                    <div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                                    <div class="flex items-center gap-2 text-xs mt-2 text-secondary">
                                         {% if r.estimated_minutes %}
                                         <span class="flex items-center gap-1">
                                             <i class="far fa-clock"></i>
@@ -557,10 +1041,7 @@
                                         </span>
                                         {% endif %}
                                         {% if r.difficulty %}
-                                        <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium
-                                            {% if r.difficulty == 'easy' %}bg-green-500
-                                            {% elif r.difficulty == 'medium' %}bg-yellow-500
-                                            {% elif r.difficulty == 'hard' %}bg-red-500{% endif %}">
+                                        <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium {% if r.difficulty == 'easy' %}difficulty-easy{% elif r.difficulty == 'medium' %}difficulty-medium{% elif r.difficulty == 'hard' %}difficulty-hard{% endif %}">
                                             {{ r.difficulty|title }}
                                         </span>
                                         {% endif %}
@@ -569,15 +1050,15 @@
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <form action="/toggle-favorite/{{ r.id }}" method="POST">
-                                        <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}"><i class="fas fa-star"></i></button>
+                                        <button class="btn-favorite {% if r.is_favorite %}active{% endif %}"><i class="fas fa-star"></i></button>
                                     </form>
                                     <form action="/delete-resource/{{ r.id }}" method="POST" onsubmit="return confirm('Delete this resource?')">
-                                        <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                        <button class="btn-delete"><i class="fas fa-trash"></i></button>
                                     </form>
                                 </div>
                             </div>
                             {% else %}
-                            <p class="text-gray-500 text-sm">No tasks for this day.</p>
+                            <p class="text-sm text-secondary">No tasks for this day.</p>
                             {% endfor %}
                         </div>
                     </div>
@@ -586,24 +1067,24 @@
 
                 {% if ungrouped_week_resources and ungrouped_week_resources|length > 0 %}
                 <div class="mt-6">
-                    <h4 class="font-semibold mb-2">Ungrouped</h4>
+                    <h4 class="font-semibold mb-2 text-primary">Ungrouped</h4>
                         <div class="space-y-2">
                             {% for r in ungrouped_week_resources %}
-                            <div class="flex items-center gap-3 p-3 rounded-lg bg-white border">
-                                <span class="text-lg">{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'project' %}🛠️{% elif r.resource_type == 'lab' %}🔬{% elif r.resource_type == 'tutorial' %}📖{% elif r.resource_type == 'action' %}✅{% elif r.resource_type == 'deliverable' %}📦{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
+                            <div class="flex items-center gap-3 p-3 rounded-lg card">
+                                <span class="text-lg">{% if r.resource_type == 'video' %}<i class="fas fa-video"></i>{% elif r.resource_type == 'article' %}<i class="fas fa-file-alt"></i>{% elif r.resource_type == 'docs' %}<i class="fas fa-book"></i>{% elif r.resource_type == 'course' %}<i class="fas fa-graduation-cap"></i>{% elif r.resource_type == 'project' %}<i class="fas fa-tools"></i>{% elif r.resource_type == 'lab' %}<i class="fas fa-flask"></i>{% elif r.resource_type == 'tutorial' %}<i class="fas fa-book-open"></i>{% elif r.resource_type == 'action' %}<i class="fas fa-check"></i>{% elif r.resource_type == 'deliverable' %}<i class="fas fa-box"></i>{% elif r.resource_type == 'note' %}<i class="fas fa-pen"></i>{% else %}<i class="fas fa-link"></i>{% endif %}</span>
                                 <div class="flex-1">
                                     {% if r.topic %}
-                                    <p class="font-bold text-gray-800 mb-1">{{ r.topic }}</p>
+                                    <p class="font-bold mb-1 text-primary">{{ r.topic }}</p>
                                     {% endif %}
                                     {% if r.url %}
-                                    <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline">{{ r.title }}</a>
+                                    <a href="{{ r.url }}" target="_blank" class="font-medium hover:underline transition-all text-accent">{{ r.title }}</a>
                                     {% else %}
-                                    <span class="text-gray-800">{{ r.title }}</span>
+                                    <span class="text-primary">{{ r.title }}</span>
                                     {% endif %}
                                     {% if r.notes %}
-                                    <details class="text-sm text-gray-500 mt-1">
-                                        <summary class="cursor-pointer hover:text-gray-700">View details</summary>
-                                        <div class="mt-2 pl-2 border-l-2 border-gray-200">
+                                    <details class="text-sm mt-1 text-secondary">
+                                        <summary class="cursor-pointer details-summary">View details</summary>
+                                        <div class="mt-2 pl-2 details-content">
                                             {% if 'Tasks:' in r.notes %}
                                                 {% set parts = r.notes.split('|') %}
                                                 {% for part in parts %}
@@ -621,10 +1102,10 @@
                                     {% endif %}
                                 </div>
                                 <form action="/toggle-favorite/{{ r.id }}" method="POST">
-                                    <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}"><i class="fas fa-star"></i></button>
+                                    <button class="btn-favorite {% if r.is_favorite %}active{% endif %}"><i class="fas fa-star"></i></button>
                                 </form>
                                 <form action="/delete-resource/{{ r.id }}" method="POST">
-                                    <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                                    <button class="btn-delete"><i class="fas fa-trash"></i></button>
                                 </form>
                             </div>
                             {% endfor %}
@@ -637,23 +1118,23 @@
             {% if recent_logs %}
             <div class="card p-6">
                 <details>
-                    <summary class="font-bold text-gray-700 cursor-pointer hover:text-purple-600"><i class="fas fa-book mr-2"></i>Learning Journal <span class="text-sm text-gray-500">({{ recent_logs|length }} recent entries)</span></summary>
+                    <summary class="font-bold cursor-pointer journal-summary"><i class="fas fa-book mr-2"></i>Learning Journal <span class="text-sm text-secondary">({{ recent_logs|length }} recent entries)</span></summary>
                     <div class="mt-4 space-y-2">
                         {% for log in recent_logs %}
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="p-3 card rounded-lg">
                             <div class="flex items-center justify-between mb-1">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-bold text-purple-600">{{ log.hours }}h</span>
-                                    <span class="text-sm text-gray-600">{{ log.date }}</span>
+                                    <span class="font-bold text-accent">{{ log.hours }}h</span>
+                                    <span class="text-sm text-secondary">{{ log.date }}</span>
                                 </div>
                                 <form action="/delete-log/{{ log.date }}" method="POST" class="inline">
-                                    <button class="text-gray-400 hover:text-red-500 text-xs"><i class="fas fa-times"></i></button>
+                                    <button class="text-xs btn-delete"><i class="fas fa-times"></i></button>
                                 </form>
                             </div>
                             {% if log.notes %}
-                            <p class="text-sm text-gray-700 mt-1">{{ log.notes }}</p>
+                            <p class="text-sm mt-1 text-primary">{{ log.notes }}</p>
                             {% else %}
-                            <p class="text-sm text-gray-400 italic">No notes</p>
+                            <p class="text-sm italic text-muted">No notes</p>
                             {% endif %}
                         </div>
                         {% endfor %}
@@ -663,39 +1144,39 @@
             {% endif %}
 
             <div class="text-center">
-                <form action="/reset" method="POST" onsubmit="return confirm('Reset progress? Resources will be kept.')">
-                    <button class="text-gray-400 hover:text-red-500 text-sm"><i class="fas fa-redo mr-1"></i>Reset Progress</button>
+                <form action="/reset" method="POST" onsubmit="return confirm('Reset progress? Resources will be kept. Let\'s do it?')">
+                    <button class="text-sm btn-delete"><i class="fas fa-redo mr-1"></i>Reset Progress</button>
                 </form>
             </div>
         </div>
     </div>
 
     <!-- Bulk Actions Bar (hidden by default) -->
-    <div id="bulk-actions" class="hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-purple-600 shadow-lg p-4 z-50">
+    <div id="bulk-actions" class="hidden fixed bottom-0 left-0 right-0 shadow-lg p-4 z-50 card bulk-bar">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <span class="font-semibold text-gray-700"><span id="selected-count">0</span> selected</span>
+            <span class="font-semibold text-primary"><span id="selected-count">0</span> selected</span>
             <div class="flex gap-2">
-                <button onclick="bulkAction('complete')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <button onclick="bulkAction('complete')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bulk-btn-success">
                     <i class="fas fa-check mr-1"></i>Complete
                 </button>
-                <button onclick="bulkAction('progress')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <button onclick="bulkAction('progress')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bulk-btn-warning">
                     <i class="fas fa-circle-notch mr-1"></i>In Progress
                 </button>
-                <button onclick="bulkAction('skip')" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <button onclick="bulkAction('skip')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bulk-btn-skip">
                     <i class="fas fa-ban mr-1"></i>Skip
                 </button>
-                <button onclick="bulkAction('delete')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    <i class="fas fa-trash mr-1"></i>Delete
+                <button onclick="bulkAction('delete')" class="px-4 py-2 rounded-lg text-sm font-medium transition-all bulk-btn-error">
+                    <i class="fas fa-trash mr-1"></i>Remove
                 </button>
                 <button onclick="selectedResources.clear(); updateBulkBar(); document.querySelectorAll('.resource-checkbox').forEach(cb => cb.checked = false);" 
-                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium">
-                    Clear
+                        class="btn-secondary px-4 py-2 text-sm font-medium">
+                    Nevermind
                 </button>
             </div>
         </div>
     </div>
 
-    <form id="bulk-form" action="/bulk" method="POST" style="display:none;">
+    <form id="bulk-form" action="/bulk" method="POST" class="hidden-form">
         <input type="hidden" id="bulk-action" name="action">
         <input type="hidden" id="bulk-ids" name="ids">
     </form>
@@ -730,7 +1211,7 @@
         document.getElementById('bulk-action').value = action;
         document.getElementById('bulk-ids').value = Array.from(selectedResources).join(',');
         
-        if (action === 'delete' && !confirm(`Delete ${selectedResources.size} resources?`)) {
+        if (action === 'delete' && !confirm(`Yeet ${selectedResources.size} resource${selectedResources.size > 1 ? 's' : ''} into the void?`)) {
             return;
         }
         
@@ -788,6 +1269,284 @@
     
     // Initialize theme icon
     document.addEventListener('DOMContentLoaded', updateThemeIcon);
+    
+    // Celebration triggers
+    document.addEventListener('DOMContentLoaded', function() {
+        // Resource completion celebrations
+        document.querySelectorAll('.toggle-resource-form button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const currentStatus = form.dataset.currentStatus;
+                const resourceCard = form.closest('.resource-card, .day-resource-item');
+                
+                // If going from in_progress to complete
+                if (currentStatus === 'in_progress') {
+                    const checkIcon = this.querySelector('i.fa-check, i.fa-circle-notch, i.far.fa-circle');
+                    if (checkIcon) animateCheck(checkIcon);
+                    if (resourceCard) glowCard(resourceCard);
+                    confetti('small');
+                }
+                
+                // Submit form after celebration
+                setTimeout(() => form.submit(), 300);
+            });
+        });
+        
+        // Day completion check
+        function checkDayCompletion() {
+            document.querySelectorAll('[data-day-resources]').forEach(dayContainer => {
+                const resources = dayContainer.querySelectorAll('.resource-card');
+                const completed = dayContainer.querySelectorAll('.resource-status-complete').length;
+                const total = resources.length;
+                
+                if (total > 0 && completed === total && !dayContainer.dataset.celebrated) {
+                    dayContainer.dataset.celebrated = 'true';
+                    const dayNum = dayContainer.dataset.day;
+                    showToast(`Day ${dayNum} crushed!`, 'success', 'fire');
+                    confetti('medium');
+                }
+            });
+        }
+        
+        // Check day completion after resource toggles
+        setTimeout(checkDayCompletion, 500);
+        
+        // Week completion check
+        function checkWeekCompletion() {
+            const weekResources = document.querySelectorAll('.resource-card');
+            const weekCompleted = document.querySelectorAll('.resource-status-complete').length;
+            const weekTotal = weekResources.length;
+            
+            if (weekTotal > 0 && weekCompleted === weekTotal) {
+                const weekNum = document.querySelector('[data-week]')?.dataset.week || 'this';
+                showToast(`Week ${weekNum} done!`, 'success', 'trophy');
+                confetti('large');
+            }
+        }
+        
+        // Streak celebrations
+        const streakElement = document.querySelector('[data-streak]');
+        if (streakElement) {
+            const streak = parseInt(streakElement.dataset.streak || '0');
+            if (streak === 7) {
+                showToast('7-day streak! You\'re on fire', 'success', 'fire');
+                pulseStreak(streakElement);
+            } else if (streak === 30) {
+                showToast('30 days! Unstoppable', 'success', 'trophy');
+                confetti('large');
+            } else if (streak === 100) {
+                showToast('100 days! Legend status', 'success', 'crown');
+                confetti('large');
+            }
+        }
+    });
+    
+    // Success metrics expansion
+    function toggleMetricDetails(element) {
+        const card = element.closest('.success-metric-card');
+        const details = card.querySelector('.metric-details');
+        const chevron = card.querySelector('.fa-chevron-down');
+        
+        if (details.classList.contains('hidden')) {
+            details.classList.remove('hidden');
+            chevron.style.transform = 'rotate(180deg)';
+            details.innerHTML = '<p class="text-sm text-secondary">Crunching numbers...</p>';
+            
+            // Load linked resources
+            const metric = card.dataset.metric;
+            const phase = card.dataset.phase;
+            
+            fetch(`/api/metric-resources?phase=${phase}&metric=${encodeURIComponent(metric)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.resources && data.resources.length > 0) {
+                        let html = '<div class="space-y-1">';
+                        data.resources.forEach(r => {
+                            html += `<div class="flex items-center gap-2 text-sm">
+                                <span class="${r.status === 'complete' ? 'text-success' : 'text-secondary'}">
+                                    ${r.status === 'complete' ? '<i class="fas fa-check"></i>' : '<i class="far fa-circle"></i>'}
+                                </span>
+                                <a href="/view/${r.phase_index}/${r.week}#resource-${r.id}" class="text-primary hover:text-accent">
+                                    ${r.title}
+                                </a>
+                            </div>`;
+                        });
+                        html += '</div>';
+                        details.innerHTML = html;
+                    } else {
+                        details.innerHTML = '<p class="text-sm text-secondary">No linked resources found</p>';
+                    }
+                })
+                .catch(err => {
+                    details.innerHTML = '<p class="text-sm text-error">Oops, something went sideways</p>';
+                });
+        } else {
+            details.classList.add('hidden');
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+    
+    // Set dynamic progress bar widths and tag colors
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set progress bar widths
+        document.querySelectorAll('.progress-fill[data-width]').forEach(function(el) {
+            const width = el.getAttribute('data-width');
+            if (width) {
+                el.style.setProperty('width', width + '%');
+            }
+        });
+        
+        // Set tag colors
+        document.querySelectorAll('.tag-dynamic[data-color]').forEach(function(el) {
+            const color = el.getAttribute('data-color');
+            if (color) {
+                el.style.setProperty('background-color', color);
+            }
+        });
+        
+        // Burndown Chart
+        {% if burndown_data and start_date %}
+        const burndownCtx = document.getElementById('burndown-chart');
+        if (burndownCtx) {
+            const burndownData = {{ burndown_data|tojson }};
+            const actualData = burndownData.actual || [];
+            
+            // Calculate ideal line data points
+            const startDate = new Date('{{ start_date }}');
+            const endDate = new Date('{{ projected_end_date }}');
+            const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            const idealData = [];
+            for (let i = 0; i <= totalDays; i++) {
+                idealData.push({
+                    x: i,
+                    y: burndownData.total - (burndownData.total * i / totalDays)
+                });
+            }
+            
+            // Prepare actual data - map dates to day numbers
+            const actualPoints = actualData.map((d, idx) => {
+                const date = new Date(d.date);
+                const dayNum = Math.ceil((date - startDate) / (1000 * 60 * 60 * 24));
+                return {
+                    x: dayNum,
+                    y: d.remaining
+                };
+            });
+            
+            new Chart(burndownCtx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Ideal Pace',
+                        data: idealData,
+                        borderColor: 'var(--accent)',
+                        backgroundColor: 'transparent',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        pointRadius: 0
+                    }, {
+                        label: 'Actual Progress',
+                        data: actualPoints,
+                        borderColor: 'var(--success)',
+                        backgroundColor: 'rgba(0, 200, 83, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Days Elapsed'
+                            },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Hours Remaining'
+                            },
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    });
+    
+    // Log Time Collapsible
+    function toggleLogTime() {
+        const content = document.getElementById('log-time-content');
+        const chevron = document.getElementById('log-time-chevron');
+        if (content.classList.contains('hidden-field')) {
+            content.classList.remove('hidden-field');
+            chevron.style.transform = 'rotate(180deg)';
+            localStorage.setItem('logTimeExpanded', 'true');
+        } else {
+            content.classList.add('hidden-field');
+            chevron.style.transform = 'rotate(0deg)';
+            localStorage.setItem('logTimeExpanded', 'false');
+        }
+    }
+    
+    // Journal Widget Collapsible
+    function toggleJournalWidget() {
+        const content = document.getElementById('journal-widget-content');
+        const chevron = document.getElementById('journal-chevron');
+        if (content.classList.contains('hidden-field')) {
+            content.classList.remove('hidden-field');
+            chevron.style.transform = 'rotate(180deg)';
+            localStorage.setItem('journalWidgetExpanded', 'true');
+        } else {
+            content.classList.add('hidden-field');
+            chevron.style.transform = 'rotate(0deg)';
+            localStorage.setItem('journalWidgetExpanded', 'false');
+        }
+    }
+    
+    // Curriculum Day Fields Toggle
+    function toggleCurriculumDayFields() {
+        const checkbox = document.getElementById('link-to-day');
+        const fields = document.getElementById('curriculum-day-fields');
+        if (checkbox.checked) {
+            fields.classList.remove('hidden-field');
+        } else {
+            fields.classList.add('hidden-field');
+        }
+    }
+    
+    // Initialize collapsible states
+    document.addEventListener('DOMContentLoaded', function() {
+        // Log Time - default collapsed
+        const logTimeExpanded = localStorage.getItem('logTimeExpanded') === 'true';
+        const logTimeContent = document.getElementById('log-time-content');
+        const logTimeChevron = document.getElementById('log-time-chevron');
+        if (logTimeExpanded && logTimeContent) {
+            logTimeContent.classList.remove('hidden-field');
+            if (logTimeChevron) logTimeChevron.style.transform = 'rotate(180deg)';
+        }
+        
+        // Journal Widget - default expanded
+        const journalExpanded = localStorage.getItem('journalWidgetExpanded') !== 'false';
+        const journalContent = document.getElementById('journal-widget-content');
+        const journalChevron = document.getElementById('journal-chevron');
+        if (journalExpanded && journalContent) {
+            journalContent.classList.remove('hidden-field');
+            if (journalChevron) journalChevron.style.transform = 'rotate(180deg)';
+        }
+    });
     </script>
 </body>
 </html>
