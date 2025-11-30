@@ -53,16 +53,20 @@ def init_db():
     - difficulty: easy, medium, hard (auto-set by type, user-editable)
     - completed_at: ISO timestamp when marked complete
     - sort_order: For drag-and-drop ordering within days
+    - user_modified: Flag indicating if user manually edited this resource
     """
     conn = get_db()
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
-        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER, week INTEGER, day INTEGER, resource_id INTEGER REFERENCES resources(id));
-        CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, resource_id INTEGER REFERENCES resources(id), UNIQUE(phase_index, metric_text));
-        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT);
+        CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY, current_phase INTEGER DEFAULT 0, current_week INTEGER DEFAULT 1, started_at TEXT, last_activity_at TEXT);
+        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER, week INTEGER, day INTEGER, resource_id INTEGER);
+        CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, resource_id INTEGER, UNIQUE(phase_index, metric_text));
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT, status TEXT DEFAULT 'not_started', completed_at TEXT, sort_order INTEGER DEFAULT 0, estimated_minutes INTEGER, difficulty TEXT, user_modified INTEGER DEFAULT 0);
         CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
         CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
+        CREATE TABLE IF NOT EXISTS activity_log (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, entity_type TEXT, entity_id INTEGER, details TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS journal_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, content TEXT, mood TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
         """
     )
     conn.commit()
@@ -93,8 +97,13 @@ def get_progress():
 def update_progress(**kwargs):
     """Update progress table with provided fields."""
     conn = get_db()
-    sets = ', '.join(f"{k} = ?" for k in kwargs.keys())
-    values = list(kwargs.values()) + [datetime.now().isoformat()]
+    # Whitelist allowed fields to prevent SQL injection
+    allowed_fields = {'current_phase', 'current_week', 'started_at', 'last_activity_at'}
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k in allowed_fields}
+    if not filtered_kwargs:
+        return
+    sets = ', '.join(f"{k} = ?" for k in filtered_kwargs.keys())
+    values = list(filtered_kwargs.values()) + [datetime.now().isoformat()]
     conn.execute(f"UPDATE progress SET {sets}, last_activity_at = ? WHERE id = 1", values)
     conn.commit()
 
@@ -107,8 +116,16 @@ def init_if_needed():
 
 
 def load_curriculum():
-    with open(CURRICULUM_PATH) as f:
-        return yaml.safe_load(f)
+    """Load curriculum YAML file with error handling."""
+    try:
+        with open(CURRICULUM_PATH) as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        flash("Curriculum file not found. Please ensure curriculum.yaml exists.", "error")
+        return {"phases": []}
+    except yaml.YAMLError as e:
+        flash(f"Error parsing curriculum file: {e}", "error")
+        return {"phases": []}
 
 
 def get_week_dates(date_str):
@@ -635,9 +652,23 @@ def resources_page():
 
 @app.route("/log", methods=["POST"])
 def log_hours():
-    hours = float(request.form.get("hours", 0))
+    """Log hours with input validation."""
+    try:
+        hours_str = request.form.get("hours", "0").strip()
+        hours = float(hours_str) if hours_str else 0.0
+    except (ValueError, TypeError):
+        flash("Invalid hours value. Please enter a number.", "error")
+        return redirect(url_for("dashboard"))
+    
     log_date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
     notes = request.form.get("notes", "").strip()
+    
+    # Validate date format
+    try:
+        datetime.strptime(log_date, "%Y-%m-%d")
+    except ValueError:
+        flash("Invalid date format.", "error")
+        return redirect(url_for("dashboard"))
     
     # New: Accept week, day, and resource_id from form
     week_str = request.form.get("week", "").strip()
@@ -648,7 +679,9 @@ def log_hours():
     day = int(day_str) if day_str and day_str.isdigit() else None
     resource_id = int(resource_id_str) if resource_id_str and resource_id_str.isdigit() else None
     
-    if hours <= 0:
+    # Validate hours range
+    if hours <= 0 or hours > 24:
+        flash("Hours must be between 0.25 and 24.", "error")
         return redirect(url_for("dashboard"))
     
     # Get current phase_index for this log entry
@@ -675,8 +708,18 @@ def log_hours():
 
 @app.route("/complete-metric", methods=["POST"])
 def complete_metric():
-    phase_index = int(request.form.get("phase_index", 0))
-    metric_text = request.form.get("metric_text", "")
+    """Complete a metric with input validation."""
+    try:
+        phase_index = int(request.form.get("phase_index", 0))
+    except (ValueError, TypeError):
+        flash("Invalid phase index.", "error")
+        return redirect(url_for("dashboard"))
+    
+    metric_text = request.form.get("metric_text", "").strip()
+    if not metric_text:
+        flash("Metric text is required.", "error")
+        return redirect(url_for("dashboard"))
+    
     conn = get_db()
     conn.execute("INSERT OR IGNORE INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (?, ?, ?)",
         (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d")))
@@ -690,8 +733,18 @@ def complete_metric():
 
 @app.route("/uncomplete-metric", methods=["POST"])
 def uncomplete_metric():
-    phase_index = int(request.form.get("phase_index", 0))
-    metric_text = request.form.get("metric_text", "")
+    """Uncomplete a metric with input validation."""
+    try:
+        phase_index = int(request.form.get("phase_index", 0))
+    except (ValueError, TypeError):
+        flash("Invalid phase index.", "error")
+        return redirect(url_for("dashboard"))
+    
+    metric_text = request.form.get("metric_text", "").strip()
+    if not metric_text:
+        flash("Metric text is required.", "error")
+        return redirect(url_for("dashboard"))
+    
     conn = get_db()
     conn.execute("DELETE FROM completed_metrics WHERE phase_index = ? AND metric_text = ?", (phase_index, metric_text))
     conn.commit()
@@ -742,7 +795,7 @@ def add_resource():
     resource_type = request.form.get("resource_type", "link")
     notes = request.form.get("notes", "").strip()
     topic = request.form.get("topic", "").strip()
-    phase_index = request.form.get("phase_index", "")
+    phase_index = request.form.get("phase_index", "").strip()
     week_str = request.form.get("week", "").strip()
     day_str = request.form.get("day", "").strip()
     estimated_minutes_str = request.form.get("estimated_minutes", "").strip()
@@ -752,10 +805,17 @@ def add_resource():
         flash("Title required", "error")
         return redirect(request.referrer or url_for("dashboard"))
     
-    phase_idx = int(phase_index) if phase_index.isdigit() else None
-    week_val = int(week_str) if week_str.isdigit() else None
-    day_val = int(day_str) if day_str.isdigit() else None
-    estimated_minutes = int(estimated_minutes_str) if estimated_minutes_str.isdigit() else None
+    # Validate phase_index safely
+    phase_idx = None
+    if phase_index and phase_index.isdigit():
+        try:
+            phase_idx = int(phase_index)
+        except (ValueError, TypeError):
+            phase_idx = None
+    
+    week_val = int(week_str) if week_str and week_str.isdigit() else None
+    day_val = int(day_str) if day_str and day_str.isdigit() else None
+    estimated_minutes = int(estimated_minutes_str) if estimated_minutes_str and estimated_minutes_str.isdigit() else None
     
     # Check for duplicate
     conn = get_db()
@@ -784,6 +844,7 @@ def add_resource():
 
 @app.route("/toggle-resource/<int:resource_id>", methods=["POST"])
 def toggle_resource(resource_id):
+    """Toggle resource status with validation."""
     # Capture query parameters to preserve filters
     search_query = request.form.get("q", "")
     tag_filter = request.form.get("tag", "")
@@ -792,6 +853,7 @@ def toggle_resource(resource_id):
     # Get current state and resource details
     resource = conn.execute("SELECT phase_index, week, day, status FROM resources WHERE id = ?", (resource_id,)).fetchone()
     if not resource:
+        flash("Resource not found.", "error")
         return redirect(request.referrer or url_for("dashboard"))
     
     phase_index = resource["phase_index"]
@@ -980,12 +1042,24 @@ def save_journal():
 
 @app.route("/bulk", methods=["POST"])
 def bulk_action():
-    """Perform bulk action on multiple resources."""
+    """Perform bulk action on multiple resources with validation."""
     action = request.form.get("action")
+    if action not in ["complete", "progress", "skip", "delete"]:
+        flash("Invalid action.", "error")
+        return redirect(url_for("dashboard"))
+    
     ids_str = request.form.get("ids", "")
-    ids = [int(id) for id in ids_str.split(',') if id.isdigit()]
+    ids = []
+    for id_str in ids_str.split(','):
+        id_str = id_str.strip()
+        if id_str and id_str.isdigit():
+            try:
+                ids.append(int(id_str))
+            except (ValueError, TypeError):
+                continue
     
     if not ids:
+        flash("No valid resource IDs provided.", "error")
         return redirect(url_for("dashboard"))
     
     conn = get_db()
@@ -1015,13 +1089,33 @@ def bulk_action():
 
 @app.route("/reorder", methods=["POST"])
 def reorder_resource():
-    """Reorder resources via drag-and-drop."""
-    data = request.json
+    """Reorder resources via drag-and-drop with validation."""
+    if not request.is_json:
+        return jsonify({"success": False, "error": "Request must be JSON"}), 400
+    
+    try:
+        data = request.json
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid JSON"}), 400
+    
     resource_id = data.get("resource_id")
     new_position = data.get("new_position")
     day = data.get("day")
     week = data.get("week")
     phase = data.get("phase")
+    
+    # Validate all required fields
+    if None in [resource_id, new_position, day, week, phase]:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
+    
+    try:
+        resource_id = int(resource_id)
+        new_position = int(new_position)
+        day = int(day)
+        week = int(week)
+        phase = int(phase)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid field types"}), 400
     
     conn = get_db()
     # Get all resources for this day
