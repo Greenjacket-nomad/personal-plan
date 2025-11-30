@@ -655,7 +655,9 @@
                     <p class="text-2xl font-bold text-primary"><span class="font-semibold text-primary ml-1">{{ "%.1f"|format(burndown_data.remaining) }}h</span></p>
                 </div>
             </div>
-            <canvas id="burndown-chart" height="300"></canvas>
+            <div style="height: 180px; max-height: 180px;">
+                <canvas id="burndown-chart"></canvas>
+            </div>
         </div>
         {% endif %}
     </div>
