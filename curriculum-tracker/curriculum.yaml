@@ -3,32 +3,32 @@ phases:
     weeks: 4
     hours: 96
     metrics:
-      - "Self-Healing Agent in GitHub"
-      - "Listening Agent that populates DB"
-      - "AI Node that parses text into schema"
-      - "Client handoff package with PRD"
+      - "Self-Healing Agent stored in GitHub repo."
+      - "Listening Agent that populates your DB."
+      - "AI Node that parses text into your schema."
+      - "Package for client handoff. Apply to Track A."
   - name: "PHASE 2: BACKEND ENGINEER"
     weeks: 4
     hours: 96
     metrics:
-      - "Optimized SaaS database schema"
-      - "Robust data processing script"
-      - "Dockerized FastAPI with CI/CD"
-      - "Working RAG system"
+      - "Optimized schema for your SaaS."
+      - "Robust data processing script."
+      - "CI/CD + PYTEST"
+      - "Working RAG system. Apply to Client."
   - name: "PHASE 3: AI ARCHITECT"
     weeks: 4
     hours: 96
     metrics:
-      - "Claude connected to Postgres via MCP"
-      - "Retrieval agent + Cost spreadsheet"
-      - "Security & Privacy audit checklist"
-      - "Multi-agent system integrated"
+      - "Claude connected to Postgres via MCP."
+      - "Retrieval agent + Cost spreadsheet."
+      - "Security + Privacy Checklists."
+      - "Multi-agent system. Apply to Client."
   - name: "PHASE 4: SAAS BUILD"
     weeks: 5
     hours: 120
     metrics:
-      - "Dashboard shell component"
-      - "UI connected to API with E2E tests"
-      - "Auth wired into SaaS"
-      - "Stripe connected + staging deployed"
-      - "Production launch with beta users"
+      - "Dashboard shell component."
+      - "Connect Dashboard + Playwright."
+      - "Wire auth into SaaS Dashboard."
+      - "Connect Stripe, deploy staging."
+      - "Collect feedback, prioritize v1.1."

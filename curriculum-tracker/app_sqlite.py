@@ -351,21 +351,69 @@ def dashboard(view_phase=None, view_week=None):
 def resources_page():
     curriculum = load_curriculum()
     all_resources = get_all_resources()
-    grouped = {}
-    for r in all_resources:
-        phase_idx = r["phase_index"]
-        if phase_idx is None:
-            phase_name = "📌 General Resources"
-        elif phase_idx < len(curriculum["phases"]):
-            phase_name = curriculum["phases"][phase_idx]["name"]
-        else:
-            phase_name = f"Phase {phase_idx}"
-        if phase_name not in grouped:
-            grouped[phase_name] = []
-        grouped[phase_name].append(r)
-    return render_template("resources.html", grouped_resources=grouped, phases=curriculum["phases"],
-        all_tags=get_all_tags(), search_query="", tag_filter=None,
-        filter_type="", filter_phase="", filter_tag="", filter_status="")
+    
+    # Read filter parameters
+    search_query = request.args.get("q", "").strip()
+    filter_type = request.args.get("type", "").strip()
+    filter_phase = request.args.get("phase", "").strip()
+    filter_tag = request.args.get("tag", "").strip()
+    filter_status = request.args.get("status", "").strip()
+    
+    # Apply filters
+    filtered_resources = all_resources
+    
+    # Search filter (title, notes, topic)
+    if search_query:
+        search_lower = search_query.lower()
+        filtered_resources = [
+            r for r in filtered_resources
+            if search_lower in (r.get("title", "") or "").lower()
+            or search_lower in (r.get("notes", "") or "").lower()
+            or search_lower in (r.get("topic", "") or "").lower()
+        ]
+    
+    # Type filter
+    if filter_type:
+        filtered_resources = [
+            r for r in filtered_resources
+            if r.get("resource_type") == filter_type
+        ]
+    
+    # Phase filter
+    if filter_phase:
+        try:
+            phase_index = int(filter_phase)
+            filtered_resources = [
+                r for r in filtered_resources
+                if r.get("phase_index") == phase_index
+            ]
+        except ValueError:
+            pass
+    
+    # Tag filter
+    if filter_tag:
+        filtered_resources = [
+            r for r in filtered_resources
+            if filter_tag in r.get("tags", [])
+        ]
+    
+    # Status filter
+    if filter_status == "completed":
+        filtered_resources = [r for r in filtered_resources if r.get("is_completed")]
+    elif filter_status == "pending":
+        filtered_resources = [r for r in filtered_resources if not r.get("is_completed")]
+    elif filter_status == "favorites":
+        filtered_resources = [r for r in filtered_resources if r.get("is_favorite")]
+    
+    return render_template("resources.html", 
+        resources=filtered_resources,
+        phases=curriculum["phases"],
+        all_tags=get_all_tags(),
+        search_query=search_query,
+        filter_type=filter_type,
+        filter_phase=filter_phase,
+        filter_tag=filter_tag,
+        filter_status=filter_status)
 
 
 @app.route("/log", methods=["POST"])
@@ -594,6 +642,8 @@ def reset():
     conn.execute("DELETE FROM config")
     conn.execute("DELETE FROM time_logs")
     conn.execute("DELETE FROM completed_metrics")
+    conn.execute("UPDATE resources SET is_completed = 0")
+    conn.execute("UPDATE resources SET is_favorite = 0")
     conn.commit()
     conn.close()
     init_if_needed()

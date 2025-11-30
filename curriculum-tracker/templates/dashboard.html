@@ -6,24 +6,105 @@
     <title>Curriculum Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
+        /* Theme Variables */
+        :root {
+            --bg-primary: #f3f4f6;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        [data-theme="dark"] {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-card: #1f2937;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --border-color: #374151;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        
+        .card { 
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+        
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 1.5rem;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
     </style>
+    <script>
+        // Load theme before page renders to prevent flash
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="min-h-screen" style="background-color: var(--bg-primary)">
     <header class="gradient-bg text-white py-6 px-8 shadow-lg">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold">🎓 Curriculum Tracker</h1>
-                <p class="text-purple-200">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
-            </div>
-            <div class="flex items-center gap-6">
-                <a href="/resources" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Resources</a>
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h1 class="text-2xl font-bold">🎓 Curriculum Tracker</h1>
+                    <p class="text-purple-200">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
+                </div>
+                <div class="flex items-center gap-6">
+                <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                    <span class="theme-icon"></span>
+                </button>
+                <a href="/journal" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Journal</a>
+                <a href="/activity" class="text-white hover:text-purple-200"><i class="fas fa-history mr-2"></i>Activity</a>
+                <a href="/resources" class="text-white hover:text-purple-200"><i class="fas fa-database mr-2"></i>Resources</a>
                 <a href="/export" class="text-white hover:text-purple-200"><i class="fas fa-download mr-2"></i>Export</a>
-                <div class="text-right">
-                    <div class="text-3xl font-bold">{{ "%.1f"|format(overall_progress) }}%</div>
-                    <div class="text-purple-200">Progress</div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold">{{ "%.1f"|format(overall_progress) }}%</div>
+                        <div class="text-purple-200">Progress</div>
+                        <div class="text-sm text-purple-300 mt-1">{{ "%.1f"|format(total_hours) }} / 408h total</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Streak Display -->
+            <div class="flex items-center gap-6 text-sm bg-white bg-opacity-10 rounded-lg px-4 py-2">
+                <div class="flex items-center gap-2">
+                    <span>🔥</span>
+                    <span class="font-semibold">{{ current_streak }} day streak</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>📅</span>
+                    <span>{{ week_activity }}/7 this week</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>🏆</span>
+                    <span>{{ longest_streak }} best</span>
                 </div>
             </div>
         </div>
@@ -31,11 +112,27 @@
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-    <div class="max-w-7xl mx-auto px-6 pt-4">
+    <div class="max-w-7xl mx-auto px-6 pt-4" id="flash-messages">
         {% for category, message in messages %}
-        <div class="p-3 rounded-lg mb-2 {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ message }}</div>
+        <div class="flash-message p-3 rounded-lg mb-2 flex items-center justify-between {% if category == 'error' %}bg-red-100 text-red-700{% elif category == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+            <span>{{ message }}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-lg font-bold opacity-50 hover:opacity-100">&times;</button>
+        </div>
         {% endfor %}
     </div>
+    <script>
+        // Auto-dismiss flash messages after 5 seconds
+        setTimeout(() => {
+            const flashContainer = document.getElementById('flash-messages');
+            if (flashContainer) {
+                flashContainer.querySelectorAll('.flash-message').forEach(el => {
+                    el.style.transition = 'opacity 0.5s';
+                    el.style.opacity = '0';
+                    setTimeout(() => el.remove(), 500);
+                });
+            }
+        }, 5000);
+    </script>
     {% endif %}
     {% endwith %}
 
@@ -54,7 +151,8 @@
                             {% if p.is_complete %}<i class="fas fa-check-circle text-green-500"></i>
                             {% elif p.is_current %}<i class="fas fa-play-circle text-purple-500"></i>
                             {% else %}<i class="far fa-circle text-gray-400"></i>{% endif %}
-                            <span class="text-sm font-medium">{{ p.name[:22] }}{% if p.name|length > 22 %}...{% endif %}</span>
+                            {% set short_name = p.name.replace('PHASE ' + (p.index + 1)|string + ': ', '')|title %}
+                            <span class="text-sm font-medium">{{ p.index + 1 }}. {{ short_name }}</span>
                         </div>
                         <div class="text-xs text-gray-500 mt-1 ml-6">{{ p.metrics_done }}/{{ p.metrics_total }} · {{ "%.0f"|format(p.logged) }}/{{ p.hours }}h</div>
                     </button>
@@ -69,30 +167,57 @@
                     <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm">Next<i class="fas fa-arrow-right ml-2"></i></button>
                 </form>
             </div>
+            <div class="card p-4">
+                <a href="/calendar" class="block text-center py-2 px-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm text-blue-700 font-medium">
+                    <i class="fas fa-calendar mr-2"></i>Calendar
+                </a>
+            </div>
         </div>
 
         <!-- Main -->
         <div class="lg:col-span-3 space-y-6">
             <!-- Phase Card -->
             <div class="card p-6">
+                <!-- Breadcrumb -->
+                <div class="mb-3 text-sm text-gray-600">
+                    <span class="font-medium text-purple-600">{{ phase.name|replace('PHASE ' + (phase_index + 1)|string + ': ', '')|title }}</span>
+                    <span class="mx-2">›</span>
+                    <span>Week {{ current_week }} of {{ phase.weeks }}</span>
+                    {% if view_phase is not none and (view_phase != current_phase or view_week != current_week_state) %}
+                    <span class="ml-3 text-blue-600">
+                        <i class="fas fa-eye mr-1"></i>Viewing Week {{ view_week }} (Your progress: Phase {{ current_phase + 1 }} Week {{ current_week_state }})
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- View Mode Banner -->
+                {% if view_phase is not none and (view_phase != current_phase or view_week != current_week_state) %}
+                <div class="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded flex items-center justify-between">
+                    <span class="text-sm text-blue-800"><i class="fas fa-eye mr-2"></i>👁 Viewing different week — not your current position</span>
+                    <a href="/" class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Return to Current</a>
+                </div>
+                {% endif %}
+                
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">{{ phase.name }}</h2>
-                        <p class="text-gray-500">Week {{ current_week }} of {{ phase.weeks }}</p>
-                        <p class="text-sm text-gray-600 mt-1">Phase {{ phase_index + 1 }}: {{ phase_completed }}/{{ phase_total }} resources ({{ "%.0f"|format(phase_percent) }}%)</p>
+                        <p class="text-sm text-gray-600 mt-1">{{ phase_completed }}/{{ phase_total }} resources ({{ "%.0f"|format(phase_percent) }}%)</p>
                     </div>
                     <div class="text-right">
                         <div class="text-2xl font-bold text-purple-600">{{ phase.hours }}h</div>
-                        <div class="text-sm text-gray-500">target</div>
+                        <div class="text-sm text-gray-500">phase target</div>
                     </div>
                 </div>
                 
                 <!-- Week Tabs -->
-                <div class="mb-4 flex gap-2 border-b">
+                <div class="mb-4 flex gap-2">
                     {% for w in range(1, phase.weeks + 1) %}
+                    {% set w_comp = all_weeks_completion.get(w, {}) %}
                     <a href="/view/{{ phase_index }}/{{ w }}{% if search_query %}?q={{ search_query }}{% endif %}" 
-                       class="px-4 py-2 text-sm font-medium {% if w == current_week and view_phase is none %}text-purple-600 border-b-2 border-purple-600{% elif w == view_week and view_phase == phase_index %}text-blue-600 border-b-2 border-blue-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                       class="px-4 py-2 text-sm font-semibold rounded-lg transition-all {% if w == current_week and view_phase is none %}bg-purple-600 text-white{% elif w == view_week and view_phase == phase_index %}bg-blue-500 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
                         W{{ w }}
+                        {% if w_comp.get('is_complete') %}<i class="fas fa-check-circle ml-1 text-xs"></i>
+                        {% elif w_comp.get('is_partial') %}<i class="fas fa-circle text-xs ml-1"></i>{% endif %}
                     </a>
                     {% endfor %}
                 </div>
@@ -162,20 +287,55 @@
             <!-- Log Hours -->
             <div class="card p-6">
                 <h3 class="font-bold text-gray-700 mb-4"><i class="fas fa-clock mr-2"></i>Log Time</h3>
-                <form action="/log" method="POST" class="flex flex-wrap gap-3 items-end">
-                    <div class="w-20">
+                <form action="/log" method="POST" class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+                    <div>
                         <label class="block text-xs text-gray-600 mb-1">Hours</label>
                         <input type="number" name="hours" step="0.25" min="0.25" value="1" class="w-full px-3 py-2 border rounded-lg">
                     </div>
-                    <div class="w-36">
+                    <div>
                         <label class="block text-xs text-gray-600 mb-1">Date</label>
                         <input type="date" name="date" value="{{ today }}" class="w-full px-3 py-2 border rounded-lg">
                     </div>
-                    <div class="flex-1 min-w-[150px]">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Week (opt)</label>
+                        <select name="week" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="">Any</option>
+                            {% for w in range(1, phase.weeks + 1) %}
+                            <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>W{{ w }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Day (opt)</label>
+                        <select name="day" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="">Any</option>
+                            {% for d in range(1, 7) %}
+                            <option value="{{ d }}">D{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs text-gray-600 mb-1">Resource (opt)</label>
+                        <select name="resource_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="">General time</option>
+                            {% for day in [1,2,3,4,5,6] %}
+                                {% if grouped_week_resources[day] %}
+                                    <optgroup label="Day {{ day }}">
+                                    {% for r in grouped_week_resources[day] %}
+                                        <option value="{{ r.id }}">{{ r.title[:50] }}</option>
+                                    {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-span-2 md:col-span-6">
                         <label class="block text-xs text-gray-600 mb-1">Notes</label>
                         <input type="text" name="notes" placeholder="What did you study?" class="w-full px-3 py-2 border rounded-lg">
                     </div>
-                    <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Log</button>
+                    <div class="col-span-2 md:col-span-6">
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg w-full md:w-auto"><i class="fas fa-plus mr-1"></i>Log Time</button>
+                    </div>
                 </form>
                 {% if recent_logs %}
                 <div class="mt-4 flex flex-wrap gap-2">
@@ -199,12 +359,18 @@
                     <a href="/resources" class="text-purple-600 hover:text-purple-800 text-sm">View all →</a>
                 </div>
                 
-                <!-- Search Box -->
+                <!-- Search & Filter Box -->
                 <form method="GET" action="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="mb-4">
-                    <div class="flex gap-2">
-                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources by title, topic, or notes..." class="flex-1 px-3 py-2 border rounded-lg">
-                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-search mr-1"></i>Search</button>
-                        {% if search_query %}
+                    <div class="flex flex-wrap gap-2">
+                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="flex-1 min-w-[200px] px-3 py-2 border rounded-lg">
+                        <select name="tag" class="px-3 py-2 border rounded-lg">
+                            <option value="">All Tags</option>
+                            {% for t in all_tags %}
+                            <option value="{{ t.name }}" {% if request.args.get('tag') == t.name %}selected{% endif %}>{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-search mr-1"></i>Filter</button>
+                        {% if search_query or request.args.get('tag') %}
                         <a href="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">Clear</a>
                         {% endif %}
                     </div>
@@ -217,67 +383,135 @@
                 {% endif %}
 
                 <form action="/add-resource" method="POST" class="mb-4 p-4 bg-gray-50 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-                        <select name="phase_index" class="px-3 py-2 border rounded-lg">
-                            {% for p in phases %}
-                            <option value="{{ p.index }}" {% if p.index == phase_index %}selected{% endif %}>{{ p.name[:30] }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="text" name="title" placeholder="Title *" required class="px-3 py-2 border rounded-lg">
-                        <input type="url" name="url" placeholder="URL" class="px-3 py-2 border rounded-lg">
-                        <select name="resource_type" class="px-3 py-2 border rounded-lg">
-                            <option value="link">🔗 Link</option>
-                            <option value="video">🎬 Video</option>
-                            <option value="article">📄 Article</option>
-                            <option value="docs">📚 Docs</option>
-                            <option value="course">🎓 Course</option>
-                            <option value="project">🛠️ Project</option>
-                            <option value="lab">🔬 Lab</option>
-                            <option value="tutorial">📖 Tutorial</option>
-                            <option value="action">✅ Action</option>
-                            <option value="deliverable">📦 Deliverable</option>
-                            <option value="note">📝 Note</option>
-                        </select>
-                        <select name="week" class="px-3 py-2 border rounded-lg">
-                            {% for w in range(1, phase.weeks + 1) %}
-                            <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>Week {{ w }}</option>
-                            {% endfor %}
-                        </select>
-                        <select name="day" class="px-3 py-2 border rounded-lg">
-                            {% for d in range(1,7) %}
-                            <option value="{{ d }}">Day {{ d }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="space-y-3">
+                        <!-- Row 1: Phase, Week, Day -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <select name="phase_index" class="px-3 py-2 border rounded-lg md:col-span-1">
+                                {% for p in phases %}
+                                <option value="{{ p.index }}" {% if p.index == phase_index %}selected{% endif %}>{{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="week" class="px-3 py-2 border rounded-lg">
+                                <option value="">Any Week</option>
+                                {% for w in range(1, phase.weeks + 1) %}
+                                <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>Week {{ w }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="day" class="px-3 py-2 border rounded-lg">
+                                <option value="">Any Day</option>
+                                {% for d in range(1,7) %}
+                                <option value="{{ d }}">Day {{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- Row 2: Title -->
+                        <input type="text" name="title" placeholder="Resource Title *" required class="w-full px-3 py-2 border rounded-lg">
+                        <!-- Row 3: URL -->
+                        <input type="url" name="url" placeholder="URL (optional)" class="w-full px-3 py-2 border rounded-lg">
+                        <!-- Row 4: Type and Notes -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <select name="resource_type" class="px-3 py-2 border rounded-lg">
+                                <option value="link">🔗 Link</option>
+                                <option value="course">🎓 Course</option>
+                                <option value="docs">📚 Docs</option>
+                                <option value="article">📄 Article</option>
+                                <option value="video">🎬 Video</option>
+                                <option value="project">🛠️ Project</option>
+                                <option value="lab">🔬 Lab</option>
+                                <option value="tutorial">📖 Tutorial</option>
+                                <option value="action">✅ Action</option>
+                                <option value="deliverable">📦 Deliverable</option>
+                                <option value="note">📝 Note</option>
+                            </select>
+                            <input type="text" name="notes" placeholder="Notes (optional)" class="md:col-span-2 px-3 py-2 border rounded-lg">
+                        </div>
+                        <!-- Row 5: Estimates (optional) -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <select name="estimated_minutes" class="px-3 py-2 border rounded-lg">
+                                <option value="">Time estimate (optional)</option>
+                                <option value="15">15 min</option>
+                                <option value="30">30 min</option>
+                                <option value="60">1 hour</option>
+                                <option value="90">1.5 hours</option>
+                                <option value="120">2 hours</option>
+                                <option value="180">3 hours</option>
+                                <option value="240">4 hours</option>
+                            </select>
+                            <select name="difficulty" class="px-3 py-2 border rounded-lg">
+                                <option value="">Difficulty (optional)</option>
+                                <option value="easy">🟢 Easy</option>
+                                <option value="medium">🟡 Medium</option>
+                                <option value="hard">🔴 Hard</option>
+                            </select>
+                        </div>
+                        <!-- Row 6: Submit -->
+                        <button type="submit" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add Resource</button>
                     </div>
-                    <button type="submit" class="mt-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus mr-1"></i>Add Resource</button>
-                    <input type="text" name="notes" placeholder="Notes (optional)" class="w-full mt-2 px-3 py-2 border rounded-lg">
                 </form>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {% for day in [1,2,3,4,5,6] %}
-                    <div class="border rounded">
-                        <div class="p-3 {% if day == 6 %}bg-yellow-50 border-b-2 border-yellow-300{% else %}bg-gray-50 border-b{% endif %}">
-                            {% set day_comp = day_completions.get(day, {'completed': 0, 'total': 0}) %}
-                            <h4 class="font-semibold">Day {{ day }}{% if day == 6 %} • BUILD DAY{% endif %}: {{ day_comp.completed }}/{{ day_comp.total }}{% if day_comp.completed == day_comp.total and day_comp.total > 0 %} ✓{% endif %}</h4>
+                    {% set day_comp = day_completions.get(day, {'completed': 0, 'total': 0}) %}
+                    {% set is_complete = day_comp.completed == day_comp.total and day_comp.total > 0 %}
+                    {% set is_partial = day_comp.completed > 0 and day_comp.completed < day_comp.total %}
+                    <div class="border rounded-lg overflow-hidden {% if day == 6 %}border-yellow-400{% elif is_complete %}border-green-400{% elif is_partial %}border-amber-400{% else %}border-gray-300{% endif %}">
+                        <div class="p-4 border-l-4 {% if day == 6 %}bg-yellow-50 border-yellow-500{% elif is_complete %}bg-green-50 border-green-500{% elif is_partial %}bg-amber-50 border-amber-500{% else %}bg-gray-50 border-gray-400{% endif %}">
+                            <h4 class="font-bold text-lg {% if day == 6 %}text-yellow-900{% elif is_complete %}text-green-900{% elif is_partial %}text-amber-900{% else %}text-gray-700{% endif %}">
+                                Day {{ day }}{% if day == 6 %} • BUILD DAY{% endif %}: {{ day_comp.completed }}/{{ day_comp.total }}
+                                {% if is_complete %}<i class="fas fa-check-circle ml-1"></i>{% elif is_partial %}<i class="fas fa-circle-notch ml-1"></i>{% endif %}
+                            </h4>
+                            {% if day == 6 and phase.metrics and (current_week - 1) < phase.metrics|length %}
+                            <div class="mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-500 rounded">
+                                <p class="text-xs font-semibold text-yellow-800">📦 DELIVERABLE:</p>
+                                <p class="text-sm text-yellow-900">{{ phase.metrics[current_week - 1] }}</p>
+                                <p class="text-xs text-yellow-700 mt-1">(linked to Week {{ current_week }} Day 6)</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        <div class="p-3 space-y-3">
+                        <div class="p-3 space-y-3 day-resources-container" data-day="{{ day }}" data-week="{{ current_week }}" data-phase="{{ phase_index }}">
                             {% for r in grouped_week_resources[day] %}
-                            <div class="flex items-start gap-3 p-3 bg-white rounded border">
+                            <div class="flex items-start gap-3 p-3 bg-white rounded border" data-resource-id="{{ r.id }}">
+                                <span class="drag-handle cursor-move text-gray-400 hover:text-gray-600 mt-1">
+                                    <i class="fas fa-grip-vertical"></i>
+                                </span>
+                                <input type="checkbox" class="resource-checkbox w-5 h-5 mt-1" onchange="toggleSelection({{ r.id }}, this)">
                                 <form action="/toggle-resource/{{ r.id }}" method="POST">
-                                    <button class="w-6 h-6 mt-1 rounded-full {% if r.is_completed %}bg-green-500 text-white{% else %}border-2 border-gray-300{% endif %} flex items-center justify-center">
-                                        {% if r.is_completed %}<i class="fas fa-check text-xs"></i>{% endif %}
+                                    {% if search_query %}
+                                    <input type="hidden" name="q" value="{{ search_query }}">
+                                    {% endif %}
+                                    {% if request.args.get('tag') %}
+                                    <input type="hidden" name="tag" value="{{ request.args.get('tag') }}">
+                                    {% endif %}
+                                    {% set status = r.get('status', 'not_started') %}
+                                    <button class="w-8 h-8 mt-1 rounded-full flex items-center justify-center transition-all
+                                        {% if status == 'complete' %}bg-green-500 text-white
+                                        {% elif status == 'in_progress' %}bg-gradient-to-r from-yellow-400 to-transparent border-2 border-yellow-400 text-yellow-700
+                                        {% elif status == 'skipped' %}bg-gray-300 text-gray-600
+                                        {% else %}border-2 border-gray-300 text-gray-400 hover:border-purple-400{% endif %}"
+                                        title="{% if status == 'complete' %}Complete - click to restart{% elif status == 'in_progress' %}In Progress - click to complete{% elif status == 'skipped' %}Skipped - click to restart{% else %}Not Started - click to start{% endif %}">
+                                        {% if status == 'complete' %}<i class="fas fa-check text-sm"></i>
+                                        {% elif status == 'in_progress' %}<i class="fas fa-circle-notch text-sm"></i>
+                                        {% elif status == 'skipped' %}<i class="fas fa-ban text-sm"></i>
+                                        {% else %}<i class="far fa-circle text-sm"></i>{% endif %}
                                     </button>
                                 </form>
                                 <span class="mt-1 text-lg">{% if r.resource_type == 'video' %}🎬{% elif r.resource_type == 'article' %}📄{% elif r.resource_type == 'docs' %}📚{% elif r.resource_type == 'course' %}🎓{% elif r.resource_type == 'project' %}🛠️{% elif r.resource_type == 'lab' %}🔬{% elif r.resource_type == 'tutorial' %}📖{% elif r.resource_type == 'action' %}✅{% elif r.resource_type == 'deliverable' %}📦{% elif r.resource_type == 'note' %}📝{% else %}🔗{% endif %}</span>
                                 <div class="flex-1">
-                                    {% if r.topic %}
-                                    <p class="font-bold text-gray-800 mb-1">{{ r.topic }}</p>
-                                    {% endif %}
-                                    {% if r.url %}
-                                    <a href="{{ r.url }}" target="_blank" class="font-medium text-purple-600 hover:underline {% if r.is_completed %}line-through{% endif %} block mb-1">{{ r.title }}</a>
-                                    {% else %}
-                                    <span class="font-medium {% if r.is_completed %}line-through text-gray-500{% else %}text-gray-800{% endif %} block mb-1">{{ r.title }}</span>
-                                    {% endif %}
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex-1">
+                                            {% if r.topic %}
+                                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">{{ r.topic|title }}</p>
+                                            {% endif %}
+                                            {% if r.url %}
+                                            <a href="{{ r.url }}" target="_blank" class="text-base font-semibold text-purple-700 hover:text-purple-900 hover:underline {% if r.is_completed %}line-through text-gray-400{% endif %} block">{{ r.title }}</a>
+                                            {% else %}
+                                            <span class="text-base font-semibold {% if r.is_completed %}line-through text-gray-400{% else %}text-gray-900{% endif %} block">{{ r.title }}</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if r.get('logged_hours') %}
+                                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full whitespace-nowrap">{{ "%.1f"|format(r.logged_hours) }}h</span>
+                                        {% endif %}
+                                    </div>
                                     {% if r.notes %}
                                     <details class="text-sm text-gray-600">
                                         <summary class="cursor-pointer hover:text-gray-800">View details</summary>
@@ -297,12 +531,38 @@
                                         </div>
                                     </details>
                                     {% endif %}
+                                    {% if r.tags %}
+                                    <div class="flex gap-1 mt-2">
+                                        {% for i in range(r.tags|length) %}
+                                        <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    {% if r.estimated_minutes or r.difficulty %}
+                                    <div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                                        {% if r.estimated_minutes %}
+                                        <span class="flex items-center gap-1">
+                                            <i class="far fa-clock"></i>
+                                            {% if r.estimated_minutes < 60 %}{{ r.estimated_minutes }} min
+                                            {% else %}{{ "%.1f"|format(r.estimated_minutes / 60) }} hr{% endif %}
+                                        </span>
+                                        {% endif %}
+                                        {% if r.difficulty %}
+                                        <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium
+                                            {% if r.difficulty == 'easy' %}bg-green-500
+                                            {% elif r.difficulty == 'medium' %}bg-yellow-500
+                                            {% elif r.difficulty == 'hard' %}bg-red-500{% endif %}">
+                                            {{ r.difficulty|title }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 <div class="flex flex-col gap-2">
                                     <form action="/toggle-favorite/{{ r.id }}" method="POST">
                                         <button class="{% if r.is_favorite %}text-yellow-500{% else %}text-gray-300 hover:text-yellow-500{% endif %}"><i class="fas fa-star"></i></button>
                                     </form>
-                                    <form action="/delete-resource/{{ r.id }}" method="POST">
+                                    <form action="/delete-resource/{{ r.id }}" method="POST" onsubmit="return confirm('Delete this resource?')">
                                         <button class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
                                     </form>
                                 </div>
@@ -364,6 +624,35 @@
                 {% endif %}
             </div>
 
+            <!-- Learning Journal -->
+            {% if recent_logs %}
+            <div class="card p-6">
+                <details>
+                    <summary class="font-bold text-gray-700 cursor-pointer hover:text-purple-600"><i class="fas fa-book mr-2"></i>Learning Journal <span class="text-sm text-gray-500">({{ recent_logs|length }} recent entries)</span></summary>
+                    <div class="mt-4 space-y-2">
+                        {% for log in recent_logs %}
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-purple-600">{{ log.hours }}h</span>
+                                    <span class="text-sm text-gray-600">{{ log.date }}</span>
+                                </div>
+                                <form action="/delete-log/{{ log.date }}" method="POST" class="inline">
+                                    <button class="text-gray-400 hover:text-red-500 text-xs"><i class="fas fa-times"></i></button>
+                                </form>
+                            </div>
+                            {% if log.notes %}
+                            <p class="text-sm text-gray-700 mt-1">{{ log.notes }}</p>
+                            {% else %}
+                            <p class="text-sm text-gray-400 italic">No notes</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+            </div>
+            {% endif %}
+
             <div class="text-center">
                 <form action="/reset" method="POST" onsubmit="return confirm('Reset progress? Resources will be kept.')">
                     <button class="text-gray-400 hover:text-red-500 text-sm"><i class="fas fa-redo mr-1"></i>Reset Progress</button>
@@ -371,5 +660,125 @@
             </div>
         </div>
     </div>
+
+    <!-- Bulk Actions Bar (hidden by default) -->
+    <div id="bulk-actions" class="hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-purple-600 shadow-lg p-4 z-50">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <span class="font-semibold text-gray-700"><span id="selected-count">0</span> selected</span>
+            <div class="flex gap-2">
+                <button onclick="bulkAction('complete')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-check mr-1"></i>Complete
+                </button>
+                <button onclick="bulkAction('progress')" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-circle-notch mr-1"></i>In Progress
+                </button>
+                <button onclick="bulkAction('skip')" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-ban mr-1"></i>Skip
+                </button>
+                <button onclick="bulkAction('delete')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-trash mr-1"></i>Delete
+                </button>
+                <button onclick="selectedResources.clear(); updateBulkBar(); document.querySelectorAll('.resource-checkbox').forEach(cb => cb.checked = false);" 
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <form id="bulk-form" action="/bulk" method="POST" style="display:none;">
+        <input type="hidden" id="bulk-action" name="action">
+        <input type="hidden" id="bulk-ids" name="ids">
+    </form>
+
+    <script>
+    let selectedResources = new Set();
+
+    function toggleSelection(id, checkbox) {
+        if (checkbox.checked) {
+            selectedResources.add(id);
+        } else {
+            selectedResources.delete(id);
+        }
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const bar = document.getElementById('bulk-actions');
+        const count = document.getElementById('selected-count');
+        if (selectedResources.size > 0) {
+            bar.classList.remove('hidden');
+            count.textContent = selectedResources.size;
+        } else {
+            bar.classList.add('hidden');
+        }
+    }
+
+    function bulkAction(action) {
+        if (selectedResources.size === 0) return;
+        
+        const form = document.getElementById('bulk-form');
+        document.getElementById('bulk-action').value = action;
+        document.getElementById('bulk-ids').value = Array.from(selectedResources).join(',');
+        
+        if (action === 'delete' && !confirm(`Delete ${selectedResources.size} resources?`)) {
+            return;
+        }
+        
+        form.submit();
+    }
+
+    // Drag-and-Drop Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.day-resources-container').forEach(container => {
+            new Sortable(container, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'bg-blue-100',
+                dragClass: 'opacity-50',
+                onEnd: function(evt) {
+                    const resourceId = evt.item.dataset.resourceId;
+                    const newPosition = evt.newIndex;
+                    const day = container.dataset.day;
+                    const week = container.dataset.week;
+                    const phase = container.dataset.phase;
+                    
+                    // Save new order via fetch
+                    fetch('/reorder', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            resource_id: parseInt(resourceId),
+                            new_position: newPosition,
+                            day: parseInt(day),
+                            week: parseInt(week),
+                            phase: parseInt(phase)
+                        })
+                    }).catch(err => console.error('Reorder failed:', err));
+                }
+            });
+        });
+    });
+    
+    // Dark Mode Functions
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateThemeIcon();
+    }
+    
+    function updateThemeIcon() {
+        const theme = document.documentElement.getAttribute('data-theme');
+        const icon = document.querySelector('.theme-icon');
+        if (icon) {
+            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+    }
+    
+    // Initialize theme icon
+    document.addEventListener('DOMContentLoaded', updateThemeIcon);
+    </script>
 </body>
 </html>

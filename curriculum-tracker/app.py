@@ -1,70 +1,103 @@
 #!/usr/bin/env python3
 """
-Curriculum Tracker - Web Dashboard with PostgreSQL
+Curriculum Tracker - Web Dashboard with SQLite
 """
 
 import os
 import json
+import sqlite3
+import calendar
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, flash, Response
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify
 import yaml
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://localhost/curriculum_tracker")
-CURRICULUM_PATH = Path(__file__).parent / "curriculum.yaml"
+APP_DIR = Path(__file__).parent
+DB_PATH = APP_DIR / "tracker.db"
+CURRICULUM_PATH = APP_DIR / "curriculum.yaml"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
+    """
+    Initialize database schema.
+    
+    RESOURCES TABLE FIELD GUIDE:
+    - topic: Learning focus/area from CSV "Focus" column (e.g., "API Authentication") 
+    - notes: Structured context from CSV: "Tasks: ... | Why: ..."
+    - title: Resource name from CSV "Recommended Resource" column
+    - url: Link to the resource (may be NULL for BUILD DAY deliverables)
+    - resource_type: course, docs, article, video, project, lab, tutorial, action, note, deliverable
+    - source: 'curriculum' (imported from CSV) or 'user' (manually added)
+    - status: not_started, in_progress, complete, skipped (replaces is_completed)
+    - is_completed: Legacy boolean, kept for backwards compatibility (0/1)
+    - estimated_minutes: How long this resource takes (auto-set by type, user-editable)
+    - difficulty: easy, medium, hard (auto-set by type, user-editable)
+    - completed_at: ISO timestamp when marked complete
+    - sort_order: For drag-and-drop ordering within days
+    """
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
+    conn.executescript(
+        """
         CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
-        CREATE TABLE IF NOT EXISTS time_logs (id SERIAL PRIMARY KEY, date DATE NOT NULL, hours REAL NOT NULL, notes TEXT);
-        CREATE TABLE IF NOT EXISTS completed_metrics (id SERIAL PRIMARY KEY, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date DATE NOT NULL, UNIQUE(phase_index, metric_text));
-        CREATE TABLE IF NOT EXISTS resources (id SERIAL PRIMARY KEY, phase_index INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed BOOLEAN DEFAULT FALSE, is_favorite BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS tags (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
-        CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER REFERENCES resources(id) ON DELETE CASCADE, tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (resource_id, tag_id));
-    """)
+        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER, week INTEGER, day INTEGER, resource_id INTEGER REFERENCES resources(id));
+        CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, resource_id INTEGER REFERENCES resources(id), UNIQUE(phase_index, metric_text));
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT);
+        CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
+        CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
+        """
+    )
     conn.commit()
-    cur.close()
     conn.close()
 
 
-def get_config(key, default=None):
+def get_progress():
+    """Get progress data from singleton progress table."""
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM config WHERE key = %s", (key,))
+    cur = conn.execute("SELECT * FROM progress WHERE id = 1")
     row = cur.fetchone()
-    cur.close()
     conn.close()
-    return row["value"] if row else default
+    
+    if not row:
+        # Initialize if missing
+        conn = get_db()
+        today = datetime.now().strftime("%Y-%m-%d")
+        conn.execute("INSERT INTO progress (id, current_phase, current_week, started_at) VALUES (1, 0, 1, ?)", (today,))
+        conn.commit()
+        conn.close()
+        return get_progress()
+    
+    return {
+        'current_phase': row['current_phase'] if row['current_phase'] is not None else 0,
+        'current_week': row['current_week'] if row['current_week'] is not None else 1,
+        'started_at': row['started_at'],
+        'last_activity_at': row['last_activity_at']
+    }
 
 
-def set_config(key, value):
+def update_progress(**kwargs):
+    """Update progress table with provided fields."""
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO config (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (key, str(value)))
+    sets = ', '.join(f"{k} = ?" for k in kwargs.keys())
+    values = list(kwargs.values()) + [datetime.now().isoformat()]
+    conn.execute(f"UPDATE progress SET {sets}, last_activity_at = ? WHERE id = 1", values)
     conn.commit()
-    cur.close()
     conn.close()
 
 
 def init_if_needed():
-    if get_config("start_date") is None:
-        today = datetime.now().strftime("%Y-%m-%d")
-        set_config("start_date", today)
-        set_config("current_phase", "0")
-        set_config("current_week", "1")
+    """Ensure progress table is initialized."""
+    progress = get_progress()
+    # get_progress() auto-initializes if missing
+    return progress
 
 
 def load_curriculum():
@@ -83,51 +116,60 @@ def get_current_week_hours():
     today = datetime.now().strftime("%Y-%m-%d")
     week_start, week_end = get_week_dates(today)
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= %s AND date <= %s", (week_start, week_end))
+    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= ? AND date <= ?", (week_start, week_end))
     result = cur.fetchone()
-    cur.close()
     conn.close()
     return result["total"]
 
 
 def get_total_hours():
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs")
+    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs")
     result = cur.fetchone()
-    cur.close()
     conn.close()
     return result["total"]
 
 
 def get_hours_for_phase(phase_index, curriculum):
-    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:phase_index])
-    phase_weeks = curriculum["phases"][phase_index]["weeks"]
-    start_date = get_config("start_date")
-    if not start_date:
-        return 0
-    start = datetime.strptime(start_date, "%Y-%m-%d")
-    phase_start = start + timedelta(weeks=weeks_before)
-    phase_end = phase_start + timedelta(weeks=phase_weeks)
+    # Query by phase_index column instead of date ranges
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= %s AND date < %s", (phase_start.strftime("%Y-%m-%d"), phase_end.strftime("%Y-%m-%d")))
+    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = ?", (phase_index,))
     result = cur.fetchone()
-    cur.close()
     conn.close()
     return result["total"]
 
 
+def get_hours_for_week(phase_index, week):
+    """Get total hours logged for a specific week."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = ? AND week = ?",
+        (phase_index, week)
+    )
+    result = cur.fetchone()
+    conn.close()
+    return result["total"] if result else 0
+
+
+def get_hours_for_resource(resource_id):
+    """Get total hours logged for a specific resource."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE resource_id = ?",
+        (resource_id,)
+    )
+    result = cur.fetchone()
+    conn.close()
+    return result["total"] if result else 0
+
+
 def get_completed_metrics(phase_index=None):
     conn = get_db()
-    cur = conn.cursor()
     if phase_index is not None:
-        cur.execute("SELECT * FROM completed_metrics WHERE phase_index = %s", (phase_index,))
+        cur = conn.execute("SELECT * FROM completed_metrics WHERE phase_index = ?", (phase_index,))
     else:
-        cur.execute("SELECT * FROM completed_metrics")
+        cur = conn.execute("SELECT * FROM completed_metrics")
     results = cur.fetchall()
-    cur.close()
     conn.close()
     return results
 
@@ -135,158 +177,453 @@ def get_completed_metrics(phase_index=None):
 def get_recent_logs(days=7):
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT date, hours, notes FROM time_logs WHERE date >= %s ORDER BY date DESC", (cutoff,))
+    cur = conn.execute("SELECT date, hours, notes FROM time_logs WHERE date >= ? ORDER BY date DESC", (cutoff,))
     results = cur.fetchall()
-    cur.close()
     conn.close()
     return results
 
 
-def get_resources(phase_index=None, search_query=None, tag_id=None):
+def get_resources(phase_index=None):
     conn = get_db()
-    cur = conn.cursor()
-    query = """
-        SELECT r.*, array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) as tags,
-               array_agg(t.color) FILTER (WHERE t.color IS NOT NULL) as tag_colors
-        FROM resources r
-        LEFT JOIN resource_tags rt ON r.id = rt.resource_id
-        LEFT JOIN tags t ON rt.tag_id = t.id
-        WHERE 1=1
-    """
-    params = []
     if phase_index is not None:
-        query += " AND (r.phase_index = %s OR r.phase_index IS NULL)"
-        params.append(phase_index)
-    if search_query:
-        query += " AND (r.title ILIKE %s OR r.notes ILIKE %s)"
-        params.extend([f"%{search_query}%", f"%{search_query}%"])
-    if tag_id:
-        query += " AND r.id IN (SELECT resource_id FROM resource_tags WHERE tag_id = %s)"
-        params.append(tag_id)
-    query += " GROUP BY r.id ORDER BY r.is_favorite DESC, r.created_at DESC"
-    cur.execute(query, params)
-    results = cur.fetchall()
-    cur.close()
+        cur = conn.execute("SELECT * FROM resources WHERE phase_index = ? OR phase_index IS NULL ORDER BY week, day, is_favorite DESC, created_at DESC", (phase_index,))
+    else:
+        cur = conn.execute("SELECT * FROM resources ORDER BY phase_index, week, day, is_favorite DESC, created_at DESC")
+    rows = cur.fetchall()
     conn.close()
-    return results
+
+    resources = []
+    for r in rows:
+        item = dict(r)
+        item["tags"] = []
+        item["tag_colors"] = []
+        conn2 = get_db()
+        tag_rows = conn2.execute(
+            """
+            SELECT t.name, t.color FROM tags t
+            JOIN resource_tags rt ON t.id = rt.tag_id
+            WHERE rt.resource_id = ?
+            """,
+            (r["id"],)
+        ).fetchall()
+        conn2.close()
+        for t in tag_rows:
+            item["tags"].append(t["name"])
+            item["tag_colors"].append(t["color"])
+        resources.append(item)
+    return resources
 
 
 def get_all_resources():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT r.*, array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) as tags,
-               array_agg(t.color) FILTER (WHERE t.color IS NOT NULL) as tag_colors
-        FROM resources r
-        LEFT JOIN resource_tags rt ON r.id = rt.resource_id
-        LEFT JOIN tags t ON rt.tag_id = t.id
-        GROUP BY r.id ORDER BY r.phase_index NULLS FIRST, r.is_favorite DESC, r.created_at DESC
-    """)
-    results = cur.fetchall()
-    cur.close()
-    conn.close()
-    return results
+    return get_resources()
 
 
 def get_all_tags():
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM tags ORDER BY name")
+    cur = conn.execute("SELECT * FROM tags ORDER BY name")
     results = cur.fetchall()
-    cur.close()
     conn.close()
     return results
 
 
+def log_activity(action, entity_type=None, entity_id=None, details=None):
+    """Log an activity to the activity_log table."""
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO activity_log (action, entity_type, entity_id, details) VALUES (?, ?, ?, ?)",
+        (action, entity_type, entity_id, details)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_current_streak():
+    """Calculate current consecutive days with logged hours ending today/yesterday."""
+    conn = get_db()
+    cur = conn.execute("SELECT DISTINCT date FROM time_logs ORDER BY date DESC")
+    dates = [row["date"] for row in cur.fetchall()]
+    conn.close()
+    
+    if not dates:
+        return 0
+    
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    
+    # Check if most recent log is today or yesterday
+    most_recent = datetime.strptime(dates[0], "%Y-%m-%d").date()
+    if most_recent not in [today, yesterday]:
+        return 0  # Streak is broken
+    
+    # Count backwards
+    streak = 1
+    expected_date = most_recent - timedelta(days=1)
+    
+    for date_str in dates[1:]:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date == expected_date:
+            streak += 1
+            expected_date = date - timedelta(days=1)
+        else:
+            break
+    
+    return streak
+
+
+def get_longest_streak():
+    """Calculate longest ever consecutive days with logged hours."""
+    conn = get_db()
+    cur = conn.execute("SELECT DISTINCT date FROM time_logs ORDER BY date")
+    dates = [datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()]
+    conn.close()
+    
+    if not dates:
+        return 0
+    
+    longest = 1
+    current = 1
+    
+    for i in range(1, len(dates)):
+        if (dates[i] - dates[i-1]).days == 1:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 1
+    
+    return longest
+
+
+def get_week_activity():
+    """Get count of days with logged hours this week (Mon-Sun)."""
+    conn = get_db()
+    today = datetime.now()
+    week_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+    week_end = (today + timedelta(days=6 - today.weekday())).strftime("%Y-%m-%d")
+    
+    cur = conn.execute(
+        "SELECT COUNT(DISTINCT date) as count FROM time_logs WHERE date >= ? AND date <= ?",
+        (week_start, week_end)
+    )
+    result = cur.fetchone()
+    conn.close()
+    
+    return result["count"] if result else 0
+
+
+def get_resources_by_week(phase_index, week):
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT * FROM resources WHERE phase_index = ? AND week = ? ORDER BY day, sort_order, is_favorite DESC, created_at DESC",
+        (phase_index, week),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    grouped = {i: [] for i in range(1, 7)}
+    ungrouped = []
+    for r in rows:
+        item = dict(r)
+        item["tags"] = []
+        item["tag_colors"] = []
+        conn2 = get_db()
+        tag_rows = conn2.execute(
+            """
+            SELECT t.name, t.color FROM tags t
+            JOIN resource_tags rt ON t.id = rt.tag_id
+            WHERE rt.resource_id = ?
+            """,
+            (r["id"],),
+        ).fetchall()
+        conn2.close()
+        for t in tag_rows:
+            item["tags"].append(t["name"])
+            item["tag_colors"].append(t["color"])
+        d = r["day"]
+        if isinstance(d, int) and d in grouped:
+            grouped[d].append(item)
+        else:
+            ungrouped.append(item)
+    return grouped, ungrouped
+
+
+def get_day_completion(phase_index, week, day):
+    """Get completion stats for a specific day. Returns (completed, total)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ? AND week = ? AND day = ?",
+        (phase_index, week, day)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    return (completed, total)
+
+
+def get_week_completion(phase_index, week):
+    """Get completion stats for a specific week. Returns (completed, total, percent)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ? AND week = ?",
+        (phase_index, week)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    percent = (completed / total * 100) if total > 0 else 0
+    return (completed, total, percent)
+
+
+def get_phase_completion(phase_index):
+    """Get completion stats for a specific phase. Returns (completed, total, percent)."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT COUNT(*) as total, SUM(is_completed) as completed FROM resources WHERE phase_index = ?",
+        (phase_index,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    total = row["total"] or 0
+    completed = row["completed"] or 0
+    percent = (completed / total * 100) if total > 0 else 0
+    return (completed, total, percent)
+
+
 @app.route("/")
-def dashboard():
+@app.route("/view/<int:view_phase>/<int:view_week>")
+def dashboard(view_phase=None, view_week=None):
     init_if_needed()
     curriculum = load_curriculum()
-    current_phase = int(get_config("current_phase") or 0)
-    current_week = int(get_config("current_week") or 1)
-    if current_phase >= len(curriculum["phases"]):
-        current_phase = len(curriculum["phases"]) - 1
-    phase = curriculum["phases"][current_phase]
+    progress = get_progress()
+    current_phase = progress['current_phase']
+    current_week = progress['current_week']
+    
+    # Handle view mode (doesn't change state)
+    if view_phase is not None and view_week is not None:
+        # Validate view parameters
+        if view_phase >= len(curriculum["phases"]):
+            view_phase = len(curriculum["phases"]) - 1
+        if view_phase < 0:
+            view_phase = 0
+        phase = curriculum["phases"][view_phase]
+        if view_week < 1:
+            view_week = 1
+        if view_week > phase["weeks"]:
+            view_week = phase["weeks"]
+        # Use view values for display, but keep current_phase/current_week for state
+        display_phase = view_phase
+        display_week = view_week
+    else:
+        # Normal mode - use current phase/week
+        if current_phase >= len(curriculum["phases"]):
+            current_phase = len(curriculum["phases"]) - 1
+        display_phase = current_phase
+        display_week = current_week
+        view_phase = None
+        view_week = None
+    
+    phase = curriculum["phases"][display_phase]
     week_hours = get_current_week_hours()
     total_hours = get_total_hours()
     curriculum_total = sum(p["hours"] for p in curriculum["phases"])
     expected_weekly = phase["hours"] / phase["weeks"] if phase["weeks"] > 0 else 0
-    completed = get_completed_metrics(current_phase)
+    completed = get_completed_metrics(display_phase)
     completed_texts = {m["metric_text"] for m in completed}
     total_weeks = sum(p["weeks"] for p in curriculum["phases"])
-    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:current_phase])
-    current_absolute_week = weeks_before + current_week
+    weeks_before = sum(p["weeks"] for p in curriculum["phases"][:display_phase])
+    current_absolute_week = weeks_before + display_week
     overall_progress = (total_hours / curriculum_total * 100) if curriculum_total > 0 else 0
     recent_logs = get_recent_logs()
-    resources = get_resources(current_phase)
+    resources = get_resources(display_phase)
+    grouped_week, ungrouped_week = get_resources_by_week(display_phase, display_week)
     all_tags = get_all_tags()
+    
+    # Add logged hours to each resource
+    resource_hours = {}
+    for r in resources:
+        hours = get_hours_for_resource(r["id"])
+        if hours > 0:
+            resource_hours[r["id"]] = hours
+    
+    # Also add to grouped_week resources
+    for day_resources in grouped_week.values():
+        for r in day_resources:
+            hours = get_hours_for_resource(r["id"])
+            if hours > 0:
+                r["logged_hours"] = hours
     phases_data = []
     for i, p in enumerate(curriculum["phases"]):
         phase_completed = get_completed_metrics(i)
+        metrics_total = len(p.get("metrics", []))
         phases_data.append({
             "index": i, "name": p["name"], "weeks": p["weeks"], "hours": p["hours"],
             "logged": get_hours_for_phase(i, curriculum), "is_current": i == current_phase,
-            "is_complete": i < current_phase, "metrics_done": len(phase_completed),
-            "metrics_total": len(p.get("metrics", []))
+            "is_complete": len(phase_completed) == metrics_total if metrics_total > 0 else False, "metrics_done": len(phase_completed),
+            "metrics_total": metrics_total
         })
-    return render_template("dashboard.html", phase=phase, phase_index=current_phase, current_week=current_week,
+    
+    # Get search query and tag filter if present
+    search_query = request.args.get("q", "").strip()
+    tag_filter = request.args.get("tag", "").strip()
+    
+    # Apply filters
+    if search_query or tag_filter:
+        filtered_grouped = {}
+        for day, day_resources in grouped_week.items():
+            filtered_day = day_resources
+            
+            # Apply search filter
+            if search_query:
+                search_lower = search_query.lower()
+                filtered_day = [
+                    r for r in filtered_day
+                    if search_lower in (r.get("title", "") or "").lower()
+                    or search_lower in (r.get("notes", "") or "").lower()
+                    or search_lower in (r.get("topic", "") or "").lower()
+                ]
+            
+            # Apply tag filter
+            if tag_filter:
+                filtered_day = [
+                    r for r in filtered_day
+                    if tag_filter in r.get("tags", [])
+                ]
+            
+            if filtered_day:
+                filtered_grouped[day] = filtered_day
+        
+        grouped_week = filtered_grouped
+        
+        # Apply same filters to ungrouped
+        filtered_ungrouped = ungrouped_week
+        if search_query:
+            search_lower = search_query.lower()
+            filtered_ungrouped = [
+                r for r in filtered_ungrouped
+                if search_lower in (r.get("title", "") or "").lower()
+                or search_lower in (r.get("notes", "") or "").lower()
+                or search_lower in (r.get("topic", "") or "").lower()
+            ]
+        if tag_filter:
+            filtered_ungrouped = [
+                r for r in filtered_ungrouped
+                if tag_filter in r.get("tags", [])
+            ]
+        ungrouped_week = filtered_ungrouped
+    
+    # Calculate completion rollups
+    phase_completed, phase_total, phase_percent = get_phase_completion(display_phase)
+    week_completed, week_total, week_percent = get_week_completion(display_phase, display_week)
+    day_completions = {}
+    for day in range(1, 7):
+        day_completed, day_total = get_day_completion(display_phase, display_week, day)
+        day_completions[day] = {"completed": day_completed, "total": day_total}
+    
+    # Calculate completion for all weeks in this phase for tab indicators
+    all_weeks_completion = {}
+    for w in range(1, phase["weeks"] + 1):
+        w_completed, w_total, w_percent = get_week_completion(display_phase, w)
+        all_weeks_completion[w] = {
+            "completed": w_completed,
+            "total": w_total,
+            "percent": w_percent,
+            "is_complete": w_completed == w_total and w_total > 0,
+            "is_partial": w_completed > 0 and w_completed < w_total
+        }
+    
+    # Calculate streaks for header display
+    current_streak = get_current_streak()
+    longest_streak = get_longest_streak()
+    week_activity = get_week_activity()
+    
+    return render_template("dashboard.html", phase=phase, phase_index=display_phase, current_week=display_week,
+        current_phase=current_phase, current_week_state=current_week, view_phase=view_phase, view_week=view_week,
         week_hours=week_hours, expected_weekly=expected_weekly, total_hours=total_hours,
         curriculum_total=curriculum_total, overall_progress=min(overall_progress, 100),
         completed_texts=completed_texts, recent_logs=recent_logs, phases=phases_data,
-        resources=resources, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
-        current_absolute_week=current_absolute_week, total_weeks=total_weeks)
+        resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
+        current_absolute_week=current_absolute_week, total_weeks=total_weeks, search_query=search_query,
+        phase_completed=phase_completed, phase_total=phase_total, phase_percent=phase_percent,
+        week_completed=week_completed, week_total=week_total, week_percent=week_percent,
+        day_completions=day_completions, resource_hours=resource_hours, all_weeks_completion=all_weeks_completion,
+        current_streak=current_streak, longest_streak=longest_streak, week_activity=week_activity)
 
 
 @app.route("/resources")
 def resources_page():
     curriculum = load_curriculum()
+    all_resources = get_all_resources()
+    
+    # Read filter parameters
     search_query = request.args.get("q", "").strip()
     filter_type = request.args.get("type", "").strip()
     filter_phase = request.args.get("phase", "").strip()
     filter_tag = request.args.get("tag", "").strip()
     filter_status = request.args.get("status", "").strip()
     
-    # Build query
-    conn = get_db()
-    cur = conn.cursor()
-    query = """
-        SELECT r.*, array_agg(t.name) FILTER (WHERE t.name IS NOT NULL) as tags,
-               array_agg(t.color) FILTER (WHERE t.color IS NOT NULL) as tag_colors
-        FROM resources r
-        LEFT JOIN resource_tags rt ON r.id = rt.resource_id
-        LEFT JOIN tags t ON rt.tag_id = t.id
-        WHERE 1=1
-    """
-    params = []
-    if search_query:
-        query += " AND (r.title ILIKE %s OR r.notes ILIKE %s)"
-        params.extend([f"%{search_query}%", f"%{search_query}%"])
-    if filter_type:
-        query += " AND r.resource_type = %s"
-        params.append(filter_type)
-    if filter_phase.isdigit():
-        query += " AND r.phase_index = %s"
-        params.append(int(filter_phase))
-    if filter_tag:
-        query += " AND r.id IN (SELECT resource_id FROM resource_tags rt2 JOIN tags t2 ON rt2.tag_id = t2.id WHERE t2.name = %s)"
-        params.append(filter_tag)
-    if filter_status == "completed":
-        query += " AND r.is_completed = TRUE"
-    elif filter_status == "pending":
-        query += " AND r.is_completed = FALSE"
-    elif filter_status == "favorites":
-        query += " AND r.is_favorite = TRUE"
-    query += " GROUP BY r.id ORDER BY r.is_favorite DESC, r.created_at DESC"
-    cur.execute(query, params)
-    resources = cur.fetchall()
-    cur.close()
-    conn.close()
+    # Apply filters
+    filtered_resources = all_resources
     
-    phases_data = [{"index": i, "name": p["name"]} for i, p in enumerate(curriculum["phases"])]
-    return render_template("resources.html", resources=resources, phases=phases_data,
-        all_tags=get_all_tags(), search_query=search_query, filter_type=filter_type,
-        filter_phase=filter_phase, filter_tag=filter_tag, filter_status=filter_status)
+    # Search filter (title, notes, topic)
+    if search_query:
+        search_lower = search_query.lower()
+        filtered_resources = [
+            r for r in filtered_resources
+            if search_lower in (r.get("title", "") or "").lower()
+            or search_lower in (r.get("notes", "") or "").lower()
+            or search_lower in (r.get("topic", "") or "").lower()
+        ]
+    
+    # Type filter
+    if filter_type:
+        filtered_resources = [
+            r for r in filtered_resources
+            if r.get("resource_type") == filter_type
+        ]
+    
+    # Phase filter
+    if filter_phase:
+        try:
+            phase_index = int(filter_phase)
+            filtered_resources = [
+                r for r in filtered_resources
+                if r.get("phase_index") == phase_index
+            ]
+        except ValueError:
+            pass
+    
+    # Tag filter
+    if filter_tag:
+        filtered_resources = [
+            r for r in filtered_resources
+            if filter_tag in r.get("tags", [])
+        ]
+    
+    # Status filter
+    if filter_status == "completed":
+        filtered_resources = [r for r in filtered_resources if r.get("is_completed")]
+    elif filter_status == "pending":
+        filtered_resources = [r for r in filtered_resources if not r.get("is_completed")]
+    elif filter_status == "favorites":
+        filtered_resources = [r for r in filtered_resources if r.get("is_favorite")]
+    
+    # Add logged hours to each resource
+    resource_hours = {}
+    for r in filtered_resources:
+        hours = get_hours_for_resource(r["id"])
+        if hours > 0:
+            resource_hours[r["id"]] = hours
+    
+    return render_template("resources.html", 
+        resources=filtered_resources,
+        phases=curriculum["phases"],
+        all_tags=get_all_tags(),
+        search_query=search_query,
+        filter_type=filter_type,
+        filter_phase=filter_phase,
+        filter_tag=filter_tag,
+        filter_status=filter_status,
+        resource_hours=resource_hours)
 
 
 @app.route("/log", methods=["POST"])
@@ -294,19 +631,38 @@ def log_hours():
     hours = float(request.form.get("hours", 0))
     log_date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
     notes = request.form.get("notes", "").strip()
+    
+    # New: Accept week, day, and resource_id from form
+    week_str = request.form.get("week", "").strip()
+    day_str = request.form.get("day", "").strip()
+    resource_id_str = request.form.get("resource_id", "").strip()
+    
+    week = int(week_str) if week_str and week_str.isdigit() else None
+    day = int(day_str) if day_str and day_str.isdigit() else None
+    resource_id = int(resource_id_str) if resource_id_str and resource_id_str.isdigit() else None
+    
     if hours <= 0:
         return redirect(url_for("dashboard"))
+    
+    # Get current phase_index for this log entry
+    progress = get_progress()
+    current_phase = progress['current_phase']
+    
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT id, hours FROM time_logs WHERE date = %s", (log_date,))
-    existing = cur.fetchone()
-    if existing:
-        cur.execute("UPDATE time_logs SET hours = %s, notes = %s WHERE id = %s", (existing["hours"] + hours, notes, existing["id"]))
-    else:
-        cur.execute("INSERT INTO time_logs (date, hours, notes) VALUES (%s, %s, %s)", (log_date, hours, notes))
+    # Insert new log entry with week, day, and resource_id if provided
+    conn.execute(
+        "INSERT INTO time_logs (date, hours, notes, phase_index, week, day, resource_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (log_date, hours, notes, current_phase, week, day, resource_id)
+    )
     conn.commit()
-    cur.close()
     conn.close()
+    
+    # Log activity
+    details = f"{hours}h on {log_date}"
+    if notes:
+        details += f": {notes[:50]}"
+    log_activity("hours_logged", "time_log", None, details)
+    
     flash(f"Logged {hours} hours!", "success")
     return redirect(url_for("dashboard"))
 
@@ -316,12 +672,14 @@ def complete_metric():
     phase_index = int(request.form.get("phase_index", 0))
     metric_text = request.form.get("metric_text", "")
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+    conn.execute("INSERT OR IGNORE INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (?, ?, ?)",
         (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d")))
     conn.commit()
-    cur.close()
     conn.close()
+    
+    # Log activity
+    log_activity("metric_completed", "metric", phase_index, metric_text[:100])
+    
     return redirect(url_for("dashboard"))
 
 
@@ -330,10 +688,8 @@ def uncomplete_metric():
     phase_index = int(request.form.get("phase_index", 0))
     metric_text = request.form.get("metric_text", "")
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM completed_metrics WHERE phase_index = %s AND metric_text = %s", (phase_index, metric_text))
+    conn.execute("DELETE FROM completed_metrics WHERE phase_index = ? AND metric_text = ?", (phase_index, metric_text))
     conn.commit()
-    cur.close()
     conn.close()
     return redirect(url_for("dashboard"))
 
@@ -341,29 +697,29 @@ def uncomplete_metric():
 @app.route("/next-week", methods=["POST"])
 def next_week():
     curriculum = load_curriculum()
-    current_phase = int(get_config("current_phase") or 0)
-    current_week = int(get_config("current_week") or 1)
+    progress = get_progress()
+    current_phase = progress['current_phase']
+    current_week = progress['current_week']
     if current_phase >= len(curriculum["phases"]):
         return redirect(url_for("dashboard"))
     phase = curriculum["phases"][current_phase]
     if current_week < phase["weeks"]:
-        set_config("current_week", current_week + 1)
+        update_progress(current_week=current_week + 1)
     elif current_phase + 1 < len(curriculum["phases"]):
-        set_config("current_phase", current_phase + 1)
-        set_config("current_week", 1)
+        update_progress(current_phase=current_phase + 1, current_week=1)
     return redirect(url_for("dashboard"))
 
 
 @app.route("/prev-week", methods=["POST"])
 def prev_week():
     curriculum = load_curriculum()
-    current_phase = int(get_config("current_phase") or 0)
-    current_week = int(get_config("current_week") or 1)
+    progress = get_progress()
+    current_phase = progress['current_phase']
+    current_week = progress['current_week']
     if current_week > 1:
-        set_config("current_week", current_week - 1)
+        update_progress(current_week=current_week - 1)
     elif current_phase > 0:
-        set_config("current_phase", current_phase - 1)
-        set_config("current_week", curriculum["phases"][current_phase - 1]["weeks"])
+        update_progress(current_phase=current_phase - 1, current_week=curriculum["phases"][current_phase - 1]["weeks"])
     return redirect(url_for("dashboard"))
 
 
@@ -371,8 +727,7 @@ def prev_week():
 def jump_to_phase(phase_index):
     curriculum = load_curriculum()
     if 0 <= phase_index < len(curriculum["phases"]):
-        set_config("current_phase", phase_index)
-        set_config("current_week", 1)
+        update_progress(current_phase=phase_index, current_week=1)
     return redirect(url_for("dashboard"))
 
 
@@ -382,44 +737,144 @@ def add_resource():
     url = request.form.get("url", "").strip()
     resource_type = request.form.get("resource_type", "link")
     notes = request.form.get("notes", "").strip()
+    topic = request.form.get("topic", "").strip()
     phase_index = request.form.get("phase_index", "")
-    tags = request.form.getlist("tags")
+    week_str = request.form.get("week", "").strip()
+    day_str = request.form.get("day", "").strip()
+    estimated_minutes_str = request.form.get("estimated_minutes", "").strip()
+    difficulty = request.form.get("difficulty", "").strip()
+    
     if not title:
         flash("Title required", "error")
         return redirect(request.referrer or url_for("dashboard"))
+    
     phase_idx = int(phase_index) if phase_index.isdigit() else None
+    week_val = int(week_str) if week_str.isdigit() else None
+    day_val = int(day_str) if day_str.isdigit() else None
+    estimated_minutes = int(estimated_minutes_str) if estimated_minutes_str.isdigit() else None
+    
+    # Check for duplicate
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO resources (phase_index, title, url, resource_type, notes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (phase_idx, title, url or None, resource_type, notes or None))
-    resource_id = cur.fetchone()["id"]
-    for tag_id in tags:
-        cur.execute("INSERT INTO resource_tags (resource_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (resource_id, int(tag_id)))
-    conn.commit()
-    cur.close()
-    conn.close()
-    flash(f"Added: {title}", "success")
+    if phase_idx is not None and week_val is not None and day_val is not None:
+        existing = conn.execute(
+            "SELECT id FROM resources WHERE phase_index = ? AND week = ? AND day = ? AND title = ?",
+            (phase_idx, week_val, day_val, title)
+        ).fetchone()
+        
+        if existing:
+            conn.close()
+            flash(f"Resource '{title}' already exists for this day.", "warning")
+            return redirect(request.referrer or url_for("dashboard"))
+    
+    try:
+        conn.execute("""INSERT INTO resources 
+            (phase_index, week, day, title, topic, url, resource_type, notes, source, estimated_minutes, difficulty, user_modified) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?, 1)""",
+            (phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
+        conn.commit()
+        flash(f"Added: {title}", "success")
+    except sqlite3.IntegrityError:
+        flash("Duplicate resource detected.", "warning")
+    finally:
+        conn.close()
+    
     return redirect(request.referrer or url_for("dashboard"))
 
 
 @app.route("/toggle-resource/<int:resource_id>", methods=["POST"])
 def toggle_resource(resource_id):
+    # Capture query parameters to preserve filters
+    search_query = request.form.get("q", "")
+    tag_filter = request.form.get("tag", "")
+    
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE resources SET is_completed = NOT is_completed WHERE id = %s", (resource_id,))
+    # Get current state and resource details
+    resource = conn.execute("SELECT phase_index, week, day, status FROM resources WHERE id = ?", (resource_id,)).fetchone()
+    if not resource:
+        conn.close()
+        return redirect(request.referrer or url_for("dashboard"))
+    
+    phase_index = resource["phase_index"]
+    week = resource["week"]
+    day = resource["day"]
+    current_status = resource["status"] or "not_started"
+    
+    # Cycle through states: not_started → in_progress → complete → not_started
+    status_cycle = {
+        "not_started": "in_progress",
+        "in_progress": "complete",
+        "complete": "not_started",
+        "skipped": "not_started"
+    }
+    new_status = status_cycle.get(current_status, "in_progress")
+    
+    # Update resource with new status and timestamp
+    if new_status == "complete":
+        conn.execute(
+            "UPDATE resources SET status = ?, is_completed = 1, completed_at = ? WHERE id = ?",
+            (new_status, datetime.now().isoformat(), resource_id)
+        )
+    else:
+        conn.execute(
+            "UPDATE resources SET status = ?, is_completed = 0, completed_at = NULL WHERE id = ?",
+            (new_status, resource_id)
+        )
+    
+    # If this is Day 6 (BUILD DAY), link to metrics based on new status
+    if day == 6 and phase_index is not None and week is not None:
+        curriculum = load_curriculum()
+        if phase_index < len(curriculum["phases"]):
+            phase = curriculum["phases"][phase_index]
+            metrics = phase.get("metrics", [])
+            # Map week to metric index: Week 1 → metrics[0], Week 2 → metrics[1], etc.
+            metric_index = week - 1  # week is 1-indexed, metrics are 0-indexed
+            if 0 <= metric_index < len(metrics):
+                metric_text = metrics[metric_index]
+                
+                if new_status == "complete":
+                    # Auto-complete the metric and store the resource_id that triggered it
+                    conn.execute(
+                        "INSERT OR IGNORE INTO completed_metrics (phase_index, metric_text, completed_date, resource_id) VALUES (?, ?, ?, ?)",
+                        (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d"), resource_id)
+                    )
+                else:
+                    # Auto-delete the metric if not complete
+                    conn.execute(
+                        "DELETE FROM completed_metrics WHERE phase_index = ? AND metric_text = ?",
+                        (phase_index, metric_text)
+                    )
+    
     conn.commit()
-    cur.close()
     conn.close()
-    return redirect(request.referrer or url_for("dashboard"))
+    
+    # Log the activity
+    log_activity(
+        f"resource_{new_status}",
+        "resource",
+        resource_id,
+        f"Phase {phase_index + 1} Week {week} Day {day}"
+    )
+    
+    # Build redirect URL with preserved query parameters
+    redirect_url = request.referrer or url_for("dashboard")
+    if search_query or tag_filter:
+        params = []
+        if search_query:
+            params.append(f"q={search_query}")
+        if tag_filter:
+            params.append(f"tag={tag_filter}")
+        if params:
+            separator = "?" if "?" not in redirect_url else "&"
+            redirect_url = f"{redirect_url}{separator}{'&'.join(params)}"
+    
+    return redirect(redirect_url)
 
 
 @app.route("/toggle-favorite/<int:resource_id>", methods=["POST"])
 def toggle_favorite(resource_id):
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE resources SET is_favorite = NOT is_favorite WHERE id = %s", (resource_id,))
+    conn.execute("UPDATE resources SET is_favorite = NOT is_favorite WHERE id = ?", (resource_id,))
     conn.commit()
-    cur.close()
     conn.close()
     return redirect(request.referrer or url_for("dashboard"))
 
@@ -427,10 +882,8 @@ def toggle_favorite(resource_id):
 @app.route("/delete-resource/<int:resource_id>", methods=["POST"])
 def delete_resource(resource_id):
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM resources WHERE id = %s", (resource_id,))
+    conn.execute("DELETE FROM resources WHERE id = ?", (resource_id,))
     conn.commit()
-    cur.close()
     conn.close()
     return redirect(request.referrer or url_for("dashboard"))
 
@@ -438,10 +891,8 @@ def delete_resource(resource_id):
 @app.route("/delete-log/<date>", methods=["POST"])
 def delete_log(date):
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM time_logs WHERE date = %s", (date,))
+    conn.execute("DELETE FROM time_logs WHERE date = ?", (date,))
     conn.commit()
-    cur.close()
     conn.close()
     return redirect(url_for("dashboard"))
 
@@ -453,10 +904,8 @@ def add_tag():
     if not name:
         return redirect(request.referrer or url_for("resources_page"))
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO tags (name, color) VALUES (%s, %s) ON CONFLICT DO NOTHING", (name, color))
+    conn.execute("INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)", (name, color))
     conn.commit()
-    cur.close()
     conn.close()
     flash(f"Tag '{name}' created", "success")
     return redirect(request.referrer or url_for("resources_page"))
@@ -465,42 +914,21 @@ def add_tag():
 @app.route("/delete-tag/<int:tag_id>", methods=["POST"])
 def delete_tag(tag_id):
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM tags WHERE id = %s", (tag_id,))
+    conn.execute("DELETE FROM resource_tags WHERE tag_id = ?", (tag_id,))
+    conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
     conn.commit()
-    cur.close()
     conn.close()
-    return redirect(request.referrer or url_for("resources_page"))
-
-
-@app.route("/add-tag-to-resource/<int:resource_id>", methods=["POST"])
-def add_tag_to_resource(resource_id):
-    tag_id = request.form.get("tag_id")
-    if tag_id:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO resource_tags (resource_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (resource_id, int(tag_id)))
-        conn.commit()
-        cur.close()
-        conn.close()
     return redirect(request.referrer or url_for("resources_page"))
 
 
 @app.route("/export")
 def export_data():
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM config")
-    config = {r["key"]: r["value"] for r in cur.fetchall()}
-    cur.execute("SELECT date::text, hours, notes FROM time_logs ORDER BY date")
-    time_logs = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT phase_index, metric_text, completed_date::text FROM completed_metrics")
-    metrics = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT phase_index, title, url, resource_type, notes, is_completed, is_favorite FROM resources")
-    resources = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT name, color FROM tags")
-    tags = [dict(r) for r in cur.fetchall()]
-    cur.close()
+    config = {r["key"]: r["value"] for r in conn.execute("SELECT * FROM config").fetchall()}
+    time_logs = [dict(r) for r in conn.execute("SELECT date, hours, notes, phase_index FROM time_logs ORDER BY date").fetchall()]
+    metrics = [dict(r) for r in conn.execute("SELECT phase_index, metric_text, completed_date FROM completed_metrics").fetchall()]
+    resources = [dict(r) for r in conn.execute("SELECT phase_index, week, day, title, topic, url, resource_type, notes, is_completed, is_favorite, source FROM resources").fetchall()]
+    tags = [dict(r) for r in conn.execute("SELECT name, color FROM tags").fetchall()]
     conn.close()
     data = {"exported_at": datetime.now().isoformat(), "config": config, "time_logs": time_logs,
             "completed_metrics": metrics, "resources": resources, "tags": tags}
@@ -508,42 +936,203 @@ def export_data():
         headers={"Content-Disposition": "attachment;filename=curriculum_export.json"})
 
 
-@app.route("/import", methods=["POST"])
-def import_data():
-    if "file" not in request.files:
-        flash("No file", "error")
-        return redirect(url_for("resources_page"))
-    file = request.files["file"]
-    try:
-        data = json.load(file)
-    except:
-        flash("Invalid JSON", "error")
-        return redirect(url_for("resources_page"))
+@app.route("/activity")
+def activity():
+    """Show activity history."""
     conn = get_db()
-    cur = conn.cursor()
-    for tag in data.get("tags", []):
-        cur.execute("INSERT INTO tags (name, color) VALUES (%s, %s) ON CONFLICT DO NOTHING", (tag["name"], tag.get("color", "#6366f1")))
-    for r in data.get("resources", []):
-        cur.execute("INSERT INTO resources (phase_index, title, url, resource_type, notes, is_completed, is_favorite) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (r.get("phase_index"), r["title"], r.get("url"), r.get("resource_type", "link"), r.get("notes"), r.get("is_completed", False), r.get("is_favorite", False)))
-    conn.commit()
-    cur.close()
+    logs = conn.execute(
+        "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 100"
+    ).fetchall()
     conn.close()
-    flash("Imported!", "success")
-    return redirect(url_for("resources_page"))
+    return render_template("activity.html", logs=logs)
+
+
+@app.route("/journal")
+def journal():
+    """Show all journal entries."""
+    conn = get_db()
+    entries = conn.execute(
+        "SELECT * FROM journal_entries ORDER BY date DESC"
+    ).fetchall()
+    conn.close()
+    return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"))
+
+
+@app.route("/journal", methods=["POST"])
+def save_journal():
+    """Save or update today's journal entry."""
+    date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
+    content = request.form.get("content", "").strip()
+    mood = request.form.get("mood", "").strip()
+    
+    conn = get_db()
+    # Check if entry exists for this date
+    existing = conn.execute("SELECT id FROM journal_entries WHERE date = ?", (date,)).fetchone()
+    
+    if existing:
+        conn.execute(
+            "UPDATE journal_entries SET content = ?, mood = ?, updated_at = ? WHERE date = ?",
+            (content, mood, datetime.now().isoformat(), date)
+        )
+        flash("Journal updated!", "success")
+    else:
+        conn.execute(
+            "INSERT INTO journal_entries (date, content, mood) VALUES (?, ?, ?)",
+            (date, content, mood)
+        )
+        flash("Journal entry saved!", "success")
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for("journal"))
+
+
+@app.route("/bulk", methods=["POST"])
+def bulk_action():
+    """Perform bulk action on multiple resources."""
+    action = request.form.get("action")
+    ids_str = request.form.get("ids", "")
+    ids = [int(id) for id in ids_str.split(',') if id.isdigit()]
+    
+    if not ids:
+        return redirect(url_for("dashboard"))
+    
+    conn = get_db()
+    
+    if action == "complete":
+        for rid in ids:
+            conn.execute("UPDATE resources SET status = 'complete', is_completed = 1, completed_at = ? WHERE id = ?",
+                (datetime.now().isoformat(), rid))
+        flash(f"Marked {len(ids)} resources as complete", "success")
+    elif action == "progress":
+        for rid in ids:
+            conn.execute("UPDATE resources SET status = 'in_progress', is_completed = 0 WHERE id = ?", (rid,))
+        flash(f"Marked {len(ids)} resources as in progress", "success")
+    elif action == "skip":
+        for rid in ids:
+            conn.execute("UPDATE resources SET status = 'skipped', is_completed = 0 WHERE id = ?", (rid,))
+        flash(f"Skipped {len(ids)} resources", "success")
+    elif action == "delete":
+        for rid in ids:
+            conn.execute("DELETE FROM resources WHERE id = ?", (rid,))
+        flash(f"Deleted {len(ids)} resources", "success")
+    
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/reorder", methods=["POST"])
+def reorder_resource():
+    """Reorder resources via drag-and-drop."""
+    data = request.json
+    resource_id = data.get("resource_id")
+    new_position = data.get("new_position")
+    day = data.get("day")
+    week = data.get("week")
+    phase = data.get("phase")
+    
+    conn = get_db()
+    # Get all resources for this day
+    resources = conn.execute(
+        "SELECT id FROM resources WHERE phase_index = ? AND week = ? AND day = ? ORDER BY sort_order, id",
+        (phase, week, day)
+    ).fetchall()
+    
+    # Update sort orders
+    for i, r in enumerate(resources):
+        conn.execute("UPDATE resources SET sort_order = ? WHERE id = ?", (i * 10, r["id"]))
+    
+    # Set the moved resource to its new position
+    conn.execute("UPDATE resources SET sort_order = ? WHERE id = ?", 
+        (new_position * 10 + 5, resource_id))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"success": True})
+
+
+@app.route("/calendar")
+@app.route("/calendar/<int:year>/<int:month>")
+def calendar_view(year=None, month=None):
+    """Display month calendar with logged hours."""
+    if year is None or month is None:
+        today = datetime.now()
+        year, month = today.year, today.month
+    
+    # Get first/last day of month
+    first_day = datetime(year, month, 1)
+    days_in_month = calendar.monthrange(year, month)[1]
+    last_day = datetime(year, month, days_in_month)
+    
+    # Get all time logs for this month
+    conn = get_db()
+    logs_by_date = {}
+    cur = conn.execute(
+        "SELECT date, SUM(hours) as total_hours FROM time_logs WHERE date >= ? AND date <= ? GROUP BY date",
+        (first_day.strftime("%Y-%m-%d"), last_day.strftime("%Y-%m-%d"))
+    )
+    for row in cur.fetchall():
+        logs_by_date[row["date"]] = row["total_hours"]
+    conn.close()
+    
+    # Build calendar data
+    cal = calendar.monthcalendar(year, month)
+    month_name = first_day.strftime("%B %Y")
+    
+    # Calculate prev/next month
+    prev_month = month - 1 if month > 1 else 12
+    prev_year = year if month > 1 else year - 1
+    next_month = month + 1 if month < 12 else 1
+    next_year = year if month < 12 else year + 1
+    
+    return render_template("calendar.html",
+        calendar_grid=cal,
+        month_name=month_name,
+        year=year,
+        month=month,
+        logs_by_date=logs_by_date,
+        prev_year=prev_year,
+        prev_month=prev_month,
+        next_year=next_year,
+        next_month=next_month
+    )
 
 
 @app.route("/reset", methods=["POST"])
 def reset():
     conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM config; DELETE FROM time_logs; DELETE FROM completed_metrics;")
+    conn.execute("DELETE FROM config")
+    conn.execute("DELETE FROM time_logs")
+    conn.execute("DELETE FROM completed_metrics")
+    conn.execute("UPDATE resources SET is_completed = 0")
+    conn.execute("UPDATE resources SET is_favorite = 0")
+    conn.execute("UPDATE resources SET status = 'not_started'")
+    conn.execute("UPDATE resources SET completed_at = NULL")
     conn.commit()
-    cur.close()
     conn.close()
+    
+    # Log activity
+    log_activity("progress_reset", None, None, "All progress reset")
+    
     init_if_needed()
     flash("Progress reset!", "info")
     return redirect(url_for("dashboard"))
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors."""
+    return render_template('error.html', error='Page not found'), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors."""
+    return render_template('error.html', error='Something went wrong. Please try again.'), 500
 
 
 if __name__ == "__main__":
@@ -551,6 +1140,7 @@ if __name__ == "__main__":
     print("=" * 40)
     print("Initializing database...")
     init_db()
-    print("Open: http://localhost:5000")
+    print("✓ Database ready!")
+    print("\nOpen: http://localhost:5000")
     print("Ctrl+C to stop\n")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)

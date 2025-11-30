@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""
+Import curriculum data from CSV to database.
+
+CSV COLUMN MAPPING:
+- Focus → topic field (learning focus area)
+- Specific Tasks / Context + Why this resource? → notes field (structured as "Tasks: ... | Why: ...")
+- Recommended Resource → title field (resource name)
+- Resource Link → url field (may be empty for BUILD DAY deliverables)
+- Resource Type → resource_type field (normalized to: course, docs, article, video, project, etc.)
+"""
+
 import csv
 import re
 import sqlite3
@@ -127,22 +138,22 @@ SOURCE_COLORS = {
 
 def upsert_resource(conn, phase_index, week, day, title, topic, url, resource_type, notes):
     # Match on (phase_index, week, day, title) for updates
-    # Only update resources where source='curriculum'
+    # Only update resources where source='curriculum' AND user_modified=0
     existing = conn.execute(
-        "SELECT id, source FROM resources WHERE phase_index = ? AND week = ? AND day = ? AND title = ?",
+        "SELECT id, source, user_modified FROM resources WHERE phase_index = ? AND week = ? AND day = ? AND title = ?",
         (phase_index, week, day, title),
     ).fetchone()
     
     if existing:
-        # Only update if source is 'curriculum' (never overwrite user-added resources)
-        if existing[1] == 'curriculum':
+        # Only update if source is 'curriculum' AND not user-modified
+        if existing[1] == 'curriculum' and not existing[2]:
             conn.execute(
                 "UPDATE resources SET url = ?, resource_type = ?, notes = ?, topic = ? WHERE id = ?",
                 (url or None, resource_type, notes or None, topic or None, existing[0]),
             )
             resource_id = existing[0]
         else:
-            # Skip updating user-added resources
+            # Skip updating user-modified or user-added resources
             return existing[0]
     else:
         cur = conn.execute(
@@ -151,22 +162,37 @@ def upsert_resource(conn, phase_index, week, day, title, topic, url, resource_ty
         )
         resource_id = cur.lastrowid
     
-    # Auto-tag: resource_type tag
+    # Auto-tag: resource_type tag ONLY (no URL-based tags)
     type_tag_name = resource_type.capitalize() if resource_type else "Note"
     type_color = TYPE_COLORS.get(resource_type, "#6b7280")
     type_tag_id = get_or_create_tag(conn, type_tag_name, type_color)
     link_tag_to_resource(conn, resource_id, type_tag_id)
     
-    # Auto-tag: source tag from URL domain
-    source_name = extract_domain(url)
-    if source_name:
-        source_color = SOURCE_COLORS.get(source_name, "#6366f1")
-        source_tag_id = get_or_create_tag(conn, source_name, source_color)
-        link_tag_to_resource(conn, resource_id, source_tag_id)
+    # NOTE: URL-based tagging disabled - creates too many junk tags
+    # Only resource-type tags (Course, Docs, Article, etc.) are created
     
     return resource_id
 
+def init_db():
+    """Initialize database schema if needed."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER);
+        CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, UNIQUE(phase_index, metric_text));
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT);
+        CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
+        CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
+        """
+    )
+    conn.commit()
+    conn.close()
+
 def import_csv():
+    # Ensure database schema exists
+    init_db()
+    
     conn = sqlite3.connect(DB_PATH)
     try:
         with open(CSV_PATH, newline='', encoding='utf-8') as f:

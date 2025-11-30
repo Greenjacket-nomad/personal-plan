@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity History - Curriculum Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-primary: #111827;
+            --border-color: #e5e7eb;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #111827;
+            --bg-card: #1f2937;
+            --text-primary: #f9fafb;
+            --border-color: #374151;
+        }
+        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    </style>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body class="min-h-screen" style="background-color: var(--bg-primary)">
+    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">📋 Activity History</h1>
+                <p class="text-purple-200">Track all your actions and progress</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/resources" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Resources</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-5xl mx-auto p-6">
+        <div class="card p-6">
+            <h2 class="font-bold text-gray-700 mb-4"><i class="fas fa-history mr-2"></i>Recent Activity</h2>
+            {% if logs %}
+            <div class="space-y-2">
+                {% for log in logs %}
+                <div class="p-3 bg-gray-50 rounded-lg border-l-4 {% if 'complete' in log.action %}border-green-500{% elif 'hours' in log.action %}border-blue-500{% elif 'reset' in log.action %}border-red-500{% else %}border-purple-500{% endif %}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                {% if 'complete' in log.action %}<i class="fas fa-check-circle text-green-600"></i>
+                                {% elif 'hours' in log.action %}<i class="fas fa-clock text-blue-600"></i>
+                                {% elif 'metric' in log.action %}<i class="fas fa-trophy text-yellow-600"></i>
+                                {% elif 'reset' in log.action %}<i class="fas fa-redo text-red-600"></i>
+                                {% else %}<i class="fas fa-bolt text-purple-600"></i>{% endif %}
+                                <span class="font-medium text-gray-800">{{ log.action.replace('_', ' ')|title }}</span>
+                            </div>
+                            {% if log.details %}
+                            <p class="text-sm text-gray-600 ml-6">{{ log.details }}</p>
+                            {% endif %}
+                        </div>
+                        <span class="text-xs text-gray-500">{{ log.created_at[:16] }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-history text-6xl mb-4 opacity-20"></i>
+                <p>No activity yet. Start tracking your progress!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+

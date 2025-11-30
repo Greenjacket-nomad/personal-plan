@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Curriculum Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #f3f4f6;
+            --text-primary: #111827;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #111827;
+            --text-primary: #f9fafb;
+        }
+        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center" style="background-color: var(--bg-primary)">
+    <div class="text-center px-6">
+        <div class="mb-8">
+            <i class="fas fa-exclamation-triangle text-8xl text-yellow-500 mb-4"></i>
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Oops!</h1>
+            <p class="text-xl text-gray-600">{{ error or 'Something went wrong' }}</p>
+        </div>
+        <a href="/" class="inline-block bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium">
+            <i class="fas fa-home mr-2"></i>Back to Dashboard
+        </a>
+    </div>
+</body>
+</html>
+
