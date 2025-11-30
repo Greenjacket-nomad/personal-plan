@@ -9,7 +9,7 @@ import sqlite3
 import calendar
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, g
 import yaml
 
 APP_DIR = Path(__file__).parent
@@ -21,9 +21,19 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get database connection using Flask's g object for automatic cleanup."""
+    if 'db' not in g:
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception):
+    """Automatically close database connection at end of request."""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 
 def init_db():
@@ -56,7 +66,6 @@ def init_db():
         """
     )
     conn.commit()
-    conn.close()
 
 
 def get_progress():
@@ -64,7 +73,6 @@ def get_progress():
     conn = get_db()
     cur = conn.execute("SELECT * FROM progress WHERE id = 1")
     row = cur.fetchone()
-    conn.close()
     
     if not row:
         # Initialize if missing
@@ -72,7 +80,6 @@ def get_progress():
         today = datetime.now().strftime("%Y-%m-%d")
         conn.execute("INSERT INTO progress (id, current_phase, current_week, started_at) VALUES (1, 0, 1, ?)", (today,))
         conn.commit()
-        conn.close()
         return get_progress()
     
     return {
@@ -90,7 +97,6 @@ def update_progress(**kwargs):
     values = list(kwargs.values()) + [datetime.now().isoformat()]
     conn.execute(f"UPDATE progress SET {sets}, last_activity_at = ? WHERE id = 1", values)
     conn.commit()
-    conn.close()
 
 
 def init_if_needed():
@@ -118,7 +124,6 @@ def get_current_week_hours():
     conn = get_db()
     cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= ? AND date <= ?", (week_start, week_end))
     result = cur.fetchone()
-    conn.close()
     return result["total"]
 
 
@@ -126,7 +131,6 @@ def get_total_hours():
     conn = get_db()
     cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs")
     result = cur.fetchone()
-    conn.close()
     return result["total"]
 
 
@@ -135,7 +139,6 @@ def get_hours_for_phase(phase_index, curriculum):
     conn = get_db()
     cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = ?", (phase_index,))
     result = cur.fetchone()
-    conn.close()
     return result["total"]
 
 
@@ -147,7 +150,6 @@ def get_hours_for_week(phase_index, week):
         (phase_index, week)
     )
     result = cur.fetchone()
-    conn.close()
     return result["total"] if result else 0
 
 
@@ -159,7 +161,6 @@ def get_hours_for_resource(resource_id):
         (resource_id,)
     )
     result = cur.fetchone()
-    conn.close()
     return result["total"] if result else 0
 
 
@@ -170,7 +171,6 @@ def get_completed_metrics(phase_index=None):
     else:
         cur = conn.execute("SELECT * FROM completed_metrics")
     results = cur.fetchall()
-    conn.close()
     return results
 
 
@@ -179,37 +179,50 @@ def get_recent_logs(days=7):
     conn = get_db()
     cur = conn.execute("SELECT date, hours, notes FROM time_logs WHERE date >= ? ORDER BY date DESC", (cutoff,))
     results = cur.fetchall()
-    conn.close()
     return results
 
 
 def get_resources(phase_index=None):
+    """Get resources with tags in a single query (fixes N+1 problem)."""
     conn = get_db()
     if phase_index is not None:
-        cur = conn.execute("SELECT * FROM resources WHERE phase_index = ? OR phase_index IS NULL ORDER BY week, day, is_favorite DESC, created_at DESC", (phase_index,))
+        query = """
+            SELECT r.*, 
+                   GROUP_CONCAT(t.name, '|||') as tag_names,
+                   GROUP_CONCAT(t.color, '|||') as tag_colors
+            FROM resources r
+            LEFT JOIN resource_tags rt ON r.id = rt.resource_id
+            LEFT JOIN tags t ON rt.tag_id = t.id
+            WHERE r.phase_index = ? OR r.phase_index IS NULL
+            GROUP BY r.id
+            ORDER BY r.week, r.day, r.is_favorite DESC, r.created_at DESC
+        """
+        cur = conn.execute(query, (phase_index,))
     else:
-        cur = conn.execute("SELECT * FROM resources ORDER BY phase_index, week, day, is_favorite DESC, created_at DESC")
+        query = """
+            SELECT r.*,
+                   GROUP_CONCAT(t.name, '|||') as tag_names,
+                   GROUP_CONCAT(t.color, '|||') as tag_colors
+            FROM resources r
+            LEFT JOIN resource_tags rt ON r.id = rt.resource_id
+            LEFT JOIN tags t ON rt.tag_id = t.id
+            GROUP BY r.id
+            ORDER BY r.phase_index, r.week, r.day, r.is_favorite DESC, r.created_at DESC
+        """
+        cur = conn.execute(query)
+    
     rows = cur.fetchall()
-    conn.close()
 
     resources = []
     for r in rows:
         item = dict(r)
-        item["tags"] = []
-        item["tag_colors"] = []
-        conn2 = get_db()
-        tag_rows = conn2.execute(
-            """
-            SELECT t.name, t.color FROM tags t
-            JOIN resource_tags rt ON t.id = rt.tag_id
-            WHERE rt.resource_id = ?
-            """,
-            (r["id"],)
-        ).fetchall()
-        conn2.close()
-        for t in tag_rows:
-            item["tags"].append(t["name"])
-            item["tag_colors"].append(t["color"])
+        # Parse concatenated tags
+        if r["tag_names"]:
+            item["tags"] = r["tag_names"].split("|||")
+            item["tag_colors"] = r["tag_colors"].split("|||")
+        else:
+            item["tags"] = []
+            item["tag_colors"] = []
         resources.append(item)
     return resources
 
@@ -222,7 +235,6 @@ def get_all_tags():
     conn = get_db()
     cur = conn.execute("SELECT * FROM tags ORDER BY name")
     results = cur.fetchall()
-    conn.close()
     return results
 
 
@@ -234,7 +246,6 @@ def log_activity(action, entity_type=None, entity_id=None, details=None):
         (action, entity_type, entity_id, details)
     )
     conn.commit()
-    conn.close()
 
 
 def get_current_streak():
@@ -242,7 +253,6 @@ def get_current_streak():
     conn = get_db()
     cur = conn.execute("SELECT DISTINCT date FROM time_logs ORDER BY date DESC")
     dates = [row["date"] for row in cur.fetchall()]
-    conn.close()
     
     if not dates:
         return 0
@@ -275,7 +285,6 @@ def get_longest_streak():
     conn = get_db()
     cur = conn.execute("SELECT DISTINCT date FROM time_logs ORDER BY date")
     dates = [datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()]
-    conn.close()
     
     if not dates:
         return 0
@@ -305,38 +314,39 @@ def get_week_activity():
         (week_start, week_end)
     )
     result = cur.fetchone()
-    conn.close()
     
     return result["count"] if result else 0
 
 
 def get_resources_by_week(phase_index, week):
+    """Get resources for a specific week with tags in single query (fixes N+1)."""
     conn = get_db()
-    cur = conn.execute(
-        "SELECT * FROM resources WHERE phase_index = ? AND week = ? ORDER BY day, sort_order, is_favorite DESC, created_at DESC",
-        (phase_index, week),
-    )
+    query = """
+        SELECT r.*,
+               GROUP_CONCAT(t.name, '|||') as tag_names,
+               GROUP_CONCAT(t.color, '|||') as tag_colors
+        FROM resources r
+        LEFT JOIN resource_tags rt ON r.id = rt.resource_id
+        LEFT JOIN tags t ON rt.tag_id = t.id
+        WHERE r.phase_index = ? AND r.week = ?
+        GROUP BY r.id
+        ORDER BY r.day, r.sort_order, r.is_favorite DESC, r.created_at DESC
+    """
+    cur = conn.execute(query, (phase_index, week))
     rows = cur.fetchall()
-    conn.close()
+    
     grouped = {i: [] for i in range(1, 7)}
     ungrouped = []
     for r in rows:
         item = dict(r)
-        item["tags"] = []
-        item["tag_colors"] = []
-        conn2 = get_db()
-        tag_rows = conn2.execute(
-            """
-            SELECT t.name, t.color FROM tags t
-            JOIN resource_tags rt ON t.id = rt.tag_id
-            WHERE rt.resource_id = ?
-            """,
-            (r["id"],),
-        ).fetchall()
-        conn2.close()
-        for t in tag_rows:
-            item["tags"].append(t["name"])
-            item["tag_colors"].append(t["color"])
+        # Parse concatenated tags
+        if r["tag_names"]:
+            item["tags"] = r["tag_names"].split("|||")
+            item["tag_colors"] = r["tag_colors"].split("|||")
+        else:
+            item["tags"] = []
+            item["tag_colors"] = []
+        
         d = r["day"]
         if isinstance(d, int) and d in grouped:
             grouped[d].append(item)
@@ -353,7 +363,6 @@ def get_day_completion(phase_index, week, day):
         (phase_index, week, day)
     )
     row = cur.fetchone()
-    conn.close()
     total = row["total"] or 0
     completed = row["completed"] or 0
     return (completed, total)
@@ -367,7 +376,6 @@ def get_week_completion(phase_index, week):
         (phase_index, week)
     )
     row = cur.fetchone()
-    conn.close()
     total = row["total"] or 0
     completed = row["completed"] or 0
     percent = (completed / total * 100) if total > 0 else 0
@@ -382,7 +390,6 @@ def get_phase_completion(phase_index):
         (phase_index,)
     )
     row = cur.fetchone()
-    conn.close()
     total = row["total"] or 0
     completed = row["completed"] or 0
     percent = (completed / total * 100) if total > 0 else 0
@@ -655,7 +662,6 @@ def log_hours():
         (log_date, hours, notes, current_phase, week, day, resource_id)
     )
     conn.commit()
-    conn.close()
     
     # Log activity
     details = f"{hours}h on {log_date}"
@@ -675,7 +681,6 @@ def complete_metric():
     conn.execute("INSERT OR IGNORE INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (?, ?, ?)",
         (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d")))
     conn.commit()
-    conn.close()
     
     # Log activity
     log_activity("metric_completed", "metric", phase_index, metric_text[:100])
@@ -690,7 +695,6 @@ def uncomplete_metric():
     conn = get_db()
     conn.execute("DELETE FROM completed_metrics WHERE phase_index = ? AND metric_text = ?", (phase_index, metric_text))
     conn.commit()
-    conn.close()
     return redirect(url_for("dashboard"))
 
 
@@ -762,7 +766,6 @@ def add_resource():
         ).fetchone()
         
         if existing:
-            conn.close()
             flash(f"Resource '{title}' already exists for this day.", "warning")
             return redirect(request.referrer or url_for("dashboard"))
     
@@ -775,8 +778,6 @@ def add_resource():
         flash(f"Added: {title}", "success")
     except sqlite3.IntegrityError:
         flash("Duplicate resource detected.", "warning")
-    finally:
-        conn.close()
     
     return redirect(request.referrer or url_for("dashboard"))
 
@@ -791,7 +792,6 @@ def toggle_resource(resource_id):
     # Get current state and resource details
     resource = conn.execute("SELECT phase_index, week, day, status FROM resources WHERE id = ?", (resource_id,)).fetchone()
     if not resource:
-        conn.close()
         return redirect(request.referrer or url_for("dashboard"))
     
     phase_index = resource["phase_index"]
@@ -845,7 +845,6 @@ def toggle_resource(resource_id):
                     )
     
     conn.commit()
-    conn.close()
     
     # Log the activity
     log_activity(
@@ -875,7 +874,6 @@ def toggle_favorite(resource_id):
     conn = get_db()
     conn.execute("UPDATE resources SET is_favorite = NOT is_favorite WHERE id = ?", (resource_id,))
     conn.commit()
-    conn.close()
     return redirect(request.referrer or url_for("dashboard"))
 
 
@@ -884,7 +882,6 @@ def delete_resource(resource_id):
     conn = get_db()
     conn.execute("DELETE FROM resources WHERE id = ?", (resource_id,))
     conn.commit()
-    conn.close()
     return redirect(request.referrer or url_for("dashboard"))
 
 
@@ -893,7 +890,6 @@ def delete_log(date):
     conn = get_db()
     conn.execute("DELETE FROM time_logs WHERE date = ?", (date,))
     conn.commit()
-    conn.close()
     return redirect(url_for("dashboard"))
 
 
@@ -906,7 +902,6 @@ def add_tag():
     conn = get_db()
     conn.execute("INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)", (name, color))
     conn.commit()
-    conn.close()
     flash(f"Tag '{name}' created", "success")
     return redirect(request.referrer or url_for("resources_page"))
 
@@ -917,7 +912,6 @@ def delete_tag(tag_id):
     conn.execute("DELETE FROM resource_tags WHERE tag_id = ?", (tag_id,))
     conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
     conn.commit()
-    conn.close()
     return redirect(request.referrer or url_for("resources_page"))
 
 
@@ -929,7 +923,6 @@ def export_data():
     metrics = [dict(r) for r in conn.execute("SELECT phase_index, metric_text, completed_date FROM completed_metrics").fetchall()]
     resources = [dict(r) for r in conn.execute("SELECT phase_index, week, day, title, topic, url, resource_type, notes, is_completed, is_favorite, source FROM resources").fetchall()]
     tags = [dict(r) for r in conn.execute("SELECT name, color FROM tags").fetchall()]
-    conn.close()
     data = {"exported_at": datetime.now().isoformat(), "config": config, "time_logs": time_logs,
             "completed_metrics": metrics, "resources": resources, "tags": tags}
     return Response(json.dumps(data, indent=2), mimetype="application/json",
@@ -943,7 +936,6 @@ def activity():
     logs = conn.execute(
         "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 100"
     ).fetchall()
-    conn.close()
     return render_template("activity.html", logs=logs)
 
 
@@ -954,7 +946,6 @@ def journal():
     entries = conn.execute(
         "SELECT * FROM journal_entries ORDER BY date DESC"
     ).fetchall()
-    conn.close()
     return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"))
 
 
@@ -983,7 +974,6 @@ def save_journal():
         flash("Journal entry saved!", "success")
     
     conn.commit()
-    conn.close()
     
     return redirect(url_for("journal"))
 
@@ -1019,7 +1009,6 @@ def bulk_action():
         flash(f"Deleted {len(ids)} resources", "success")
     
     conn.commit()
-    conn.close()
     
     return redirect(url_for("dashboard"))
 
@@ -1050,7 +1039,6 @@ def reorder_resource():
         (new_position * 10 + 5, resource_id))
     
     conn.commit()
-    conn.close()
     
     return jsonify({"success": True})
 
@@ -1077,7 +1065,6 @@ def calendar_view(year=None, month=None):
     )
     for row in cur.fetchall():
         logs_by_date[row["date"]] = row["total_hours"]
-    conn.close()
     
     # Build calendar data
     cal = calendar.monthcalendar(year, month)
@@ -1113,7 +1100,6 @@ def reset():
     conn.execute("UPDATE resources SET status = 'not_started'")
     conn.execute("UPDATE resources SET completed_at = NULL")
     conn.commit()
-    conn.close()
     
     # Log activity
     log_activity("progress_reset", None, None, "All progress reset")
