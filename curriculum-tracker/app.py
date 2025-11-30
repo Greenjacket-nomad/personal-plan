@@ -7,15 +7,19 @@ import os
 import json
 import sqlite3
 import calendar
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, g
+from werkzeug.utils import secure_filename
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, g, send_from_directory
 import yaml
 from constants import STATUS_CYCLE, STATUS_NOT_STARTED, STATUS_IN_PROGRESS, STATUS_COMPLETE
 
 APP_DIR = Path(__file__).parent
 DB_PATH = APP_DIR / "tracker.db"
 CURRICULUM_PATH = APP_DIR / "curriculum.yaml"
+UPLOAD_FOLDER = APP_DIR / "uploads"
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'docx', 'xlsx', 'csv', 'py', 'js', 'sql', 'json', 'html', 'css', 'zip'}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
@@ -56,21 +60,37 @@ def init_db():
     - sort_order: For drag-and-drop ordering within days
     - user_modified: Flag indicating if user manually edited this resource
     """
-    conn = get_db()
+    # Use get_db() if in Flask context, otherwise create direct connection
+    created_directly = False
+    try:
+        conn = get_db()
+    except RuntimeError:
+        # Outside Flask context, create connection directly
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        created_directly = True
+    
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY, current_phase INTEGER DEFAULT 0, current_week INTEGER DEFAULT 1, started_at TEXT, last_activity_at TEXT);
         CREATE TABLE IF NOT EXISTS time_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hours REAL NOT NULL, notes TEXT, phase_index INTEGER, week INTEGER, day INTEGER, resource_id INTEGER);
         CREATE TABLE IF NOT EXISTS completed_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER NOT NULL, metric_text TEXT NOT NULL, completed_date TEXT NOT NULL, resource_id INTEGER, UNIQUE(phase_index, metric_text));
-        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT, status TEXT DEFAULT 'not_started', completed_at TEXT, sort_order INTEGER DEFAULT 0, estimated_minutes INTEGER, difficulty TEXT, user_modified INTEGER DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, phase_index INTEGER, week INTEGER, day INTEGER, title TEXT NOT NULL, url TEXT, resource_type TEXT DEFAULT 'link', notes TEXT, is_completed INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, source TEXT DEFAULT 'user', topic TEXT, status TEXT DEFAULT 'not_started', completed_at TEXT, sort_order INTEGER DEFAULT 0, estimated_minutes INTEGER, difficulty TEXT, user_modified INTEGER DEFAULT 0, scheduled_date DATE, original_date DATE);
         CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, color TEXT DEFAULT '#6366f1');
         CREATE TABLE IF NOT EXISTS resource_tags (resource_id INTEGER, tag_id INTEGER, PRIMARY KEY (resource_id, tag_id));
         CREATE TABLE IF NOT EXISTS activity_log (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, entity_type TEXT, entity_id INTEGER, details TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS journal_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, content TEXT, mood TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS journal_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, content TEXT, mood TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, phase_index INTEGER, week INTEGER, day INTEGER);
+        CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS attachments (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, original_filename TEXT NOT NULL, file_type TEXT, file_size INTEGER, resource_id INTEGER, journal_id INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE, FOREIGN KEY (journal_id) REFERENCES journal_entries(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS blocked_days (id INTEGER PRIMARY KEY AUTOINCREMENT, date DATE NOT NULL UNIQUE, reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
         """
     )
     conn.commit()
+    
+    # Close connection if we created it directly (outside Flask context)
+    if created_directly:
+        conn.close()
 
 
 def get_progress():
@@ -336,6 +356,313 @@ def get_week_activity():
     return result["count"] if result else 0
 
 
+def get_today_position(start_date):
+    """Calculate expected position based on actual curriculum structure."""
+    if not start_date:
+        return None
+    
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    today = datetime.now()
+    days_elapsed = (today - start).days
+    
+    # Get actual curriculum structure from database
+    # Count total curriculum days and find which one we should be on
+    conn = get_db()
+    
+    # Get all unique phase/week/day combinations ordered
+    curriculum_days = conn.execute("""
+        SELECT DISTINCT phase_index, week, day 
+        FROM resources 
+        ORDER BY phase_index, week, day
+    """).fetchall()
+    
+    # days_elapsed maps to curriculum day index
+    if days_elapsed < 0:
+        return {"status": "not_started"}
+    
+    if days_elapsed >= len(curriculum_days):
+        expected_idx = len(curriculum_days) - 1  # Cap at last day
+        status = "complete"
+    else:
+        expected_idx = days_elapsed
+        status = "in_progress"
+    
+    expected = curriculum_days[expected_idx]
+    
+    return {
+        "expected_phase": expected[0],
+        "expected_week": expected[1],
+        "expected_day": expected[2],
+        "days_elapsed": days_elapsed,
+        "total_curriculum_days": len(curriculum_days),
+        "status": status
+    }
+
+
+def get_continue_resource(current_phase, current_week):
+    """Get the resource to continue working on."""
+    conn = get_db()
+    
+    # First check for in_progress
+    in_progress = conn.execute(
+        "SELECT * FROM resources WHERE status = 'in_progress' ORDER BY phase_index, week, day LIMIT 1"
+    ).fetchone()
+    
+    if in_progress:
+        return dict(in_progress)
+    
+    # If none, get first incomplete in current position
+    incomplete = conn.execute(
+        "SELECT * FROM resources WHERE status = 'not_started' AND phase_index = ? AND week = ? ORDER BY day, sort_order LIMIT 1",
+        (current_phase, current_week)
+    ).fetchone()
+    
+    if incomplete:
+        return dict(incomplete)
+    
+    return None
+
+
+def get_hours_today():
+    """Get hours logged today."""
+    conn = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    cur = conn.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date = ?", (today,))
+    result = cur.fetchone()
+    return result["total"] if result else 0
+
+
+def get_start_date():
+    """Get start date from settings."""
+    conn = get_db()
+    result = conn.execute("SELECT value FROM settings WHERE key = 'start_date'").fetchone()
+    return result[0] if result else None
+
+
+def set_start_date(date_str):
+    """Set start date in settings."""
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('start_date', ?)", (date_str,))
+    conn.commit()
+
+
+def calculate_schedule(start_date):
+    """Assign scheduled_date to each curriculum day, skipping blocked days."""
+    conn = get_db()
+    
+    # Get all unique curriculum days in order
+    curriculum_days = conn.execute("""
+        SELECT DISTINCT phase_index, week, day 
+        FROM resources 
+        WHERE phase_index IS NOT NULL AND week IS NOT NULL AND day IS NOT NULL
+        ORDER BY phase_index, week, day
+    """).fetchall()
+    
+    if not curriculum_days:
+        return  # No curriculum days to schedule
+    
+    # Get blocked dates
+    blocked = set(row[0] for row in conn.execute(
+        "SELECT date FROM blocked_days"
+    ).fetchall())
+    
+    current_date = datetime.strptime(start_date, "%Y-%m-%d")
+    
+    for phase_idx, week, day in curriculum_days:
+        # Skip blocked days
+        while current_date.strftime("%Y-%m-%d") in blocked:
+            current_date += timedelta(days=1)
+        
+        date_str = current_date.strftime("%Y-%m-%d")
+        
+        # Assign this date to all resources on this curriculum day
+        # Set original_date only if it's not already set
+        conn.execute("""
+            UPDATE resources 
+            SET scheduled_date = ?, 
+                original_date = COALESCE(original_date, ?)
+            WHERE phase_index = ? AND week = ? AND day = ?
+        """, (date_str, date_str, phase_idx, week, day))
+        
+        current_date += timedelta(days=1)
+    
+    conn.commit()
+
+
+def recalculate_schedule_from(from_date):
+    """Recalculate scheduled_dates from a specific date forward."""
+    conn = get_db()
+    
+    # Find which curriculum day was on or after this date
+    affected = conn.execute("""
+        SELECT MIN(phase_index), MIN(week), MIN(day)
+        FROM resources 
+        WHERE scheduled_date >= ?
+    """, (from_date,)).fetchone()
+    
+    if not affected or affected[0] is None:
+        return  # Nothing to recalculate
+    
+    # Get curriculum days from this point forward
+    curriculum_days = conn.execute("""
+        SELECT DISTINCT phase_index, week, day 
+        FROM resources 
+        WHERE (phase_index > ?) 
+           OR (phase_index = ? AND week > ?)
+           OR (phase_index = ? AND week = ? AND day >= ?)
+        ORDER BY phase_index, week, day
+    """, (affected[0], affected[0], affected[1], affected[0], affected[1], affected[2])).fetchall()
+    
+    if not curriculum_days:
+        return
+    
+    # Get blocked dates >= from_date
+    blocked = set(row[0] for row in conn.execute(
+        "SELECT date FROM blocked_days WHERE date >= ?", (from_date,)
+    ).fetchall())
+    
+    current_date = datetime.strptime(from_date, "%Y-%m-%d")
+    
+    for phase_idx, week, day in curriculum_days:
+        while current_date.strftime("%Y-%m-%d") in blocked:
+            current_date += timedelta(days=1)
+        
+        date_str = current_date.strftime("%Y-%m-%d")
+        
+        conn.execute("""
+            UPDATE resources 
+            SET scheduled_date = ?
+            WHERE phase_index = ? AND week = ? AND day = ?
+        """, (date_str, phase_idx, week, day))
+        
+        current_date += timedelta(days=1)
+    
+    conn.commit()
+
+
+def get_projected_end_date():
+    """Get projected end date from maximum scheduled_date."""
+    conn = get_db()
+    result = conn.execute(
+        "SELECT MAX(scheduled_date) FROM resources WHERE scheduled_date IS NOT NULL"
+    ).fetchone()
+    return result[0] if result and result[0] else None
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def get_burndown_data():
+    """Get burndown chart data showing hours remaining vs time."""
+    conn = get_db()
+    
+    # Get cumulative hours by date
+    daily_logs = conn.execute("""
+        SELECT date, SUM(hours) as hours
+        FROM time_logs
+        GROUP BY date
+        ORDER BY date
+    """).fetchall()
+    
+    total_hours = 408
+    cumulative = 0
+    actual_data = []
+    
+    for row in daily_logs:
+        date = row["date"]
+        hours = row["hours"] or 0
+        cumulative += hours
+        actual_data.append({
+            "date": date,
+            "remaining": total_hours - cumulative
+        })
+    
+    return {
+        "total": total_hours,
+        "logged": cumulative,
+        "remaining": total_hours - cumulative,
+        "actual": actual_data
+    }
+
+
+def get_overdue_days():
+    """Get overdue curriculum days (scheduled_date < today and not complete)."""
+    conn = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    overdue = conn.execute("""
+        SELECT DISTINCT phase_index, week, day, scheduled_date,
+               COUNT(*) as total_resources,
+               SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as completed
+        FROM resources
+        WHERE scheduled_date < ? AND scheduled_date IS NOT NULL
+        GROUP BY phase_index, week, day, scheduled_date
+        HAVING completed < total_resources
+        ORDER BY scheduled_date
+    """, (today,)).fetchall()
+    
+    return [dict(row) for row in overdue]
+
+
+def get_time_reports():
+    """Get time reporting data for analytics."""
+    conn = get_db()
+    
+    # Hours by phase
+    by_phase = conn.execute("""
+        SELECT r.phase_index, SUM(t.hours) as hours
+        FROM time_logs t
+        JOIN resources r ON t.resource_id = r.id
+        WHERE r.phase_index IS NOT NULL
+        GROUP BY r.phase_index
+        ORDER BY r.phase_index
+    """).fetchall()
+    
+    # Hours by resource type
+    by_type = conn.execute("""
+        SELECT r.resource_type, SUM(t.hours) as hours
+        FROM time_logs t
+        JOIN resources r ON t.resource_id = r.id
+        WHERE r.resource_type IS NOT NULL
+        GROUP BY r.resource_type
+    """).fetchall()
+    
+    # Hours by week
+    by_week = conn.execute("""
+        SELECT strftime('%Y-%W', date) as week, SUM(hours) as hours
+        FROM time_logs
+        GROUP BY week
+        ORDER BY week
+    """).fetchall()
+    
+    # Daily average
+    total_hours = conn.execute("SELECT COALESCE(SUM(hours), 0) FROM time_logs").fetchone()[0]
+    total_days = conn.execute("SELECT COUNT(DISTINCT date) FROM time_logs").fetchone()[0]
+    daily_avg = total_hours / total_days if total_days > 0 else 0
+    
+    # Calculate needed daily average (408 hours total, estimate days remaining)
+    start_date = get_start_date()
+    if start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        today = datetime.now()
+        days_elapsed = (today - start).days
+        days_remaining = 119 - days_elapsed  # 17 weeks * 7 days
+        needed_daily = (408 - total_hours) / days_remaining if days_remaining > 0 else 0
+    else:
+        needed_daily = 0
+    
+    return {
+        "by_phase": [dict(row) for row in by_phase],
+        "by_type": [dict(row) for row in by_type],
+        "by_week": [dict(row) for row in by_week],
+        "daily_avg": daily_avg,
+        "needed_daily": needed_daily,
+        "total_hours": total_hours
+    }
+
+
 def get_resources_by_week(phase_index, week):
     """Get resources for a specific week with tags in single query (fixes N+1)."""
     conn = get_db()
@@ -561,21 +888,69 @@ def dashboard(view_phase=None, view_week=None):
     longest_streak = get_longest_streak()
     week_activity = get_week_activity()
     
+    # Get Today View data
+    today_position = None
+    if progress.get('started_at'):
+        today_position = get_today_position(progress['started_at'])
+    
+    # Get Continue resource
+    continue_resource = get_continue_resource(current_phase, current_week)
+    
+    # Get today's journal entry
+    today_date = datetime.now().strftime("%Y-%m-%d")
+    conn = get_db()
+    today_journal = conn.execute("SELECT * FROM journal_entries WHERE date = ?", (today_date,)).fetchone()
+    today_journal_dict = dict(today_journal) if today_journal else None
+    
+    # Get hours logged today
+    hours_today = get_hours_today()
+    
+    # Get start date
+    start_date = get_start_date()
+    
+    # Calculate schedule if start_date exists but scheduled_date is NULL
+    if start_date:
+        # Check if any resources have scheduled_date
+        has_scheduled = conn.execute(
+            "SELECT COUNT(*) FROM resources WHERE scheduled_date IS NOT NULL"
+        ).fetchone()[0] > 0
+        
+        if not has_scheduled:
+            calculate_schedule(start_date)
+    
+    # Get projected end date
+    projected_end_date = get_projected_end_date() if start_date else None
+    
+    # Get resources for expected position (if available)
+    expected_resources = []
+    if today_position and today_position.get('status') != 'not_started':
+        expected_resources = conn.execute(
+            "SELECT * FROM resources WHERE phase_index = ? AND week = ? AND day = ?",
+            (today_position['expected_phase'], today_position['expected_week'], today_position['expected_day'])
+        ).fetchall()
+        expected_resources = [dict(r) for r in expected_resources]
+    
     return render_template("dashboard.html", phase=phase, phase_index=display_phase, current_week=display_week,
         current_phase=current_phase, current_week_state=current_week, view_phase=view_phase, view_week=view_week,
         week_hours=week_hours, expected_weekly=expected_weekly, total_hours=total_hours,
         curriculum_total=curriculum_total, overall_progress=min(overall_progress, 100),
         completed_texts=completed_texts, recent_logs=recent_logs, phases=phases_data,
-        resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=datetime.now().strftime("%Y-%m-%d"),
+        resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=today_date,
         current_absolute_week=current_absolute_week, total_weeks=total_weeks, search_query=search_query,
         phase_completed=phase_completed, phase_total=phase_total, phase_percent=phase_percent,
         week_completed=week_completed, week_total=week_total, week_percent=week_percent,
         day_completions=day_completions, resource_hours=resource_hours, all_weeks_completion=all_weeks_completion,
-        current_streak=current_streak, longest_streak=longest_streak, week_activity=week_activity)
+        current_streak=current_streak, longest_streak=longest_streak, week_activity=week_activity,
+        today_position=today_position, continue_resource=continue_resource, today_journal=today_journal_dict,
+        hours_today=hours_today, expected_resources=expected_resources, curriculum=curriculum,
+        start_date=start_date, projected_end_date=projected_end_date, today=datetime.now().strftime("%Y-%m-%d"),
+        burndown_data=get_burndown_data() if start_date else None,
+        overdue_days=get_overdue_days() if start_date else [])
 
 
 @app.route("/resources")
 def resources_page():
+    """Show all resources with filters."""
     curriculum = load_curriculum()
     all_resources = get_all_resources()
     
@@ -639,6 +1014,18 @@ def resources_page():
         if hours > 0:
             resource_hours[r["id"]] = hours
     
+    # Get overdue resources
+    conn = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    overdue_resource_ids = set()
+    overdue_resources = conn.execute("""
+        SELECT DISTINCT id FROM resources
+        WHERE scheduled_date < ? AND scheduled_date IS NOT NULL
+          AND status != 'complete'
+    """, (today,)).fetchall()
+    for row in overdue_resources:
+        overdue_resource_ids.add(row["id"])
+    
     return render_template("resources.html", 
         resources=filtered_resources,
         phases=curriculum["phases"],
@@ -648,7 +1035,8 @@ def resources_page():
         filter_phase=filter_phase,
         filter_tag=filter_tag,
         filter_status=filter_status,
-        resource_hours=resource_hours)
+        resource_hours=resource_hours,
+        overdue_resource_ids=overdue_resource_ids)
 
 
 @app.route("/log", methods=["POST"])
@@ -658,7 +1046,7 @@ def log_hours():
         hours_str = request.form.get("hours", "0").strip()
         hours = float(hours_str) if hours_str else 0.0
     except (ValueError, TypeError):
-        flash("Invalid hours value. Please enter a number.", "error")
+        flash("Oops, invalid hours value", "error")
         return redirect(url_for("dashboard"))
     
     log_date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
@@ -668,7 +1056,7 @@ def log_hours():
     try:
         datetime.strptime(log_date, "%Y-%m-%d")
     except ValueError:
-        flash("Invalid date format.", "error")
+        flash("Oops, invalid date format", "error")
         return redirect(url_for("dashboard"))
     
     # New: Accept week, day, and resource_id from form
@@ -703,7 +1091,7 @@ def log_hours():
         details += f": {notes[:50]}"
     log_activity("hours_logged", "time_log", None, details)
     
-    flash(f"Logged {hours} hours!", "success")
+    flash(f"Locked in {hours} hours!", "success")
     return redirect(url_for("dashboard"))
 
 
@@ -803,7 +1191,7 @@ def add_resource():
     difficulty = request.form.get("difficulty", "").strip()
     
     if not title:
-        flash("Title required", "error")
+        flash("Oops, title is required", "error")
         return redirect(request.referrer or url_for("dashboard"))
     
     # Validate phase_index safely
@@ -836,7 +1224,7 @@ def add_resource():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user', ?, ?, 1)""",
             (phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
         conn.commit()
-        flash(f"Added: {title}", "success")
+        flash(f"Locked in: {title}", "success")
     except sqlite3.IntegrityError:
         flash("Duplicate resource detected.", "warning")
     
@@ -854,7 +1242,7 @@ def toggle_resource(resource_id):
     # Get current state and resource details
     resource = conn.execute("SELECT phase_index, week, day, status FROM resources WHERE id = ?", (resource_id,)).fetchone()
     if not resource:
-        flash("Resource not found.", "error")
+        flash("Oops, resource not found", "error")
         return redirect(request.referrer or url_for("dashboard"))
     
     phase_index = resource["phase_index"]
@@ -965,7 +1353,7 @@ def add_tag():
     conn = get_db()
     conn.execute("INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)", (name, color))
     conn.commit()
-    flash(f"Tag '{name}' created", "success")
+    flash(f"Tag '{name}' locked in", "success")
     return redirect(request.referrer or url_for("resources_page"))
 
 
@@ -1009,7 +1397,22 @@ def journal():
     entries = conn.execute(
         "SELECT * FROM journal_entries ORDER BY date DESC"
     ).fetchall()
-    return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"))
+    
+    # Get curriculum and today position for pre-populating dropdowns
+    curriculum = load_curriculum()
+    progress = get_progress()
+    today_position = None
+    if progress.get('started_at'):
+        today_position = get_today_position(progress['started_at'])
+    
+    phases_data = []
+    for i, p in enumerate(curriculum["phases"]):
+        phases_data.append({
+            "index": i, "name": p["name"], "weeks": p["weeks"]
+        })
+    
+    return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"),
+                          phases=phases_data, today_position=today_position, editing=None)
 
 
 @app.route("/journal", methods=["POST"])
@@ -1019,25 +1422,116 @@ def save_journal():
     content = request.form.get("content", "").strip()
     mood = request.form.get("mood", "").strip()
     
+    # Get curriculum day linking (optional)
+    link_to_day = request.form.get("link_to_day", "").strip()
+    phase_index = request.form.get("phase_index", "").strip()
+    week = request.form.get("week", "").strip()
+    day = request.form.get("day", "").strip()
+    
+    phase_index_val = int(phase_index) if phase_index and phase_index.isdigit() else None
+    week_val = int(week) if week and week.isdigit() else None
+    day_val = int(day) if day and day.isdigit() else None
+    
     conn = get_db()
     # Check if entry exists for this date
     existing = conn.execute("SELECT id FROM journal_entries WHERE date = ?", (date,)).fetchone()
     
     if existing:
-        conn.execute(
-            "UPDATE journal_entries SET content = ?, mood = ?, updated_at = ? WHERE date = ?",
-            (content, mood, datetime.now().isoformat(), date)
-        )
-        flash("Journal updated!", "success")
+        if link_to_day and phase_index_val is not None:
+            conn.execute(
+                "UPDATE journal_entries SET content = ?, mood = ?, phase_index = ?, week = ?, day = ?, updated_at = ? WHERE date = ?",
+                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), date)
+            )
+        else:
+            conn.execute(
+                "UPDATE journal_entries SET content = ?, mood = ?, phase_index = NULL, week = NULL, day = NULL, updated_at = ? WHERE date = ?",
+                (content, mood, datetime.now().isoformat(), date)
+            )
+        flash("Reflection locked in!", "success")
     else:
-        conn.execute(
-            "INSERT INTO journal_entries (date, content, mood) VALUES (?, ?, ?)",
-            (date, content, mood)
-        )
-        flash("Journal entry saved!", "success")
+        if link_to_day and phase_index_val is not None:
+            conn.execute(
+                "INSERT INTO journal_entries (date, content, mood, phase_index, week, day) VALUES (?, ?, ?, ?, ?, ?)",
+                (date, content, mood, phase_index_val, week_val, day_val)
+            )
+        else:
+            conn.execute(
+                "INSERT INTO journal_entries (date, content, mood) VALUES (?, ?, ?)",
+                (date, content, mood)
+            )
+        flash("Reflection locked in", "success")
     
     conn.commit()
     
+    return redirect(url_for("journal"))
+
+
+@app.route("/journal/<int:entry_id>/edit", methods=["GET", "POST"])
+def edit_journal(entry_id):
+    """Edit a journal entry."""
+    conn = get_db()
+    entry = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+    
+    if not entry:
+        flash("Journal entry not found.", "error")
+        return redirect(url_for("journal"))
+    
+    if request.method == "POST":
+        content = request.form.get("content", "").strip()
+        mood = request.form.get("mood", "").strip()
+        
+        # Get curriculum day linking (optional)
+        link_to_day = request.form.get("link_to_day", "").strip()
+        phase_index = request.form.get("phase_index", "").strip()
+        week = request.form.get("week", "").strip()
+        day = request.form.get("day", "").strip()
+        
+        phase_index_val = int(phase_index) if phase_index and phase_index.isdigit() else None
+        week_val = int(week) if week and week.isdigit() else None
+        day_val = int(day) if day and day.isdigit() else None
+        
+        if link_to_day and phase_index_val is not None:
+            conn.execute(
+                "UPDATE journal_entries SET content = ?, mood = ?, phase_index = ?, week = ?, day = ?, updated_at = ? WHERE id = ?",
+                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), entry_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE journal_entries SET content = ?, mood = ?, phase_index = NULL, week = NULL, day = NULL, updated_at = ? WHERE id = ?",
+                (content, mood, datetime.now().isoformat(), entry_id)
+            )
+        conn.commit()
+        flash("Reflection locked in!", "success")
+        return redirect(url_for("journal"))
+    
+    # GET: Show edit form
+    entries = conn.execute("SELECT * FROM journal_entries ORDER BY date DESC").fetchall()
+    
+    # Get curriculum for dropdowns
+    curriculum = load_curriculum()
+    phases_data = []
+    for i, p in enumerate(curriculum["phases"]):
+        phases_data.append({
+            "index": i, "name": p["name"], "weeks": p["weeks"]
+        })
+    
+    return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"),
+                          editing=dict(entry), phases=phases_data, today_position=None)
+
+
+@app.route("/journal/<int:entry_id>/delete", methods=["POST"])
+def delete_journal(entry_id):
+    """Delete a journal entry."""
+    conn = get_db()
+    entry = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+    
+    if not entry:
+        flash("Journal entry not found.", "error")
+        return redirect(url_for("journal"))
+    
+    conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+    conn.commit()
+    flash("Reflection yeeted into the void", "success")
     return redirect(url_for("journal"))
 
 
@@ -1046,7 +1540,7 @@ def bulk_action():
     """Perform bulk action on multiple resources with validation."""
     action = request.form.get("action")
     if action not in ["complete", "progress", "skip", "delete"]:
-        flash("Invalid action.", "error")
+        flash("Oops, invalid action", "error")
         return redirect(url_for("dashboard"))
     
     ids_str = request.form.get("ids", "")
@@ -1060,7 +1554,7 @@ def bulk_action():
                 continue
     
     if not ids:
-        flash("No valid resource IDs provided.", "error")
+        flash("Oops, no valid resources selected", "error")
         return redirect(url_for("dashboard"))
     
     conn = get_db()
@@ -1069,7 +1563,7 @@ def bulk_action():
         for rid in ids:
             conn.execute("UPDATE resources SET status = 'complete', is_completed = 1, completed_at = ? WHERE id = ?",
                 (datetime.now().isoformat(), rid))
-        flash(f"Marked {len(ids)} resources as complete", "success")
+        flash(f"Crushed {len(ids)} resources", "success")
     elif action == "progress":
         for rid in ids:
             conn.execute("UPDATE resources SET status = 'in_progress', is_completed = 0 WHERE id = ?", (rid,))
@@ -1081,7 +1575,7 @@ def bulk_action():
     elif action == "delete":
         for rid in ids:
             conn.execute("DELETE FROM resources WHERE id = ?", (rid,))
-        flash(f"Deleted {len(ids)} resources", "success")
+        flash(f"Yeeted {len(ids)} resource{'s' if len(ids) > 1 else ''} into the void", "success")
     
     conn.commit()
     
@@ -1141,7 +1635,7 @@ def reorder_resource():
 @app.route("/calendar")
 @app.route("/calendar/<int:year>/<int:month>")
 def calendar_view(year=None, month=None):
-    """Display month calendar with logged hours."""
+    """Display month calendar with logged hours and curriculum days."""
     if year is None or month is None:
         today = datetime.now()
         year, month = today.year, today.month
@@ -1161,6 +1655,41 @@ def calendar_view(year=None, month=None):
     for row in cur.fetchall():
         logs_by_date[row["date"]] = row["total_hours"]
     
+    # Get curriculum schedule for this month
+    curriculum_schedule = {}
+    cur = conn.execute("""
+        SELECT DISTINCT r.phase_index, r.week, r.day, r.scheduled_date,
+               COUNT(r.id) as resource_count,
+               SUM(CASE WHEN r.status = 'complete' THEN 1 ELSE 0 END) as completed_count
+        FROM resources r
+        WHERE r.scheduled_date IS NOT NULL 
+          AND r.scheduled_date >= ? 
+          AND r.scheduled_date <= ?
+        GROUP BY r.phase_index, r.week, r.day, r.scheduled_date
+        ORDER BY r.scheduled_date
+    """, (first_day.strftime("%Y-%m-%d"), last_day.strftime("%Y-%m-%d")))
+    
+    for row in cur.fetchall():
+        date_str = row["scheduled_date"]
+        if date_str not in curriculum_schedule:
+            curriculum_schedule[date_str] = []
+        curriculum_schedule[date_str].append({
+            "phase": row["phase_index"],
+            "week": row["week"],
+            "day": row["day"],
+            "resource_count": row["resource_count"],
+            "completed_count": row["completed_count"]
+        })
+    
+    # Get blocked days for this month
+    blocked_days = set()
+    cur = conn.execute(
+        "SELECT date FROM blocked_days WHERE date >= ? AND date <= ?",
+        (first_day.strftime("%Y-%m-%d"), last_day.strftime("%Y-%m-%d"))
+    )
+    for row in cur.fetchall():
+        blocked_days.add(row["date"])
+    
     # Build calendar data
     cal = calendar.monthcalendar(year, month)
     month_name = first_day.strftime("%B %Y")
@@ -1171,17 +1700,475 @@ def calendar_view(year=None, month=None):
     next_month = month + 1 if month < 12 else 1
     next_year = year if month < 12 else year + 1
     
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Get overdue days for this month
+    overdue_days_map = {}
+    overdue = get_overdue_days()
+    for day in overdue:
+        if day["scheduled_date"]:
+            overdue_days_map[day["scheduled_date"]] = day
+    
     return render_template("calendar.html",
         calendar_grid=cal,
         month_name=month_name,
         year=year,
         month=month,
         logs_by_date=logs_by_date,
+        curriculum_schedule=curriculum_schedule,
+        blocked_days=blocked_days,
+        overdue_days_map=overdue_days_map,
+        today_str=today_str,
         prev_year=prev_year,
         prev_month=prev_month,
         next_year=next_year,
         next_month=next_month
     )
+
+
+@app.route("/settings/start-date", methods=["POST"])
+def update_start_date():
+    """Update start date and recalculate schedule."""
+    date_str = request.form.get("start_date")
+    if not date_str:
+        flash("Oops, start date is required", "error")
+        return redirect(url_for("dashboard"))
+    
+    set_start_date(date_str)
+    calculate_schedule(date_str)
+    flash("Start date locked in! Schedule calculated.", "success")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/curriculum/edit")
+def curriculum_editor():
+    """Show curriculum editor page with tree structure."""
+    curriculum = load_curriculum()
+    conn = get_db()
+    
+    # Build tree structure: Phase -> Week -> Day -> Resources
+    curriculum_tree = []
+    
+    for phase_idx, phase in enumerate(curriculum["phases"]):
+        weeks_data = []
+        for week_num in range(1, phase["weeks"] + 1):
+            days_data = []
+            # Get all days that have resources for this week
+            existing_days = conn.execute("""
+                SELECT DISTINCT day FROM resources 
+                WHERE phase_index = ? AND week = ?
+                ORDER BY day
+            """, (phase_idx, week_num)).fetchall()
+            
+            day_numbers = [row["day"] for row in existing_days if row["day"]]
+            if not day_numbers:
+                # If no days exist, show days 1-6
+                day_numbers = list(range(1, 7))
+            
+            for day_num in day_numbers:
+                # Get resources for this day
+                resources = conn.execute("""
+                    SELECT * FROM resources 
+                    WHERE phase_index = ? AND week = ? AND day = ?
+                    ORDER BY sort_order
+                """, (phase_idx, week_num, day_num)).fetchall()
+                
+                days_data.append({
+                    "number": day_num,
+                    "resources": [dict(r) for r in resources]
+                })
+            
+            # Calculate week resource count
+            week_count = conn.execute(
+                "SELECT COUNT(*) FROM resources WHERE phase_index = ? AND week = ?",
+                (phase_idx, week_num)
+            ).fetchone()[0]
+            
+            weeks_data.append({
+                "number": week_num,
+                "days": days_data,
+                "resource_count": week_count
+            })
+        
+        # Calculate phase resource count
+        phase_count = conn.execute(
+            "SELECT COUNT(*) FROM resources WHERE phase_index = ?",
+            (phase_idx,)
+        ).fetchone()[0]
+        
+        curriculum_tree.append({
+            "index": phase_idx,
+            "name": phase["name"],
+            "weeks": weeks_data,
+            "resource_count": phase_count
+        })
+    
+    return render_template("curriculum_editor.html", curriculum_tree=curriculum_tree)
+
+
+@app.route("/api/calendar-day/<date_str>")
+def api_calendar_day(date_str):
+    """Get details for a specific calendar day."""
+    conn = get_db()
+    
+    # Check if blocked
+    blocked = conn.execute(
+        "SELECT reason FROM blocked_days WHERE date = ?", (date_str,)
+    ).fetchone()
+    
+    # Get curriculum days for this date
+    curriculum_days = []
+    cur = conn.execute("""
+        SELECT DISTINCT r.phase_index, r.week, r.day,
+               COUNT(r.id) as resource_count,
+               SUM(CASE WHEN r.status = 'complete' THEN 1 ELSE 0 END) as completed_count
+        FROM resources r
+        WHERE r.scheduled_date = ?
+        GROUP BY r.phase_index, r.week, r.day
+    """, (date_str,))
+    
+    for row in cur.fetchall():
+        # Get resources for this curriculum day
+        resources = conn.execute("""
+            SELECT id, title, status FROM resources
+            WHERE phase_index = ? AND week = ? AND day = ? AND scheduled_date = ?
+            ORDER BY sort_order
+        """, (row["phase_index"], row["week"], row["day"], date_str)).fetchall()
+        
+        curriculum_days.append({
+            "phase": row["phase_index"],
+            "week": row["week"],
+            "day": row["day"],
+            "resource_count": row["resource_count"],
+            "completed_count": row["completed_count"],
+            "resources": [dict(r) for r in resources]
+        })
+    
+    # Get hours logged
+    hours_result = conn.execute(
+        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date = ?", (date_str,)
+    ).fetchone()
+    hours = hours_result["total"] if hours_result else 0
+    
+    return jsonify({
+        "blocked": blocked is not None,
+        "blocked_reason": blocked["reason"] if blocked else None,
+        "curriculum_days": curriculum_days,
+        "hours": hours
+    })
+
+
+@app.route("/schedule/block", methods=["POST"])
+def block_day():
+    """Block a day and recalculate schedule."""
+    date_str = request.form.get("date")
+    reason = request.form.get("reason", "").strip()
+    
+    if not date_str:
+        flash("Date is required.", "error")
+        return redirect(url_for("calendar_view"))
+    
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO blocked_days (date, reason) VALUES (?, ?)",
+        (date_str, reason)
+    )
+    conn.commit()
+    
+    # Recalculate schedule from this date forward
+    recalculate_schedule_from(date_str)
+    
+    flash("Day blocked and schedule shifted.", "success")
+    return redirect(url_for("calendar_view"))
+
+
+@app.route("/schedule/unblock", methods=["POST"])
+def unblock_day():
+    """Unblock a day and recalculate schedule."""
+    date_str = request.form.get("date")
+    
+    if not date_str:
+        flash("Date is required.", "error")
+        return redirect(url_for("calendar_view"))
+    
+    conn = get_db()
+    conn.execute("DELETE FROM blocked_days WHERE date = ?", (date_str,))
+    conn.commit()
+    
+    # Recalculate schedule from this date forward
+    recalculate_schedule_from(date_str)
+    
+    flash("Day unblocked and schedule shifted.", "success")
+    return redirect(url_for("calendar_view"))
+
+
+@app.route("/api/resource", methods=["POST"])
+def api_add_resource():
+    """Add new resource via API."""
+    try:
+        phase_index = int(request.form.get("phase_index"))
+        week = int(request.form.get("week"))
+        day = int(request.form.get("day"))
+        title = request.form.get("title", "").strip()
+        url = request.form.get("url", "").strip() or None
+        resource_type = request.form.get("resource_type", "link")
+        notes = request.form.get("notes", "").strip() or None
+        estimated_minutes = request.form.get("estimated_minutes", "").strip()
+        difficulty = request.form.get("difficulty", "").strip() or None
+        
+        estimated_minutes_val = int(estimated_minutes) if estimated_minutes and estimated_minutes.isdigit() else None
+        
+        if not title:
+            return jsonify({"success": False, "error": "Title is required"}), 400
+        
+        conn = get_db()
+        
+        # Get max sort_order for this day
+        max_order = conn.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) FROM resources WHERE phase_index = ? AND week = ? AND day = ?",
+            (phase_index, week, day)
+        ).fetchone()[0]
+        
+        conn.execute("""
+            INSERT INTO resources (phase_index, week, day, title, url, resource_type, notes, estimated_minutes, difficulty, sort_order, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')
+        """, (phase_index, week, day, title, url, resource_type, notes, estimated_minutes_val, difficulty, max_order + 1))
+        conn.commit()
+        
+        return jsonify({"success": True, "id": conn.lastrowid})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.route("/api/resource/<int:resource_id>", methods=["PUT"])
+def api_update_resource(resource_id):
+    """Update resource via API."""
+    try:
+        data = request.json
+        conn = get_db()
+        
+        # Build update query dynamically
+        updates = []
+        values = []
+        allowed_fields = ['title', 'url', 'resource_type', 'notes', 'estimated_minutes', 'difficulty']
+        
+        for field in allowed_fields:
+            if field in data:
+                updates.append(f"{field} = ?")
+                values.append(data[field])
+        
+        if not updates:
+            return jsonify({"success": False, "error": "No fields to update"}), 400
+        
+        values.append(resource_id)
+        conn.execute(
+            f"UPDATE resources SET {', '.join(updates)} WHERE id = ?",
+            values
+        )
+        conn.commit()
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.route("/api/resource/<int:resource_id>", methods=["DELETE"])
+def api_delete_resource(resource_id):
+    """Delete resource via API."""
+    try:
+        conn = get_db()
+        conn.execute("DELETE FROM resources WHERE id = ?", (resource_id,))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.route("/api/resource/<int:resource_id>/reorder", methods=["POST"])
+def api_reorder_resource(resource_id):
+    """Update resource sort_order via API."""
+    try:
+        data = request.json
+        new_position = int(data.get("new_position"))
+        day = int(data.get("day"))
+        week = int(data.get("week"))
+        phase_index = int(data.get("phase_index"))
+        
+        conn = get_db()
+        
+        # Get current resource
+        resource = conn.execute("SELECT sort_order FROM resources WHERE id = ?", (resource_id,)).fetchone()
+        if not resource:
+            return jsonify({"success": False, "error": "Resource not found"}), 404
+        
+        old_position = resource["sort_order"]
+        
+        # Get all resources for this day
+        all_resources = conn.execute("""
+            SELECT id, sort_order FROM resources 
+            WHERE phase_index = ? AND week = ? AND day = ?
+            ORDER BY sort_order
+        """, (phase_index, week, day)).fetchall()
+        
+        # Reorder
+        if new_position < old_position:
+            # Moving up
+            conn.execute("""
+                UPDATE resources 
+                SET sort_order = sort_order + 1 
+                WHERE phase_index = ? AND week = ? AND day = ? 
+                  AND sort_order >= ? AND sort_order < ?
+            """, (phase_index, week, day, new_position, old_position))
+        else:
+            # Moving down
+            conn.execute("""
+                UPDATE resources 
+                SET sort_order = sort_order - 1 
+                WHERE phase_index = ? AND week = ? AND day = ? 
+                  AND sort_order > ? AND sort_order <= ?
+            """, (phase_index, week, day, old_position, new_position))
+        
+        # Set new position
+        conn.execute(
+            "UPDATE resources SET sort_order = ? WHERE id = ?",
+            (new_position, resource_id)
+        )
+        conn.commit()
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.route("/upload/resource/<int:resource_id>", methods=["POST"])
+def upload_resource_file(resource_id):
+    """Upload file attachment to a resource."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No filename"}), 400
+    
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{uuid.uuid4()}.{ext}"
+        filepath = UPLOAD_FOLDER / filename
+        file.save(str(filepath))
+        
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO attachments (filename, original_filename, file_type, file_size, resource_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (filename, file.filename, ext, filepath.stat().st_size, resource_id))
+        conn.commit()
+        
+        return jsonify({"success": True, "filename": filename})
+    
+    return jsonify({"error": "File type not allowed"}), 400
+
+
+@app.route("/upload/journal/<int:journal_id>", methods=["POST"])
+def upload_journal_file(journal_id):
+    """Upload file attachment to a journal entry."""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No filename"}), 400
+    
+    if file and allowed_file(file.filename):
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{uuid.uuid4()}.{ext}"
+        filepath = UPLOAD_FOLDER / filename
+        file.save(str(filepath))
+        
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO attachments (filename, original_filename, file_type, file_size, journal_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (filename, file.filename, ext, filepath.stat().st_size, journal_id))
+        conn.commit()
+        
+        return jsonify({"success": True, "filename": filename})
+    
+    return jsonify({"error": "File type not allowed"}), 400
+
+
+@app.route("/uploads/<filename>")
+def serve_file(filename):
+    """Serve uploaded files."""
+    return send_from_directory(str(UPLOAD_FOLDER), filename)
+
+
+@app.route("/attachment/<int:attachment_id>/delete", methods=["POST"])
+def delete_attachment(attachment_id):
+    """Delete an attachment."""
+    conn = get_db()
+    attachment = conn.execute("SELECT filename FROM attachments WHERE id = ?", (attachment_id,)).fetchone()
+    if attachment:
+        filepath = UPLOAD_FOLDER / attachment[0]
+        if filepath.exists():
+            filepath.unlink()
+        conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
+        conn.commit()
+        flash("Attachment yeeted into the void", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.route("/api/attachments/resource/<int:resource_id>")
+def api_get_resource_attachments(resource_id):
+    """Get all attachments for a resource."""
+    conn = get_db()
+    attachments = conn.execute(
+        "SELECT id, filename, original_filename, file_type, file_size, created_at FROM attachments WHERE resource_id = ? ORDER BY created_at DESC",
+        (resource_id,)
+    ).fetchall()
+    return jsonify({
+        "attachments": [dict(att) for att in attachments]
+    })
+
+
+@app.route("/api/attachments/journal/<int:journal_id>")
+def api_get_journal_attachments(journal_id):
+    """Get all attachments for a journal entry."""
+    conn = get_db()
+    attachments = conn.execute(
+        "SELECT id, filename, original_filename, file_type, file_size, created_at FROM attachments WHERE journal_id = ? ORDER BY created_at DESC",
+        (journal_id,)
+    ).fetchall()
+    return jsonify({
+        "attachments": [dict(att) for att in attachments]
+    })
+
+
+@app.route("/api/metric-resources")
+def api_metric_resources():
+    """Get resources linked to a specific metric (Day 6 of a week)."""
+    phase_index = request.args.get("phase", type=int)
+    week = request.args.get("week", type=int)
+    day = request.args.get("day", type=int)
+    
+    if phase_index is None or week is None or day is None:
+        return jsonify({"error": "Missing parameters"}), 400
+    
+    conn = get_db()
+    resources = conn.execute(
+        "SELECT id, title, status FROM resources WHERE phase_index = ? AND week = ? AND day = ? ORDER BY sort_order",
+        (phase_index, week, day)
+    ).fetchall()
+    
+    return jsonify({
+        "resources": [dict(r) for r in resources]
+    })
+
+
+@app.route("/reports")
+def reports():
+    """Show time reports and analytics."""
+    reports_data = get_time_reports()
+    return render_template("reports.html", reports=reports_data)
 
 
 @app.route("/reset", methods=["POST"])
@@ -1200,7 +2187,7 @@ def reset():
     log_activity("progress_reset", None, None, "All progress reset")
     
     init_if_needed()
-    flash("Progress reset!", "info")
+    flash("Fresh slate!", "info")
     return redirect(url_for("dashboard"))
 
 
@@ -1217,7 +2204,7 @@ def internal_error(error):
 
 
 if __name__ == "__main__":
-    print("\n🎓 Curriculum Tracker")
+    print("\nCurriculum Tracker")
     print("=" * 40)
     print("Initializing database...")
     init_db()

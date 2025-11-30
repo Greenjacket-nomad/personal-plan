@@ -4,80 +4,170 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity History - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #f3f4f6;
-            --bg-card: #ffffff;
-            --text-primary: #111827;
-            --border-color: #e5e7eb;
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
         }
+        
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-card: #1f2937;
-            --text-primary: #f9fafb;
-            --border-color: #374151;
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
         }
-        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        [data-theme="light"] .glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        a {
+            transition: color 150ms ease;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        /* Utility Classes */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-muted { color: var(--text-muted); }
+        .text-accent { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-error { color: var(--error); }
+        
+        .activity-complete { border-left: 4px solid var(--success); }
+        .activity-hours { border-left: 4px solid var(--accent); }
+        .activity-reset { border-left: 4px solid var(--error); }
+        .activity-default { border-left: 4px solid var(--accent); }
+        
+        .empty-state { color: var(--text-secondary); }
+        .empty-state-icon { color: var(--text-muted); opacity: 0.2; }
     </style>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
 </head>
-<body class="min-h-screen" style="background-color: var(--bg-primary)">
-    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold">📋 Activity History</h1>
-                <p class="text-purple-200">Track all your actions and progress</p>
+                <h1 class="text-2xl font-bold text-primary"><i class="fas fa-history mr-2"></i>Activity History</h1>
+                <p class="text-secondary">Track all your actions and progress</p>
             </div>
             <div class="flex items-center gap-4">
-                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                <a href="/resources" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Resources</a>
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/resources" class="text-primary"><i class="fas fa-book mr-2"></i>Resources</a>
+                <a href="/reports" class="text-primary"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
             </div>
         </div>
     </header>
 
     <div class="max-w-5xl mx-auto p-6">
         <div class="card p-6">
-            <h2 class="font-bold text-gray-700 mb-4"><i class="fas fa-history mr-2"></i>Recent Activity</h2>
+            <h2 class="font-bold mb-4 text-primary"><i class="fas fa-history mr-2"></i>Recent Activity</h2>
             {% if logs %}
             <div class="space-y-2">
                 {% for log in logs %}
-                <div class="p-3 bg-gray-50 rounded-lg border-l-4 {% if 'complete' in log.action %}border-green-500{% elif 'hours' in log.action %}border-blue-500{% elif 'reset' in log.action %}border-red-500{% else %}border-purple-500{% endif %}">
+                <div class="p-3 glass rounded-lg {% if 'complete' in log.action %}activity-complete{% elif 'hours' in log.action %}activity-hours{% elif 'reset' in log.action %}activity-reset{% else %}activity-default{% endif %}">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
-                                {% if 'complete' in log.action %}<i class="fas fa-check-circle text-green-600"></i>
-                                {% elif 'hours' in log.action %}<i class="fas fa-clock text-blue-600"></i>
-                                {% elif 'metric' in log.action %}<i class="fas fa-trophy text-yellow-600"></i>
-                                {% elif 'reset' in log.action %}<i class="fas fa-redo text-red-600"></i>
-                                {% else %}<i class="fas fa-bolt text-purple-600"></i>{% endif %}
-                                <span class="font-medium text-gray-800">{{ log.action.replace('_', ' ')|title }}</span>
+                                {% if 'complete' in log.action %}<i class="fas fa-check-circle text-success"></i>
+                                {% elif 'hours' in log.action %}<i class="fas fa-clock text-accent"></i>
+                                {% elif 'metric' in log.action %}<i class="fas fa-trophy text-warning"></i>
+                                {% elif 'reset' in log.action %}<i class="fas fa-redo text-error"></i>
+                                {% else %}<i class="fas fa-bolt text-accent"></i>{% endif %}
+                                <span class="font-medium text-primary">{{ log.action.replace('_', ' ')|title }}</span>
                             </div>
                             {% if log.details %}
-                            <p class="text-sm text-gray-600 ml-6">{{ log.details }}</p>
+                            <p class="text-sm ml-6 text-secondary">{{ log.details }}</p>
                             {% endif %}
                         </div>
-                        <span class="text-xs text-gray-500">{{ log.created_at[:16] }}</span>
+                        <span class="text-xs text-muted">{{ log.created_at[:16] }}</span>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-12 text-gray-500">
-                <i class="fas fa-history text-6xl mb-4 opacity-20"></i>
-                <p>No activity yet. Start tracking your progress!</p>
+            <div class="text-center py-12 empty-state">
+                <i class="fas fa-history text-6xl mb-4 empty-state-icon"></i>
+                <p>Nothing here yet—time to start tracking your progress!</p>
             </div>
             {% endif %}
         </div>
     </div>
 </body>
 </html>
-

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Reports - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        :root {
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #00c853;
+            --warning: #ffab00;
+            --error: #ff3d00;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
+        }
+        
+        [data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
+        }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <header class="header py-6 px-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-primary"><i class="fas fa-chart-bar mr-2"></i>Time Reports</h1>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/activity" class="text-primary"><i class="fas fa-history mr-2"></i>Activity</a>
+                <a href="/reports" class="text-primary"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
+            </div>
+        </div>
+    </header>
+    
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Hours by Phase -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-bold text-primary mb-4">Hours by Phase</h2>
+            <canvas id="phase-chart" height="300"></canvas>
+        </div>
+        
+        <!-- Hours by Resource Type -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-bold text-primary mb-4">Hours by Resource Type</h2>
+            <canvas id="type-chart" height="300"></canvas>
+        </div>
+        
+        <!-- Hours by Week -->
+        <div class="card mb-6">
+            <h2 class="text-xl font-bold text-primary mb-4">Hours by Week</h2>
+            <canvas id="week-chart" height="300"></canvas>
+        </div>
+        
+        <!-- Daily Average -->
+        <div class="card">
+            <h2 class="text-xl font-bold text-primary mb-4">Daily Average</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-secondary mb-1">Current Daily Average</p>
+                    <p class="text-2xl font-bold text-primary">{{ "%.2f"|format(reports.daily_avg) }}h</p>
+                </div>
+                <div>
+                    <p class="text-sm text-secondary mb-1">Needed Daily Average</p>
+                    <p class="text-2xl font-bold {% if reports.needed_daily > reports.daily_avg %}text-error{% else %}text-success{% endif %}">
+                        {{ "%.2f"|format(reports.needed_daily) }}h
+                    </p>
+                </div>
+            </div>
+            <p class="text-sm text-secondary mt-4">Total hours logged: <span class="font-semibold text-primary">{{ "%.1f"|format(reports.total_hours) }}h</span></p>
+        </div>
+    </div>
+    
+    <script>
+        const reportsData = {{ reports|tojson }};
+        
+        // Hours by Phase
+        const phaseCtx = document.getElementById('phase-chart');
+        if (phaseCtx && reportsData.by_phase) {
+            new Chart(phaseCtx, {
+                type: 'bar',
+                data: {
+                    labels: reportsData.by_phase.map(p => `Phase ${p.phase_index + 1}`),
+                    datasets: [{
+                        label: 'Hours Logged',
+                        data: reportsData.by_phase.map(p => p.hours || 0),
+                        backgroundColor: [
+                            'var(--phase-1)',
+                            'var(--phase-2)',
+                            'var(--phase-3)',
+                            'var(--phase-4)'
+                        ]
+                    }, {
+                        label: 'Target (96h)',
+                        data: reportsData.by_phase.map(() => 96),
+                        type: 'line',
+                        borderColor: 'var(--accent)',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Hours'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Hours by Type
+        const typeCtx = document.getElementById('type-chart');
+        if (typeCtx && reportsData.by_type) {
+            new Chart(typeCtx, {
+                type: 'pie',
+                data: {
+                    labels: reportsData.by_type.map(t => t.resource_type || 'Unknown'),
+                    datasets: [{
+                        data: reportsData.by_type.map(t => t.hours || 0),
+                        backgroundColor: [
+                            'var(--accent)',
+                            'var(--success)',
+                            'var(--warning)',
+                            'var(--phase-1)',
+                            'var(--phase-2)',
+                            'var(--phase-3)',
+                            'var(--phase-4)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Hours by Week
+        const weekCtx = document.getElementById('week-chart');
+        if (weekCtx && reportsData.by_week) {
+            new Chart(weekCtx, {
+                type: 'line',
+                data: {
+                    labels: reportsData.by_week.map(w => `Week ${w.week}`),
+                    datasets: [{
+                        label: 'Hours Logged',
+                        data: reportsData.by_week.map(w => w.hours || 0),
+                        borderColor: 'var(--accent)',
+                        backgroundColor: 'rgba(0, 102, 255, 0.1)',
+                        fill: true
+                    }, {
+                        label: 'Target (24h/week)',
+                        data: reportsData.by_week.map(() => 24),
+                        type: 'line',
+                        borderColor: 'var(--success)',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Hours'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

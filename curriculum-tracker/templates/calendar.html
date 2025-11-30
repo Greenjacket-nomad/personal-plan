@@ -4,40 +4,181 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendar - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #f3f4f6;
-            --bg-card: #ffffff;
-            --text-primary: #111827;
-            --border-color: #e5e7eb;
+            --bg-primary: #f8f7f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0eeeb;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b6b6b;
+            --text-muted: #9a9a9a;
+            --border: rgba(0, 0, 0, 0.1);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
         }
+        
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-card: #1f2937;
-            --text-primary: #f9fafb;
-            --border-color: #374151;
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
         }
-        body { background-color: var(--bg-primary); color: var(--text-primary); transition: all 0.3s; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card:hover {
+            border-color: var(--accent);
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        a {
+            transition: color 150ms ease;
+        }
+        
+        a:hover {
+            color: var(--accent);
+        }
+        
+        .calendar-day {
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .calendar-day:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+        }
+        
+        /* Utility Classes */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-accent { color: var(--accent); }
+        
+        .calendar-day-high { background: var(--accent); border-color: var(--accent-hover); color: white; }
+        .calendar-day-medium { background: rgba(0, 212, 255, 0.3); border-color: var(--accent); color: var(--text-primary); }
+        .calendar-day-low { background: rgba(0, 212, 255, 0.1); border-color: var(--accent); color: var(--text-primary); }
+        .calendar-day-none { background: var(--bg-tertiary); border-color: var(--border); color: var(--text-secondary); }
+        
+        :root {
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
+        }
+        
+        [data-theme="dark"] {
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
+        }
+        
+        .legend-high { background: var(--accent); border: 1px solid var(--accent-hover); }
+        .legend-medium { background: rgba(0, 212, 255, 0.3); border: 1px solid var(--accent); }
+        .legend-low { background: rgba(0, 212, 255, 0.1); border: 1px solid var(--accent); }
+        .legend-none { background: var(--bg-tertiary); border: 1px solid var(--border); }
+        
+        /* Phase colors for calendar */
+        .calendar-phase-0 { border-left: 4px solid var(--phase-1); }
+        .calendar-phase-1 { border-left: 4px solid var(--phase-2); }
+        .calendar-phase-2 { border-left: 4px solid var(--phase-3); }
+        .calendar-phase-3 { border-left: 4px solid var(--phase-4); }
+        
+        .calendar-day-blocked {
+            opacity: 0.5;
+            text-decoration: line-through;
+            position: relative;
+        }
+        
+        .calendar-day-blocked::after {
+            content: '✕';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 12px;
+            color: var(--error);
+        }
+        
+        .calendar-day-current {
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .calendar-day-overdue {
+            border: 2px solid var(--error) !important;
+            position: relative;
+        }
+        
+        .calendar-day-overdue::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            background: var(--error);
+            border-radius: 50%;
+        }
     </style>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
 </head>
-<body class="min-h-screen" style="background-color: var(--bg-primary)">
-    <header class="gradient-bg text-white py-6 px-8 shadow-lg">
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <h1 class="text-2xl font-bold">📅 Calendar</h1>
+            <h1 class="text-2xl font-bold text-primary"><i class="fas fa-calendar mr-2"></i>Calendar</h1>
             <div class="flex items-center gap-4">
-                <a href="/" class="text-white hover:text-purple-200"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                <a href="/journal" class="text-white hover:text-purple-200"><i class="fas fa-book mr-2"></i>Journal</a>
-                <a href="/activity" class="text-white hover:text-purple-200"><i class="fas fa-history mr-2"></i>Activity</a>
+                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/journal" class="text-primary"><i class="fas fa-book mr-2"></i>Journal</a>
+                <a href="/activity" class="text-primary"><i class="fas fa-history mr-2"></i>Activity</a>
+                <a href="/reports" class="text-primary"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
             </div>
         </div>
     </header>
@@ -45,11 +186,11 @@
     <div class="max-w-5xl mx-auto p-6">
         <div class="card p-6">
             <div class="flex items-center justify-between mb-6">
-                <a href="/calendar/{{ prev_year }}/{{ prev_month }}" class="text-purple-600 hover:text-purple-800 font-medium">
+                <a href="/calendar/{{ prev_year }}/{{ prev_month }}" class="font-medium transition-all text-accent">
                     <i class="fas fa-chevron-left mr-1"></i> Previous
                 </a>
-                <h2 class="text-2xl font-bold text-gray-800">{{ month_name }}</h2>
-                <a href="/calendar/{{ next_year }}/{{ next_month }}" class="text-purple-600 hover:text-purple-800 font-medium">
+                <h2 class="text-2xl font-bold text-primary">{{ month_name }}</h2>
+                <a href="/calendar/{{ next_year }}/{{ next_month }}" class="font-medium transition-all text-accent">
                     Next <i class="fas fa-chevron-right ml-1"></i>
                 </a>
             </div>
@@ -57,7 +198,7 @@
             <div class="grid grid-cols-7 gap-2">
                 <!-- Day headers -->
                 {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
-                <div class="text-center font-semibold text-gray-600 text-sm p-2">{{ day }}</div>
+                <div class="text-center font-semibold text-sm p-2 text-secondary">{{ day }}</div>
                 {% endfor %}
                 
                 <!-- Calendar days -->
@@ -68,14 +209,20 @@
                         {% else %}
                         {% set date_str = '%04d-%02d-%02d'|format(year, month, day) %}
                         {% set hours = logs_by_date.get(date_str, 0) %}
-                        <div class="aspect-square p-2 border rounded-lg cursor-pointer transition-all
-                            {% if hours >= 4 %}bg-purple-600 border-purple-700 text-white
-                            {% elif hours >= 2 %}bg-purple-300 border-purple-400 text-purple-900
-                            {% elif hours > 0 %}bg-purple-100 border-purple-300 text-purple-800
-                            {% else %}bg-white border-gray-200 text-gray-600{% endif %}
-                            hover:shadow-md">
+                        {% set is_blocked = date_str in blocked_days %}
+                        {% set is_today = date_str == today_str %}
+                        {% set curriculum_day = curriculum_schedule.get(date_str, []) %}
+                        {% set is_overdue = date_str in overdue_days_map %}
+                        <div class="aspect-square p-2 border rounded-lg calendar-day {% if hours >= 4 %}calendar-day-high{% elif hours >= 2 %}calendar-day-medium{% elif hours > 0 %}calendar-day-low{% else %}calendar-day-none{% endif %} {% if is_blocked %}calendar-day-blocked{% endif %} {% if is_today %}calendar-day-current{% endif %} {% if curriculum_day %}calendar-phase-{{ curriculum_day[0].phase }}{% endif %} {% if is_overdue %}calendar-day-overdue{% endif %}" 
+                             onclick="showDayDetails('{{ date_str }}')" 
+                             data-date="{{ date_str }}"
+                             title="{% if is_overdue %}Overdue: P{{ curriculum_day[0].phase + 1 }} W{{ curriculum_day[0].week }} D{{ curriculum_day[0].day }}{% endif %}">
                             <div class="text-sm font-semibold">{{ day }}</div>
-                            {% if hours > 0 %}
+                            {% if curriculum_day %}
+                            {% set cd = curriculum_day[0] %}
+                            <div class="text-xs mt-1 font-medium">P{{ cd.phase + 1 }} W{{ cd.week }} D{{ cd.day }}</div>
+                            <div class="text-xs text-secondary">{{ cd.resource_count }} res{% if cd.completed_count == cd.resource_count %} <i class="fas fa-check text-success"></i>{% endif %}</div>
+                            {% elif hours > 0 %}
                             <div class="text-xs mt-1 font-medium">{{ "%.1f"|format(hours) }}h</div>
                             {% endif %}
                         </div>
@@ -84,29 +231,118 @@
                 {% endfor %}
             </div>
             
-            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h3 class="font-semibold text-gray-700 mb-3">Legend</h3>
+            <div class="mt-6 p-4 glass rounded-lg">
+                <h3 class="font-semibold mb-3 text-primary">Legend</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <span class="flex items-center gap-2">
-                        <div class="w-6 h-6 bg-purple-600 border border-purple-700 rounded"></div>
+                    <span class="flex items-center gap-2 text-primary">
+                        <div class="w-6 h-6 rounded legend-high"></div>
                         4+ hours
                     </span>
-                    <span class="flex items-center gap-2">
-                        <div class="w-6 h-6 bg-purple-300 border border-purple-400 rounded"></div>
+                    <span class="flex items-center gap-2 text-primary">
+                        <div class="w-6 h-6 rounded legend-medium"></div>
                         2-4 hours
                     </span>
-                    <span class="flex items-center gap-2">
-                        <div class="w-6 h-6 bg-purple-100 border border-purple-300 rounded"></div>
+                    <span class="flex items-center gap-2 text-primary">
+                        <div class="w-6 h-6 rounded legend-low"></div>
                         < 2 hours
                     </span>
-                    <span class="flex items-center gap-2">
-                        <div class="w-6 h-6 bg-white border border-gray-200 rounded"></div>
-                        No activity
+                    <span class="flex items-center gap-2 text-primary">
+                        <div class="w-6 h-6 rounded legend-none"></div>
+                        Nothing scheduled
                     </span>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- Day Details Modal -->
+    <div id="day-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="closeDayModal()">
+        <div class="card p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-primary" id="modal-date"></h3>
+                <button onclick="closeDayModal()" class="text-secondary hover:text-primary"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        function showDayDetails(dateStr) {
+            fetch(`/api/calendar-day/${dateStr}`)
+                .then(r => r.json())
+                .then(data => {
+                    const modal = document.getElementById('day-modal');
+                    const modalDate = document.getElementById('modal-date');
+                    const modalContent = document.getElementById('modal-content');
+                    
+                    modalDate.textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    });
+                    
+                    let html = '';
+                    if (data.blocked) {
+                        html += `<div class="mb-4 p-3 rounded-lg" style="background: rgba(255, 61, 0, 0.1); border: 1px solid var(--error);">
+                            <p class="text-error font-semibold"><i class="fas fa-ban mr-2"></i>This day is blocked</p>
+                            ${data.blocked_reason ? `<p class="text-sm text-secondary mt-1">${data.blocked_reason}</p>` : ''}
+                            <form action="/schedule/unblock" method="POST" class="mt-2">
+                                <input type="hidden" name="date" value="${dateStr}">
+                                <button type="submit" class="btn-secondary text-sm">Unblock Day</button>
+                            </form>
+                        </div>`;
+                    } else {
+                        html += `<form action="/schedule/block" method="POST" class="mb-4">
+                            <input type="hidden" name="date" value="${dateStr}">
+                            <div class="flex gap-2">
+                                <input type="text" name="reason" placeholder="Reason (optional)" class="flex-1">
+                                <button type="submit" class="btn-secondary text-sm">Block Day</button>
+                            </div>
+                        </form>`;
+                    }
+                    
+                    if (data.curriculum_days && data.curriculum_days.length > 0) {
+                        html += '<div class="space-y-4">';
+                        data.curriculum_days.forEach(cd => {
+                            html += `<div class="p-4 rounded-lg border" style="border-left: 4px solid var(--phase-${cd.phase + 1});">
+                                <h4 class="font-semibold text-primary mb-2">Phase ${cd.phase + 1}, Week ${cd.week}, Day ${cd.day}</h4>
+                                <p class="text-sm text-secondary mb-3">${cd.resource_count} resources</p>`;
+                            
+                            if (cd.resources && cd.resources.length > 0) {
+                                html += '<ul class="space-y-2">';
+                                cd.resources.forEach(r => {
+                                    html += `<li class="flex items-center gap-2">
+                                        ${r.status === 'complete' ? '<i class="fas fa-check-circle text-success"></i>' : ''}
+                                        <span class="text-sm text-primary">${r.title}</span>
+                                    </li>`;
+                                });
+                                html += '</ul>';
+                            }
+                            html += '</div>';
+                        });
+                        html += '</div>';
+                    } else {
+                        html += '<p class="text-secondary">Nothing scheduled for this day.</p>';
+                    }
+                    
+                    if (data.hours > 0) {
+                        html += `<div class="mt-4 pt-4 border-t">
+                            <p class="text-sm text-secondary">Hours logged: <span class="font-semibold text-primary">${data.hours}h</span></p>
+                        </div>`;
+                    }
+                    
+                    modalContent.innerHTML = html;
+                    modal.classList.remove('hidden');
+                })
+                .catch(err => {
+                    console.error('Error loading day details:', err);
+                });
+        }
+        
+        function closeDayModal() {
+            document.getElementById('day-modal').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>
-
