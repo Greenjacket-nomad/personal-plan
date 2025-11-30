@@ -1,8 +1,0 @@
-setup.py
-track.py
-curriculum_tracker.egg-info/PKG-INFO
-curriculum_tracker.egg-info/SOURCES.txt
-curriculum_tracker.egg-info/dependency_links.txt
-curriculum_tracker.egg-info/entry_points.txt
-curriculum_tracker.egg-info/requires.txt
-curriculum_tracker.egg-info/top_level.txt
