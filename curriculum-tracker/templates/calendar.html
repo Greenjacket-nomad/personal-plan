@@ -9,27 +9,41 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #f8f7f4;
+            --bg-primary: #f5f5f4;
             --bg-secondary: #ffffff;
-            --bg-tertiary: #f0eeeb;
-            --text-primary: #1a1a1a;
-            --text-secondary: #6b6b6b;
-            --text-muted: #9a9a9a;
-            --border: rgba(0, 0, 0, 0.1);
+            --bg-tertiary: #e7e5e4;
+            --text-primary: #1c1917;
+            --text-secondary: #44403c;
+            --text-muted: #78716c;
+            --border: rgba(0, 0, 0, 0.15);
             --accent: #0066ff;
             --accent-hover: #0052cc;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
+            --phase-1: #2563eb;
+            --phase-2: #7c3aed;
+            --phase-3: #0d9488;
+            --phase-4: #ea580c;
         }
         
         [data-theme="dark"] {
-            --bg-primary: #0f0f0f;
-            --bg-secondary: #1a1a1a;
-            --bg-tertiary: #252525;
-            --text-primary: #f0f0f0;
-            --text-secondary: #a0a0a0;
-            --text-muted: #606060;
-            --border: rgba(255, 255, 255, 0.1);
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #171717;
+            --bg-tertiary: #262626;
+            --text-primary: #fafafa;
+            --text-secondary: #d4d4d4;
+            --text-muted: #a3a3a3;
+            --border: rgba(255, 255, 255, 0.15);
             --accent: #00d4ff;
             --accent-hover: #00b8e6;
+            --success: #22c55e;
+            --warning: #eab308;
+            --error: #ef4444;
+            --phase-1: #3b82f6;
+            --phase-2: #8b5cf6;
+            --phase-3: #14b8a6;
+            --phase-4: #f97316;
         }
         
         * {
@@ -131,14 +145,7 @@
             position: relative;
         }
         
-        .calendar-day-blocked::after {
-            content: '✕';
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            font-size: 12px;
-            color: var(--error);
-        }
+        /* Blocked day icon is now in HTML */
         
         .calendar-day-current {
             border: 2px solid var(--accent);
@@ -217,7 +224,10 @@
                              onclick="showDayDetails('{{ date_str }}')" 
                              data-date="{{ date_str }}"
                              title="{% if is_overdue %}Overdue: P{{ curriculum_day[0].phase + 1 }} W{{ curriculum_day[0].week }} D{{ curriculum_day[0].day }}{% endif %}">
-                            <div class="text-sm font-semibold">{{ day }}</div>
+                            <div class="text-sm font-semibold flex items-center justify-between">
+                                <span>{{ day }}</span>
+                                {% if is_blocked %}<i class="fas fa-times text-xs" style="color: var(--error);"></i>{% endif %}
+                            </div>
                             {% if curriculum_day %}
                             {% set cd = curriculum_day[0] %}
                             <div class="text-xs mt-1 font-medium">P{{ cd.phase + 1 }} W{{ cd.week }} D{{ cd.day }}</div>
@@ -284,9 +294,9 @@
                     
                     let html = '';
                     if (data.blocked) {
-                        html += `<div class="mb-4 p-3 rounded-lg" style="background: rgba(255, 61, 0, 0.1); border: 1px solid var(--error);">
-                            <p class="text-error font-semibold"><i class="fas fa-ban mr-2"></i>This day is blocked</p>
-                            ${data.blocked_reason ? `<p class="text-sm text-secondary mt-1">${data.blocked_reason}</p>` : ''}
+                        html += `<div class="mb-4 p-3 rounded-lg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error);">
+                            <p style="color: var(--error);" class="font-semibold"><i class="fas fa-ban mr-2"></i>This day is blocked</p>
+                            ${data.blocked_reason ? `<p class="text-sm mt-1" style="color: var(--text-secondary);">${data.blocked_reason}</p>` : ''}
                             <form action="/schedule/unblock" method="POST" class="mt-2">
                                 <input type="hidden" name="date" value="${dateStr}">
                                 <button type="submit" class="btn-secondary text-sm">Unblock Day</button>
@@ -305,30 +315,66 @@
                     if (data.curriculum_days && data.curriculum_days.length > 0) {
                         html += '<div class="space-y-4">';
                         data.curriculum_days.forEach(cd => {
-                            html += `<div class="p-4 rounded-lg border" style="border-left: 4px solid var(--phase-${cd.phase + 1});">
-                                <h4 class="font-semibold text-primary mb-2">Phase ${cd.phase + 1}, Week ${cd.week}, Day ${cd.day}</h4>
-                                <p class="text-sm text-secondary mb-3">${cd.resource_count} resources</p>`;
+                            const phaseColors = ['var(--phase-1)', 'var(--phase-2)', 'var(--phase-3)', 'var(--phase-4)'];
+                            const phaseColor = phaseColors[cd.phase] || 'var(--accent)';
+                            
+                            html += `<div class="p-4 rounded-lg border" style="border-left: 4px solid ${phaseColor}; background: var(--bg-tertiary);">
+                                <h4 class="font-semibold mb-2" style="color: var(--text-primary);">
+                                    <i class="fas fa-bookmark mr-2" style="color: ${phaseColor};"></i>
+                                    Phase ${cd.phase + 1}, Week ${cd.week}, Day ${cd.day}
+                                </h4>
+                                <p class="text-sm mb-3" style="color: var(--text-secondary);">
+                                    ${cd.completed_count}/${cd.resource_count} complete
+                                </p>`;
                             
                             if (cd.resources && cd.resources.length > 0) {
                                 html += '<ul class="space-y-2">';
                                 cd.resources.forEach(r => {
-                                    html += `<li class="flex items-center gap-2">
-                                        ${r.status === 'complete' ? '<i class="fas fa-check-circle text-success"></i>' : ''}
-                                        <span class="text-sm text-primary">${r.title}</span>
+                                    const statusIcon = r.status === 'complete' 
+                                        ? '<i class="fas fa-check-circle" style="color: var(--success);"></i>' 
+                                        : r.status === 'in_progress' 
+                                            ? '<i class="fas fa-circle-notch" style="color: var(--warning);"></i>' 
+                                            : '<i class="far fa-circle" style="color: var(--text-muted);"></i>';
+                                    
+                                    const typeIcon = {
+                                        'course': 'fa-graduation-cap',
+                                        'docs': 'fa-book',
+                                        'video': 'fa-video',
+                                        'article': 'fa-file-alt',
+                                        'project': 'fa-tools',
+                                        'lab': 'fa-flask',
+                                        'tutorial': 'fa-book-open',
+                                        'action': 'fa-check',
+                                        'deliverable': 'fa-box',
+                                        'note': 'fa-pen'
+                                    }[r.resource_type] || 'fa-link';
+                                    
+                                    html += `<li class="flex items-center gap-2 p-2 rounded" style="background: var(--bg-secondary);">
+                                        ${statusIcon}
+                                        <i class="fas ${typeIcon}" style="color: var(--text-muted);"></i>
+                                        ${r.url 
+                                            ? `<a href="${r.url}" target="_blank" class="flex-1 hover:underline" style="color: var(--accent);">${r.title}</a>`
+                                            : `<span class="flex-1" style="color: var(--text-primary);">${r.title}</span>`
+                                        }
                                     </li>`;
                                 });
                                 html += '</ul>';
+                            } else {
+                                html += '<p class="text-sm" style="color: var(--text-muted);">No resources for this day</p>';
                             }
                             html += '</div>';
                         });
                         html += '</div>';
                     } else {
-                        html += '<p class="text-secondary">Nothing scheduled for this day.</p>';
+                        html += '<p style="color: var(--text-secondary);">No curriculum scheduled for this day.</p>';
                     }
                     
                     if (data.hours > 0) {
-                        html += `<div class="mt-4 pt-4 border-t">
-                            <p class="text-sm text-secondary">Hours logged: <span class="font-semibold text-primary">${data.hours}h</span></p>
+                        html += `<div class="mt-4 pt-4" style="border-top: 1px solid var(--border);">
+                            <p class="text-sm" style="color: var(--text-secondary);">
+                                <i class="fas fa-clock mr-2"></i>Hours logged: 
+                                <span class="font-semibold" style="color: var(--text-primary);">${data.hours}h</span>
+                            </p>
                         </div>`;
                     }
                     

@@ -13,37 +13,37 @@
     <style>
         /* CSS Variable System */
         :root {
-            --bg-primary: #f8f7f4;
+            --bg-primary: #f5f5f4;
             --bg-secondary: #ffffff;
-            --bg-tertiary: #f0eeeb;
-            --text-primary: #1a1a1a;
-            --text-secondary: #6b6b6b;
-            --text-muted: #9a9a9a;
-            --border: rgba(0, 0, 0, 0.1);
+            --bg-tertiary: #e7e5e4;
+            --text-primary: #1c1917;
+            --text-secondary: #44403c;
+            --text-muted: #78716c;
+            --border: rgba(0, 0, 0, 0.15);
             --accent: #0066ff;
             --accent-hover: #0052cc;
-            --success: #00c853;
-            --warning: #ffab00;
-            --error: #ff3d00;
-            --phase-1: #3b82f6;
-            --phase-2: #8b5cf6;
-            --phase-3: #14b8a6;
-            --phase-4: #f97316;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
+            --phase-1: #2563eb;
+            --phase-2: #7c3aed;
+            --phase-3: #0d9488;
+            --phase-4: #ea580c;
         }
         
         [data-theme="dark"] {
-            --bg-primary: #0f0f0f;
-            --bg-secondary: #1a1a1a;
-            --bg-tertiary: #252525;
-            --text-primary: #f0f0f0;
-            --text-secondary: #a0a0a0;
-            --text-muted: #606060;
-            --border: rgba(255, 255, 255, 0.1);
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #171717;
+            --bg-tertiary: #262626;
+            --text-primary: #fafafa;
+            --text-secondary: #d4d4d4;
+            --text-muted: #a3a3a3;
+            --border: rgba(255, 255, 255, 0.15);
             --accent: #00d4ff;
             --accent-hover: #00b8e6;
-            --success: #00c853;
-            --warning: #ffab00;
-            --error: #ff3d00;
+            --success: #22c55e;
+            --warning: #eab308;
+            --error: #ef4444;
             --phase-1: #3b82f6;
             --phase-2: #8b5cf6;
             --phase-3: #14b8a6;
@@ -71,13 +71,13 @@
         
         /* Glass Effect */
         .glass {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
         
         [data-theme="light"] .glass {
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
         
@@ -145,6 +145,12 @@
             border-radius: 8px;
             padding: 0.5rem 0.75rem;
             transition: all 150ms ease;
+        }
+        
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--text-muted);
+            opacity: 1;
         }
         
         input:focus,
@@ -691,11 +697,8 @@
 
         <!-- Main -->
         <div class="lg:col-span-3 space-y-6">
-            <!-- Bento Grid Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Phase Card - Full Width -->
-                <div class="lg:col-span-12">
-                    <div class="card p-6">
+            <!-- Phase Card -->
+            <div class="card p-6">
                 <!-- Breadcrumb -->
                 <div class="mb-3 text-sm text-secondary">
                     <span class="font-medium text-accent">{{ phase.name|replace('PHASE ' + (phase_index + 1)|string + ': ', '')|title }}</span>
@@ -783,49 +786,43 @@
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+            
+            <!-- Stats Cards Row -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="card p-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-primary">This Week</span>
+                        <span class="font-bold {% if week_hours >= expected_weekly %}text-success{% elif week_hours >= expected_weekly * 0.5 %}text-warning{% else %}text-error{% endif %}">
+                            {{ "%.1f"|format(week_hours) }}/{{ "%.1f"|format(expected_weekly) }}h
+                        </span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill {% if week_hours >= expected_weekly %}progress-success{% elif week_hours >= expected_weekly * 0.5 %}progress-warning{% else %}progress-error{% endif %}" style="width: {% if expected_weekly > 0 %}{{ ([week_hours / expected_weekly * 100, 100]|min)|round(1) }}{% else %}0{% endif %}%"></div>
                     </div>
                 </div>
-                
-                <!-- Stats Cards - Smaller Grid -->
-                <div class="lg:col-span-4">
-                    <div class="card p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span class="text-primary">This Week</span>
-                            <span class="font-bold {% if week_hours >= expected_weekly %}text-success{% elif week_hours >= expected_weekly * 0.5 %}text-warning{% else %}text-error{% endif %}">
-                                {{ "%.1f"|format(week_hours) }}/{{ "%.1f"|format(expected_weekly) }}h
-                            </span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill {% if week_hours >= expected_weekly %}progress-success{% elif week_hours >= expected_weekly * 0.5 %}progress-warning{% else %}progress-error{% endif %}" style="width: {% if expected_weekly > 0 %}{{ ([week_hours / expected_weekly * 100, 100]|min)|round(1) }}{% else %}0{% endif %}%"></div>
-                        </div>
+                <div class="card p-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-primary">Total</span>
+                        <span class="font-bold text-accent">{{ "%.1f"|format(total_hours) }}/{{ curriculum_total }}h</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ overall_progress }}%"></div>
                     </div>
                 </div>
-                <div class="lg:col-span-4">
-                    <div class="card p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span class="text-primary">Total</span>
-                            <span class="font-bold text-accent">{{ "%.1f"|format(total_hours) }}/{{ curriculum_total }}h</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {{ overall_progress }}%"></div>
-                        </div>
+                <div class="card p-4">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-primary">Metrics</span>
+                        <span class="font-bold text-accent">{{ completed_texts|length }}/{{ phase.metrics|length }}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ completed_texts|length / phase.metrics|length * 100 if phase.metrics|length > 0 else 0 }}%"></div>
                     </div>
                 </div>
-                <div class="lg:col-span-4">
-                    <div class="card p-4">
-                        <div class="flex justify-between text-sm mb-2">
-                            <span class="text-primary">Metrics</span>
-                            <span class="font-bold text-accent">{{ completed_texts|length }}/{{ phase.metrics|length }}</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: {{ completed_texts|length / phase.metrics|length * 100 if phase.metrics|length > 0 else 0 }}%"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Log Hours - Medium Card -->
-                <div class="lg:col-span-6">
-                    <div class="card p-6">
+            </div>
+            
+            <!-- Log Time -->
+            <div class="card p-6">
                 <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleLogTime()">
                     <h3 class="font-bold text-primary"><i class="fas fa-clock mr-2"></i>Log Time</h3>
                     <i class="fas fa-chevron-down transition-transform" id="log-time-chevron"></i>
@@ -896,11 +893,9 @@
                 {% endif %}
                 </div>
             </div>
-                </div>
-                
-                <!-- Resources - Full Width -->
-                <div class="lg:col-span-12">
-                    <div class="card p-6">
+            
+            <!-- This Week's Tasks -->
+            <div class="card p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-primary"><i class="fas fa-book-open mr-2"></i>This Week's Tasks</h3>
                     <a href="/resources" class="text-sm text-accent">View all →</a>
@@ -1096,7 +1091,6 @@
                         </div>
                 </div>
                 {% endif %}
-            </div>
 
             <!-- Learning Journal -->
             {% if recent_logs %}

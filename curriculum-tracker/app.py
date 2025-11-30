@@ -41,6 +41,91 @@ def close_db(exception):
         db.close()
 
 
+def column_exists(conn, table, column):
+    """Check if a column exists in a table."""
+    cur = conn.execute(f"PRAGMA table_info({table})")
+    return any(row[1] == column for row in cur.fetchall())
+
+
+def table_exists(conn, table):
+    """Check if a table exists."""
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    )
+    return cur.fetchone() is not None
+
+
+def run_migrations():
+    """Run database migrations to add missing columns and tables."""
+    # Use get_db() if in Flask context, otherwise create direct connection
+    created_directly = False
+    try:
+        conn = get_db()
+    except RuntimeError:
+        # Outside Flask context, create connection directly
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        created_directly = True
+    
+    try:
+        # Add scheduled_date to resources if missing
+        if not column_exists(conn, "resources", "scheduled_date"):
+            conn.execute("ALTER TABLE resources ADD COLUMN scheduled_date DATE")
+            print("✓ Added scheduled_date to resources")
+        
+        # Add original_date to resources if missing
+        if not column_exists(conn, "resources", "original_date"):
+            conn.execute("ALTER TABLE resources ADD COLUMN original_date DATE")
+            print("✓ Added original_date to resources")
+        
+        # Create blocked_days table if missing
+        if not table_exists(conn, "blocked_days"):
+            conn.execute("""
+                CREATE TABLE blocked_days (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE NOT NULL UNIQUE,
+                    reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            print("✓ Created blocked_days table")
+        
+        # Create settings table if missing
+        if not table_exists(conn, "settings"):
+            conn.execute("""
+                CREATE TABLE settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            print("✓ Created settings table")
+        
+        # Add phase_index, week, day to journal_entries if missing
+        if not column_exists(conn, "journal_entries", "phase_index"):
+            conn.execute("ALTER TABLE journal_entries ADD COLUMN phase_index INTEGER")
+            print("✓ Added phase_index to journal_entries")
+        
+        if not column_exists(conn, "journal_entries", "week"):
+            conn.execute("ALTER TABLE journal_entries ADD COLUMN week INTEGER")
+            print("✓ Added week to journal_entries")
+        
+        if not column_exists(conn, "journal_entries", "day"):
+            conn.execute("ALTER TABLE journal_entries ADD COLUMN day INTEGER")
+            print("✓ Added day to journal_entries")
+        
+        conn.commit()
+        
+    except Exception as e:
+        print(f"Migration error: {e}")
+        conn.rollback()
+        raise
+    
+    finally:
+        # Close connection if we created it directly (outside Flask context)
+        if created_directly:
+            conn.close()
+
+
 def init_db():
     """
     Initialize database schema.
@@ -91,6 +176,9 @@ def init_db():
     # Close connection if we created it directly (outside Flask context)
     if created_directly:
         conn.close()
+    
+    # Run migrations to add any missing columns/tables
+    run_migrations()
 
 
 def get_progress():
@@ -943,7 +1031,7 @@ def dashboard(view_phase=None, view_week=None):
         current_streak=current_streak, longest_streak=longest_streak, week_activity=week_activity,
         today_position=today_position, continue_resource=continue_resource, today_journal=today_journal_dict,
         hours_today=hours_today, expected_resources=expected_resources, curriculum=curriculum,
-        start_date=start_date, projected_end_date=projected_end_date, today=datetime.now().strftime("%Y-%m-%d"),
+        start_date=start_date, projected_end_date=projected_end_date,
         burndown_data=get_burndown_data() if start_date else None,
         overdue_days=get_overdue_days() if start_date else [])
 
@@ -1830,7 +1918,7 @@ def api_calendar_day(date_str):
     for row in cur.fetchall():
         # Get resources for this curriculum day
         resources = conn.execute("""
-            SELECT id, title, status FROM resources
+            SELECT id, title, status, url, resource_type FROM resources
             WHERE phase_index = ? AND week = ? AND day = ? AND scheduled_date = ?
             ORDER BY sort_order
         """, (row["phase_index"], row["week"], row["day"], date_str)).fetchall()
@@ -2209,6 +2297,12 @@ if __name__ == "__main__":
     print("Initializing database...")
     init_db()
     print("✓ Database ready!")
+    print("Running migrations...")
+    try:
+        run_migrations()
+    except Exception as e:
+        print(f"Note: Some migrations may have already been applied: {e}")
+    print("✓ Migrations complete!")
     print("\nOpen: http://localhost:5000")
     print("Ctrl+C to stop\n")
     app.run(debug=True, host="0.0.0.0", port=5000)
