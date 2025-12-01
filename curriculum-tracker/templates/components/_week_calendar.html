@@ -1,0 +1,48 @@
+<!-- Week Calendar View -->
+<div class="card p-6 mb-6" id="week-calendar-view">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-primary">
+            <i class="fas fa-calendar-week mr-2"></i>
+            <span id="calendar-week-label">This Week</span>
+        </h2>
+        <div class="flex items-center gap-3">
+            <button onclick="openBlockDaysModal()" class="btn-secondary px-4 py-2">
+                <i class="fas fa-ban mr-2"></i>Block Days
+            </button>
+            <button onclick="previousWeek()" class="btn-secondary px-3 py-2" title="Previous week">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button onclick="expandToMonth()" class="btn-secondary px-3 py-2" title="Expand to full month">
+                <i class="fas fa-expand-alt"></i>
+            </button>
+            <button onclick="nextWeek()" class="btn-secondary px-3 py-2" title="Next week">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Week Grid (7 days) -->
+    <div class="grid grid-cols-7 gap-2" id="week-calendar-grid">
+        <!-- Days rendered by JavaScript -->
+    </div>
+    
+    <!-- Expanded Month View (hidden by default) -->
+    <div id="month-calendar-view" class="hidden mt-6">
+        <div class="flex items-center justify-between mb-4">
+            <button onclick="previousMonth()" class="btn-secondary px-3 py-2">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <h3 class="text-lg font-bold text-primary" id="month-label">January 2025</h3>
+            <button onclick="nextMonth()" class="btn-secondary px-3 py-2">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-7 gap-2" id="month-calendar-grid">
+            <!-- Month days rendered by JavaScript -->
+        </div>
+        <button onclick="collapseToWeek()" class="btn-secondary mt-4 px-3 py-2">
+            <i class="fas fa-compress-alt mr-2"></i>Collapse to Week
+        </button>
+    </div>
+</div>
+

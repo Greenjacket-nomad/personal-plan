@@ -1,0 +1,93 @@
+{% if resource is defined %}
+{% set r = resource %}
+<div class="flex items-start gap-3 p-3 card rounded resource-card" id="resource-{{ r.id }}" data-resource-id="{{ r.id }}">
+    <span class="drag-handle cursor-move mt-1">
+        <i class="fas fa-grip-vertical"></i>
+    </span>
+    <form action="/toggle-resource/{{ r.id }}" method="POST" class="toggle-resource-form" data-resource-id="{{ r.id }}" data-current-status="{{ r.get('status', 'not_started') }}">
+        {% if search_query %}
+        <input type="hidden" name="q" value="{{ search_query }}">
+        {% endif %}
+        {% if request.args.get('tag') %}
+        <input type="hidden" name="tag" value="{{ request.args.get('tag') }}">
+        {% endif %}
+        {% set status = r.get('status', 'not_started') %}
+        <button type="button" class="w-8 h-8 mt-1 rounded-full flex items-center justify-center transition-all {% if status == 'complete' %}resource-status-complete{% elif status == 'in_progress' %}resource-status-progress{% elif status == 'skipped' %}resource-status-skipped{% else %}resource-status-default{% endif %}"
+            title="{% if status == 'complete' %}Complete - click to restart{% elif status == 'in_progress' %}In Progress - click to complete{% elif status == 'skipped' %}Skipped - click to restart{% else %}Not Started - click to start{% endif %}"
+            onclick="toggleResourceStatus(this)">
+            {% if status == 'complete' %}<i class="fas fa-check text-sm"></i>
+            {% elif status == 'in_progress' %}<i class="fas fa-circle-notch text-sm"></i>
+            {% elif status == 'skipped' %}<i class="fas fa-ban text-sm"></i>
+            {% else %}<i class="far fa-circle text-sm"></i>{% endif %}
+        </button>
+    </form>
+    <span class="mt-1 text-lg">{% if r.resource_type == 'video' %}<i class="fas fa-video"></i>{% elif r.resource_type == 'article' %}<i class="fas fa-file-alt"></i>{% elif r.resource_type == 'docs' %}<i class="fas fa-book"></i>{% elif r.resource_type == 'course' %}<i class="fas fa-graduation-cap"></i>{% elif r.resource_type == 'project' %}<i class="fas fa-tools"></i>{% elif r.resource_type == 'lab' %}<i class="fas fa-flask"></i>{% elif r.resource_type == 'tutorial' %}<i class="fas fa-book-open"></i>{% elif r.resource_type == 'action' %}<i class="fas fa-check"></i>{% elif r.resource_type == 'deliverable' %}<i class="fas fa-box"></i>{% elif r.resource_type == 'note' %}<i class="fas fa-pen"></i>{% else %}<i class="fas fa-link"></i>{% endif %}</span>
+    <div class="flex-1">
+        <div class="flex items-center justify-between gap-2">
+            <div class="flex-1">
+                {% if r.topic %}
+                <p class="text-xs uppercase tracking-wide mb-1 text-secondary">{{ r.topic|title }}</p>
+                {% endif %}
+                {% if r.url %}
+                <a href="{{ r.url }}" target="_blank" class="text-base font-semibold hover:underline block transition-all {% if r.is_completed %}resource-completed{% else %}resource-link{% endif %}">{{ r.title }}</a>
+                {% else %}
+                <span class="text-base font-semibold block {% if r.is_completed %}resource-completed{% else %}text-primary{% endif %}">{{ r.title }}</span>
+                {% endif %}
+            </div>
+            {% if r.get('logged_hours') %}
+            <span class="tag text-xs px-2 py-1 whitespace-nowrap">{{ "%.1f"|format(r.logged_hours) }}h</span>
+            {% endif %}
+        </div>
+        {% if r.notes %}
+        <details class="text-sm text-secondary">
+            <summary class="cursor-pointer details-summary">View details</summary>
+            <div class="mt-2 pl-2 details-content">
+                {% if 'Tasks:' in r.notes %}
+                    {% set parts = r.notes.split('|') %}
+                    {% for part in parts %}
+                        {% if part.strip().startswith('Tasks:') %}
+                            <p class="mb-1"><strong>Tasks:</strong> {{ part.replace('Tasks:', '').strip() }}</p>
+                        {% elif part.strip().startswith('Why:') %}
+                            <p><strong>Why:</strong> {{ part.replace('Why:', '').strip() }}</p>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p>{{ r.notes }}</p>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+        {% if r.tags %}
+        <div class="flex gap-1 mt-2">
+            {% for i in range(r.tags|length) %}
+            <span class="text-xs px-2 py-0.5 rounded-full text-white" style="background-color: {{ r.tag_colors[i] }}">{{ r.tags[i] }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if r.estimated_minutes or r.difficulty %}
+        <div class="flex items-center gap-2 text-xs mt-2 text-secondary">
+            {% if r.estimated_minutes %}
+            <span class="flex items-center gap-1">
+                <i class="far fa-clock"></i>
+                {% if r.estimated_minutes < 60 %}{{ r.estimated_minutes }} min
+                {% else %}{{ "%.1f"|format(r.estimated_minutes / 60) }} hr{% endif %}
+            </span>
+            {% endif %}
+            {% if r.difficulty %}
+            <span class="px-2 py-0.5 rounded-full text-white text-xs font-medium {% if r.difficulty == 'easy' %}difficulty-easy{% elif r.difficulty == 'medium' %}difficulty-medium{% elif r.difficulty == 'hard' %}difficulty-hard{% endif %}">
+                {{ r.difficulty|title }}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="flex flex-col gap-2">
+        <form action="/toggle-favorite/{{ r.id }}" method="POST">
+            <button class="btn-favorite {% if r.is_favorite %}active{% endif %}"><i class="fas fa-star"></i></button>
+        </form>
+        <form action="/delete-resource/{{ r.id }}" method="POST" onsubmit="return confirm('Yeet this into the void?')">
+            <button class="btn-delete"><i class="fas fa-trash"></i></button>
+        </form>
+    </div>
+</div>
+
