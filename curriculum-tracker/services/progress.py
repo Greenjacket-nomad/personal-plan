@@ -5,14 +5,18 @@ Handles progress tracking, streaks, time logs, and activity logging.
 """
 
 from datetime import datetime, timedelta
+from flask_login import current_user
 from database import get_db, get_db_cursor
 
 
-def get_progress():
-    """Get progress data from singleton progress table."""
+def get_progress(user_id=None):
+    """Get progress data for a user. If user_id is None, uses current_user."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM progress WHERE id = 1")
+    cur.execute("SELECT * FROM progress WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
     cur.close()
     
@@ -20,10 +24,10 @@ def get_progress():
         # Initialize if missing
         today = datetime.now().strftime("%Y-%m-%d")
         cur = get_db_cursor(conn)
-        cur.execute("INSERT INTO progress (id, current_phase, current_week, started_at) VALUES (1, 0, 1, %s)", (today,))
+        cur.execute("INSERT INTO progress (user_id, current_phase, current_week, started_at) VALUES (%s, 0, 1, %s)", (user_id, today))
         cur.close()
         conn.commit()
-        return get_progress()
+        return get_progress(user_id)
     
     return {
         'current_phase': row['current_phase'] if row['current_phase'] is not None else 0,
@@ -33,8 +37,11 @@ def get_progress():
     }
 
 
-def update_progress(**kwargs):
+def update_progress(user_id=None, **kwargs):
     """Update progress table with provided fields."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     # Whitelist allowed fields to prevent SQL injection
     allowed_fields = {'current_phase', 'current_week', 'started_at', 'last_activity_at'}
@@ -42,9 +49,9 @@ def update_progress(**kwargs):
     if not filtered_kwargs:
         return
     sets = ', '.join(f"{k} = %s" for k in filtered_kwargs.keys())
-    values = list(filtered_kwargs.values()) + [datetime.now().isoformat()]
+    values = list(filtered_kwargs.values()) + [datetime.now().isoformat(), user_id]
     cur = get_db_cursor(conn)
-    cur.execute(f"UPDATE progress SET {sets}, last_activity_at = %s WHERE id = 1", values)
+    cur.execute(f"UPDATE progress SET {sets}, last_activity_at = %s WHERE user_id = %s", values)
     cur.close()
     conn.commit()
 
@@ -56,91 +63,116 @@ def init_if_needed():
     return progress
 
 
-def get_current_week_hours():
+def get_current_week_hours(user_id=None):
     """Get total hours logged this week."""
+    if user_id is None:
+        user_id = current_user.id
+    
     from utils import get_week_dates
     today = datetime.now().strftime("%Y-%m-%d")
     week_start, week_end = get_week_dates(today)
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date >= %s AND date <= %s", (week_start, week_end))
+    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s AND date >= %s AND date <= %s", (user_id, week_start, week_end))
     result = cur.fetchone()
     cur.close()
     return result["total"]
 
 
-def get_total_hours():
+def get_total_hours(user_id=None):
     """Get total hours logged."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs")
+    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s", (user_id,))
     result = cur.fetchone()
     cur.close()
     return result["total"]
 
 
-def get_hours_for_phase(phase_index, curriculum):
+def get_hours_for_phase(phase_index, curriculum, user_id=None):
     """Get total hours logged for a specific phase."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = %s", (phase_index,))
+    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s AND phase_index = %s", (user_id, phase_index))
     result = cur.fetchone()
     cur.close()
     return result["total"]
 
 
-def get_hours_for_week(phase_index, week):
+def get_hours_for_week(phase_index, week, user_id=None):
     """Get total hours logged for a specific week."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE phase_index = %s AND week = %s",
-        (phase_index, week)
+        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s AND phase_index = %s AND week = %s",
+        (user_id, phase_index, week)
     )
     result = cur.fetchone()
     cur.close()
     return result["total"] if result else 0
 
 
-def get_hours_today():
+def get_hours_today(user_id=None):
     """Get hours logged today."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     cur = get_db_cursor(conn)
-    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE date = %s", (today,))
+    cur.execute("SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s AND date = %s", (user_id, today))
     result = cur.fetchone()
     cur.close()
     return result["total"] if result else 0
 
 
-def get_recent_logs(days=7):
+def get_recent_logs(days=7, user_id=None):
     """Get recent time logs."""
+    if user_id is None:
+        user_id = current_user.id
+    
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT date, hours, notes FROM time_logs WHERE date >= %s ORDER BY date DESC", (cutoff,))
+    cur.execute("SELECT date, hours, notes FROM time_logs WHERE user_id = %s AND date >= %s ORDER BY date DESC", (user_id, cutoff))
     results = cur.fetchall()
     cur.close()
     return results
 
 
-def get_completed_metrics(phase_index=None):
+def get_completed_metrics(phase_index=None, user_id=None):
     """Get completed metrics."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     if phase_index is not None:
-        cur.execute("SELECT * FROM completed_metrics WHERE phase_index = %s", (phase_index,))
+        cur.execute("SELECT * FROM completed_metrics WHERE user_id = %s AND phase_index = %s", (user_id, phase_index))
     else:
-        cur.execute("SELECT * FROM completed_metrics")
+        cur.execute("SELECT * FROM completed_metrics WHERE user_id = %s", (user_id,))
     results = cur.fetchall()
     cur.close()
     return results
 
 
-def log_activity(action, entity_type=None, entity_id=None, details=None):
+def log_activity(action, entity_type=None, entity_id=None, details=None, user_id=None):
     """Log an activity to the activity_log table."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
+    # Note: activity_log table may need user_id column added in future migration
     cur.execute(
         "INSERT INTO activity_log (action, entity_type, entity_id, details) VALUES (%s, %s, %s, %s)",
         (action, entity_type, entity_id, details)
@@ -149,11 +181,14 @@ def log_activity(action, entity_type=None, entity_id=None, details=None):
     conn.commit()
 
 
-def get_current_streak():
+def get_current_streak(user_id=None):
     """Calculate current consecutive days with logged hours ending today/yesterday."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT DISTINCT date FROM time_logs ORDER BY date DESC")
+    cur.execute("SELECT DISTINCT date FROM time_logs WHERE user_id = %s ORDER BY date DESC", (user_id,))
     dates = [row["date"] for row in cur.fetchall()]
     cur.close()
     
@@ -183,11 +218,14 @@ def get_current_streak():
     return streak
 
 
-def get_longest_streak():
+def get_longest_streak(user_id=None):
     """Calculate longest ever consecutive days with logged hours."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT DISTINCT date FROM time_logs ORDER BY date")
+    cur.execute("SELECT DISTINCT date FROM time_logs WHERE user_id = %s ORDER BY date", (user_id,))
     dates = [datetime.strptime(row["date"], "%Y-%m-%d").date() for row in cur.fetchall()]
     cur.close()
     
@@ -207,8 +245,11 @@ def get_longest_streak():
     return longest
 
 
-def get_week_activity():
+def get_week_activity(user_id=None):
     """Get count of days with logged hours this week (Mon-Sun)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     today = datetime.now()
     week_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
@@ -216,8 +257,8 @@ def get_week_activity():
     
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COUNT(DISTINCT date) as count FROM time_logs WHERE date >= %s AND date <= %s",
-        (week_start, week_end)
+        "SELECT COUNT(DISTINCT date) as count FROM time_logs WHERE user_id = %s AND date >= %s AND date <= %s",
+        (user_id, week_start, week_end)
     )
     result = cur.fetchone()
     cur.close()
@@ -251,12 +292,14 @@ def get_today_position(start_date):
     conn = get_db()
     
     # Get all unique phase/week/day combinations ordered
+    user_id = current_user.id
     cur = get_db_cursor(conn)
     cur.execute("""
         SELECT DISTINCT phase_index, week, day 
         FROM resources 
+        WHERE user_id = %s
         ORDER BY phase_index, week, day
-    """)
+    """, (user_id,))
     curriculum_days = cur.fetchall()
     cur.close()
     
@@ -283,8 +326,11 @@ def get_today_position(start_date):
     }
 
 
-def get_overdue_days():
+def get_overdue_days(user_id=None):
     """Get overdue curriculum days (scheduled_date < today and not complete)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     cur = get_db_cursor(conn)
@@ -294,11 +340,11 @@ def get_overdue_days():
                COUNT(*) as total_resources,
                SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as completed
         FROM resources
-        WHERE scheduled_date < %s AND scheduled_date IS NOT NULL
+        WHERE user_id = %s AND scheduled_date < %s AND scheduled_date IS NOT NULL
         GROUP BY phase_index, week, day, scheduled_date
         HAVING SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) < COUNT(*)
         ORDER BY scheduled_date
-    """, (today,))
+    """, (user_id, today))
     overdue = cur.fetchall()
     cur.close()
     

@@ -10,6 +10,7 @@ import calendar
 import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app, send_from_directory
+from flask_login import login_user, logout_user, login_required, current_user
 from constants import STATUS_CYCLE
 
 # Import from new modular structure
@@ -37,8 +38,43 @@ from services.progress import log_activity
 main_bp = Blueprint('main', __name__)
 
 
+@main_bp.route("/login", methods=["GET", "POST"])
+def login():
+    """Login route."""
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        
+        if not username or not password:
+            flash("Username and password are required", "error")
+            return render_template("login.html")
+        
+        from services.auth import authenticate_user
+        user = authenticate_user(username, password)
+        
+        if user:
+            login_user(user)
+            flash(f"Welcome back, {user.username}!", "success")
+            next_page = request.args.get("next") or url_for("main.dashboard")
+            return redirect(next_page)
+        else:
+            flash("Invalid username or password", "error")
+    
+    return render_template("login.html")
+
+
+@main_bp.route("/logout")
+@login_required
+def logout():
+    """Logout route."""
+    logout_user()
+    flash("You have been logged out", "info")
+    return redirect(url_for("main.login"))
+
+
 @main_bp.route("/")
 @main_bp.route("/view/<int:view_phase>/<int:view_week>")
+@login_required
 def dashboard(view_phase=None, view_week=None):
     init_if_needed()
     curriculum = load_curriculum()
@@ -177,6 +213,11 @@ def dashboard(view_phase=None, view_week=None):
             ]
         ungrouped_week = filtered_ungrouped
     
+    # Calculate milestone days (days with at least one milestone resource)
+    milestone_days = {}
+    for day in range(1, 7):
+        milestone_days[day] = any(r.get('is_milestone', False) for r in grouped_week.get(day, []))
+    
     # Calculate completion rollups
     phase_completed, phase_total, phase_percent = get_phase_completion(display_phase)
     week_completed, week_total, week_percent = get_week_completion(display_phase, display_week)
@@ -261,7 +302,7 @@ def dashboard(view_phase=None, view_week=None):
         current_absolute_week=current_absolute_week, total_weeks=total_weeks, search_query=search_query,
         phase_completed=phase_completed, phase_total=phase_total, phase_percent=phase_percent,
         week_completed=week_completed, week_total=week_total, week_percent=week_percent,
-        day_completions=day_completions, resource_hours=resource_hours, all_weeks_completion=all_weeks_completion,
+        day_completions=day_completions, milestone_days=milestone_days, resource_hours=resource_hours, all_weeks_completion=all_weeks_completion,
         current_streak=current_streak, longest_streak=longest_streak, week_activity=week_activity,
         today_position=today_position, continue_resource=continue_resource, today_journal=today_journal_dict,
         hours_today=hours_today, expected_resources=expected_resources, curriculum=curriculum,
@@ -443,25 +484,25 @@ def save_journal():
     if existing:
         if link_to_day and phase_index_val is not None:
             cur.execute(
-                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = %s WHERE date = %s",
-                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), date)
+                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = %s WHERE user_id = %s AND date = %s",
+                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), current_user.id, date)
             )
         else:
             cur.execute(
-                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = NULL, week = NULL, day = NULL, updated_at = %s WHERE date = %s",
-                (content, mood, datetime.now().isoformat(), date)
+                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = NULL, week = NULL, day = NULL, updated_at = %s WHERE user_id = %s AND date = %s",
+                (content, mood, datetime.now().isoformat(), current_user.id, date)
             )
         flash("Reflection locked in!", "success")
     else:
         if link_to_day and phase_index_val is not None:
             cur.execute(
-                "INSERT INTO journal_entries (date, content, mood, phase_index, week, day) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (date) DO UPDATE SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = CURRENT_TIMESTAMP",
-                (date, content, mood, phase_index_val, week_val, day_val, content, mood, phase_index_val, week_val, day_val)
+                "INSERT INTO journal_entries (user_id, date, content, mood, phase_index, week, day) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (date) DO UPDATE SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = CURRENT_TIMESTAMP",
+                (current_user.id, date, content, mood, phase_index_val, week_val, day_val, content, mood, phase_index_val, week_val, day_val)
             )
         else:
             cur.execute(
-                "INSERT INTO journal_entries (date, content, mood) VALUES (%s, %s, %s) ON CONFLICT (date) DO UPDATE SET content = %s, mood = %s, updated_at = CURRENT_TIMESTAMP",
-                (date, content, mood, content, mood)
+                "INSERT INTO journal_entries (user_id, date, content, mood) VALUES (%s, %s, %s, %s) ON CONFLICT (date) DO UPDATE SET content = %s, mood = %s, updated_at = CURRENT_TIMESTAMP",
+                (current_user.id, date, content, mood, content, mood)
             )
         flash("Reflection locked in", "success")
     
@@ -501,13 +542,13 @@ def edit_journal(entry_id):
         cur = get_db_cursor(conn)
         if link_to_day and phase_index_val is not None:
             cur.execute(
-                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = %s WHERE id = %s",
-                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), entry_id)
+                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = %s, week = %s, day = %s, updated_at = %s WHERE user_id = %s AND id = %s",
+                (content, mood, phase_index_val, week_val, day_val, datetime.now().isoformat(), current_user.id, entry_id)
             )
         else:
             cur.execute(
-                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = NULL, week = NULL, day = NULL, updated_at = %s WHERE id = %s",
-                (content, mood, datetime.now().isoformat(), entry_id)
+                "UPDATE journal_entries SET content = %s, mood = %s, phase_index = NULL, week = NULL, day = NULL, updated_at = %s WHERE user_id = %s AND id = %s",
+                (content, mood, datetime.now().isoformat(), current_user.id, entry_id)
             )
         cur.close()
         conn.commit()

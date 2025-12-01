@@ -8,6 +8,7 @@ import psycopg2
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
 from constants import STATUS_CYCLE
 
 # Import from new modular structure
@@ -23,6 +24,7 @@ api_bp = Blueprint('api', __name__)
 
 
 @api_bp.route("/log", methods=["POST"])
+@login_required
 def log_hours():
     """Log hours with input validation."""
     try:
@@ -64,8 +66,8 @@ def log_hours():
     cur = get_db_cursor(conn)
     # Insert new log entry with week, day, and resource_id if provided
     cur.execute(
-        "INSERT INTO time_logs (date, hours, notes, phase_index, week, day, resource_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (log_date, hours, notes, current_phase, week, day, resource_id)
+        "INSERT INTO time_logs (user_id, date, hours, notes, phase_index, week, day, resource_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (current_user.id, log_date, hours, notes, current_phase, week, day, resource_id)
     )
     cur.close()
     conn.commit()
@@ -81,6 +83,7 @@ def log_hours():
 
 
 @api_bp.route("/complete-metric", methods=["POST"])
+@login_required
 def complete_metric():
     """Complete a metric with input validation."""
     try:
@@ -96,8 +99,8 @@ def complete_metric():
     
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("INSERT INTO completed_metrics (phase_index, metric_text, completed_date) VALUES (%s, %s, %s) ON CONFLICT (phase_index, metric_text) DO NOTHING",
-        (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d")))
+    cur.execute("INSERT INTO completed_metrics (user_id, phase_index, metric_text, completed_date) VALUES (%s, %s, %s, %s) ON CONFLICT (phase_index, metric_text) DO NOTHING",
+        (current_user.id, phase_index, metric_text, datetime.now().strftime("%Y-%m-%d")))
     cur.close()
     conn.commit()
     
@@ -227,6 +230,7 @@ def jump_to_phase(phase_index):
 
 
 @api_bp.route("/add-resource", methods=["POST"])
+@login_required
 def add_resource():
     title = request.form.get("title", "").strip()
     url = request.form.get("url", "").strip()
@@ -260,8 +264,8 @@ def add_resource():
     cur = get_db_cursor(conn)
     if phase_idx is not None and week_val is not None and day_val is not None:
         cur.execute(
-            "SELECT id FROM resources WHERE phase_index = %s AND week = %s AND day = %s AND title = %s",
-            (phase_idx, week_val, day_val, title)
+            "SELECT id FROM resources WHERE user_id = %s AND phase_index = %s AND week = %s AND day = %s AND title = %s",
+            (current_user.id, phase_idx, week_val, day_val, title)
         )
         existing = cur.fetchone()
         
@@ -272,9 +276,9 @@ def add_resource():
     
     try:
         cur.execute("""INSERT INTO resources 
-            (phase_index, week, day, title, topic, url, resource_type, notes, source, estimated_minutes, difficulty, user_modified) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'user', %s, %s, TRUE) RETURNING id""",
-            (phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
+            (user_id, phase_index, week, day, title, topic, url, resource_type, notes, source, estimated_minutes, difficulty, user_modified) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'user', %s, %s, TRUE) RETURNING id""",
+            (current_user.id, phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
         cur.close()
         conn.commit()
         flash(f"Locked in: {title}", "success")
@@ -286,6 +290,7 @@ def add_resource():
 
 
 @api_bp.route("/toggle-resource/<int:resource_id>", methods=["POST"])
+@login_required
 def toggle_resource(resource_id):
     """Toggle resource status with validation."""
     # Capture query parameters to preserve filters
@@ -294,8 +299,8 @@ def toggle_resource(resource_id):
     
     conn = get_db()
     cur = get_db_cursor(conn)
-    # Get current state and resource details
-    cur.execute("SELECT phase_index, week, day, status FROM resources WHERE id = %s", (resource_id,))
+    # Get current state and resource details including is_milestone
+    cur.execute("SELECT phase_index, week, day, status, is_milestone FROM resources WHERE user_id = %s AND id = %s", (current_user.id, resource_id))
     resource = cur.fetchone()
     if not resource:
         cur.close()
@@ -306,6 +311,7 @@ def toggle_resource(resource_id):
     week = resource["week"]
     day = resource["day"]
     current_status = resource["status"] or "not_started"
+    is_milestone = resource.get("is_milestone", False)
     
     # Cycle through states using STATUS_CYCLE constant
     new_status = STATUS_CYCLE.get(current_status, "in_progress")
@@ -313,17 +319,17 @@ def toggle_resource(resource_id):
     # Update resource with new status and timestamp
     if new_status == "complete":
         cur.execute(
-            "UPDATE resources SET status = %s, is_completed = TRUE, completed_at = %s WHERE id = %s",
-            (new_status, datetime.now().isoformat(), resource_id)
+            "UPDATE resources SET status = %s, is_completed = TRUE, completed_at = %s WHERE user_id = %s AND id = %s",
+            (new_status, datetime.now().isoformat(), current_user.id, resource_id)
         )
     else:
         cur.execute(
-            "UPDATE resources SET status = %s, is_completed = FALSE, completed_at = NULL WHERE id = %s",
-            (new_status, resource_id)
+            "UPDATE resources SET status = %s, is_completed = FALSE, completed_at = NULL WHERE user_id = %s AND id = %s",
+            (new_status, current_user.id, resource_id)
         )
     
-    # If this is Day 6 (BUILD DAY), link to metrics based on new status
-    if day == 6 and phase_index is not None and week is not None:
+    # If this is a milestone resource, link to metrics based on new status
+    if is_milestone and phase_index is not None and week is not None:
         curriculum = load_curriculum()
         if phase_index < len(curriculum["phases"]):
             phase = curriculum["phases"][phase_index]
@@ -336,14 +342,14 @@ def toggle_resource(resource_id):
                 if new_status == "complete":
                     # Auto-complete the metric and store the resource_id that triggered it
                     cur.execute(
-                        "INSERT INTO completed_metrics (phase_index, metric_text, completed_date, resource_id) VALUES (%s, %s, %s, %s) ON CONFLICT (phase_index, metric_text) DO NOTHING",
-                        (phase_index, metric_text, datetime.now().strftime("%Y-%m-%d"), resource_id)
+                        "INSERT INTO completed_metrics (user_id, phase_index, metric_text, completed_date, resource_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (phase_index, metric_text) DO NOTHING",
+                        (current_user.id, phase_index, metric_text, datetime.now().strftime("%Y-%m-%d"), resource_id)
                     )
                 else:
                     # Auto-delete the metric if not complete
                     cur.execute(
-                        "DELETE FROM completed_metrics WHERE phase_index = %s AND metric_text = %s",
-                        (phase_index, metric_text)
+                        "DELETE FROM completed_metrics WHERE user_id = %s AND phase_index = %s AND metric_text = %s",
+                        (current_user.id, phase_index, metric_text)
                     )
     
     cur.close()
@@ -543,8 +549,8 @@ def block_day():
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "INSERT INTO blocked_days (date, reason) VALUES (%s, %s) ON CONFLICT (date) DO UPDATE SET reason = %s",
-        (date_str, reason, reason)
+        "INSERT INTO blocked_days (user_id, date, reason) VALUES (%s, %s, %s) ON CONFLICT (date) DO UPDATE SET reason = %s",
+        (current_user.id, date_str, reason, reason)
     )
     cur.close()
     conn.commit()
@@ -608,9 +614,9 @@ def api_add_resource():
         max_order = cur.fetchone()['max_order']
         
         cur.execute("""
-            INSERT INTO resources (phase_index, week, day, title, url, resource_type, notes, estimated_minutes, difficulty, sort_order, source)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'user') RETURNING id
-        """, (phase_index, week, day, title, url, resource_type, notes, estimated_minutes_val, difficulty, max_order + 1))
+            INSERT INTO resources (user_id, phase_index, week, day, title, url, resource_type, notes, estimated_minutes, difficulty, sort_order, source)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'user') RETURNING id
+        """, (current_user.id, phase_index, week, day, title, url, resource_type, notes, estimated_minutes_val, difficulty, max_order + 1))
         new_id = cur.fetchone()['id']
         cur.close()
         conn.commit()

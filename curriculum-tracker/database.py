@@ -50,101 +50,6 @@ def close_db(exception):
         db.close()
 
 
-def column_exists(conn, table, column):
-    """Check if a column exists in a table."""
-    cur = get_db_cursor(conn)
-    cur.execute(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = %s AND column_name = %s",
-        (table, column)
-    )
-    result = cur.fetchone() is not None
-    cur.close()
-    return result
-
-
-def table_exists(conn, table):
-    """Check if a table exists."""
-    cur = get_db_cursor(conn)
-    cur.execute(
-        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s)",
-        (table,)
-    )
-    result = cur.fetchone()['exists']
-    cur.close()
-    return result
-
-
-def run_migrations():
-    """Run database migrations to add missing columns and tables."""
-    # Use get_db() if in Flask context, otherwise create direct connection
-    created_directly = False
-    try:
-        conn = get_db()
-    except RuntimeError:
-        # Outside Flask context, create connection directly
-        conn = psycopg2.connect(**DB_CONFIG)
-        created_directly = True
-    
-    try:
-        cur = get_db_cursor(conn)
-        
-        # Add scheduled_date to resources if missing
-        if not column_exists(conn, "resources", "scheduled_date"):
-            cur.execute("ALTER TABLE resources ADD COLUMN scheduled_date DATE")
-            print("✓ Added scheduled_date to resources")
-        
-        # Add original_date to resources if missing
-        if not column_exists(conn, "resources", "original_date"):
-            cur.execute("ALTER TABLE resources ADD COLUMN original_date DATE")
-            print("✓ Added original_date to resources")
-        
-        # Create blocked_days table if missing
-        if not table_exists(conn, "blocked_days"):
-            cur.execute("""
-                CREATE TABLE blocked_days (
-                    id SERIAL PRIMARY KEY,
-                    date DATE NOT NULL UNIQUE,
-                    reason TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            print("✓ Created blocked_days table")
-        
-        # Create settings table if missing
-        if not table_exists(conn, "settings"):
-            cur.execute("""
-                CREATE TABLE settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            """)
-            print("✓ Created settings table")
-        
-        # Add phase_index, week, day to journal_entries if missing
-        if not column_exists(conn, "journal_entries", "phase_index"):
-            cur.execute("ALTER TABLE journal_entries ADD COLUMN phase_index INTEGER")
-            print("✓ Added phase_index to journal_entries")
-        
-        if not column_exists(conn, "journal_entries", "week"):
-            cur.execute("ALTER TABLE journal_entries ADD COLUMN week INTEGER")
-            print("✓ Added week to journal_entries")
-        
-        if not column_exists(conn, "journal_entries", "day"):
-            cur.execute("ALTER TABLE journal_entries ADD COLUMN day INTEGER")
-            print("✓ Added day to journal_entries")
-        
-        cur.close()
-        conn.commit()
-        
-    except Exception as e:
-        print(f"Migration error: {e}")
-        conn.rollback()
-        raise
-    
-    finally:
-        # Close connection if we created it directly (outside Flask context)
-        if created_directly:
-            conn.close()
 
 
 def init_db():
@@ -203,6 +108,6 @@ def init_db():
     if created_directly:
         conn.close()
     
-    # Run migrations to add any missing columns/tables
-    run_migrations()
+    # Note: Schema changes are now handled by Alembic migrations
+    # Run migrations with: alembic upgrade head
 

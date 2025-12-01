@@ -16,7 +16,9 @@ except (ImportError, PermissionError, OSError):
     pass  # python-dotenv not installed or .env not accessible, use environment variables directly
 
 # Import from new modular structure
-from database import close_db, init_db, run_migrations
+from database import close_db, init_db
+from flask_login import LoginManager
+from services.auth import User
 from routes.main import main_bp
 from routes.api import api_bp
 
@@ -28,6 +30,15 @@ def create_app():
     app = Flask(__name__)
     app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
+    
+    # Configure Flask-Login
+    login_manager = LoginManager()
+    login_manager.login_view = 'main.login'
+    login_manager.init_app(app)
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.get_user(int(user_id))
     
     # Register teardown handler
     app.teardown_appcontext(close_db)
@@ -49,12 +60,7 @@ if __name__ == "__main__":
     print("Initializing database...")
     init_db()
     print("✓ Database ready!")
-    print("Running migrations...")
-    try:
-        run_migrations()
-    except Exception as e:
-        print(f"Note: Some migrations may have already been applied: {e}")
-    print("✓ Migrations complete!")
+    print("Note: Run migrations with: alembic upgrade head")
     print("\nOpen: http://localhost:5000")
     print("Ctrl+C to stop\n")
     app.run(debug=True, host="0.0.0.0", port=5000)

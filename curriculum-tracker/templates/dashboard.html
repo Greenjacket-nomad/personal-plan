@@ -842,17 +842,17 @@
                     {% set day_comp = day_completions.get(day, {'completed': 0, 'total': 0}) %}
                     {% set is_complete = day_comp.completed == day_comp.total and day_comp.total > 0 %}
                     {% set is_partial = day_comp.completed > 0 and day_comp.completed < day_comp.total %}
-                    <div class="card rounded-lg overflow-hidden {% if day == 6 %}day-build{% elif is_complete %}day-complete{% elif is_partial %}day-partial{% else %}day-default{% endif %}">
-                        <div class="p-4 border-l-4 glass rounded-t-lg {% if day == 6 %}border-warning{% elif is_complete %}border-success{% elif is_partial %}border-warning{% else %}{% endif %}">
-                            <h4 class="font-bold text-lg {% if day == 6 %}day-header-build{% elif is_complete %}day-header-complete{% elif is_partial %}day-header-partial{% else %}day-header-default{% endif %}">
-                                Day {{ day }}{% if day == 6 %} • BUILD DAY{% endif %}: {{ day_comp.completed }}/{{ day_comp.total }}
+                    <div class="card rounded-lg overflow-hidden {% if milestone_days.get(day, False) %}day-build{% elif is_complete %}day-complete{% elif is_partial %}day-partial{% else %}day-default{% endif %}">
+                        <div class="p-4 border-l-4 glass rounded-t-lg {% if milestone_days.get(day, False) %}border-warning{% elif is_complete %}border-success{% elif is_partial %}border-warning{% else %}{% endif %}">
+                            <h4 class="font-bold text-lg {% if milestone_days.get(day, False) %}day-header-build{% elif is_complete %}day-header-complete{% elif is_partial %}day-header-partial{% else %}day-header-default{% endif %}">
+                                Day {{ day }}{% if milestone_days.get(day, False) %} • MILESTONE{% endif %}: {{ day_comp.completed }}/{{ day_comp.total }}
                                 {% if is_complete %}<i class="fas fa-check-circle ml-1"></i>{% elif is_partial %}<i class="fas fa-circle-notch ml-1"></i>{% endif %}
                             </h4>
-                            {% if day == 6 and phase.metrics and (current_week - 1) < phase.metrics|length %}
+                            {% if milestone_days.get(day, False) and phase.metrics and (current_week - 1) < phase.metrics|length %}
                             <div class="mt-2 p-2 glass rounded deliverable-banner">
                                 <p class="text-xs font-semibold text-warning"><i class="fas fa-box mr-1"></i>DELIVERABLE:</p>
                                 <p class="text-sm text-primary">{{ phase.metrics[current_week - 1] }}</p>
-                                <p class="text-xs mt-1 text-secondary">(linked to Week {{ current_week }} Day 6)</p>
+                                <p class="text-xs mt-1 text-secondary">(linked to Week {{ current_week }} Milestone)</p>
                             </div>
                             {% endif %}
                         </div>

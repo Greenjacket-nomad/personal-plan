@@ -4,11 +4,15 @@ Resource service for Curriculum Tracker.
 Handles resource CRUD operations, tagging, and status management.
 """
 
+from flask_login import current_user
 from database import get_db, get_db_cursor
 
 
-def get_resources(phase_index=None):
+def get_resources(phase_index=None, user_id=None):
     """Get resources with tags in a single query (fixes N+1 problem)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     if phase_index is not None:
@@ -19,11 +23,11 @@ def get_resources(phase_index=None):
             FROM resources r
             LEFT JOIN resource_tags rt ON r.id = rt.resource_id
             LEFT JOIN tags t ON rt.tag_id = t.id
-            WHERE r.phase_index = %s OR r.phase_index IS NULL
+            WHERE r.user_id = %s AND (r.phase_index = %s OR r.phase_index IS NULL)
             GROUP BY r.id
             ORDER BY r.week, r.day, r.is_favorite DESC, r.created_at DESC
         """
-        cur.execute(query, (phase_index,))
+        cur.execute(query, (user_id, phase_index))
     else:
         query = """
             SELECT r.*,
@@ -32,10 +36,11 @@ def get_resources(phase_index=None):
             FROM resources r
             LEFT JOIN resource_tags rt ON r.id = rt.resource_id
             LEFT JOIN tags t ON rt.tag_id = t.id
+            WHERE r.user_id = %s
             GROUP BY r.id
             ORDER BY r.phase_index, r.week, r.day, r.is_favorite DESC, r.created_at DESC
         """
-        cur.execute(query)
+        cur.execute(query, (user_id,))
     
     rows = cur.fetchall()
     cur.close()
@@ -69,8 +74,11 @@ def get_all_tags():
     return results
 
 
-def get_resources_by_week(phase_index, week):
+def get_resources_by_week(phase_index, week, user_id=None):
     """Get resources for a specific week with tags in single query (fixes N+1)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     query = """
@@ -80,11 +88,11 @@ def get_resources_by_week(phase_index, week):
         FROM resources r
         LEFT JOIN resource_tags rt ON r.id = rt.resource_id
         LEFT JOIN tags t ON rt.tag_id = t.id
-        WHERE r.phase_index = %s AND r.week = %s
+        WHERE r.user_id = %s AND r.phase_index = %s AND r.week = %s
         GROUP BY r.id
         ORDER BY r.day, r.sort_order, r.is_favorite DESC, r.created_at DESC
     """
-    cur.execute(query, (phase_index, week))
+    cur.execute(query, (user_id, phase_index, week))
     rows = cur.fetchall()
     cur.close()
     
@@ -108,13 +116,16 @@ def get_resources_by_week(phase_index, week):
     return grouped, ungrouped
 
 
-def get_day_completion(phase_index, week, day):
+def get_day_completion(phase_index, week, day, user_id=None):
     """Get completion stats for a specific day. Returns (completed, total)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE phase_index = %s AND week = %s AND day = %s",
-        (phase_index, week, day)
+        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE user_id = %s AND phase_index = %s AND week = %s AND day = %s",
+        (user_id, phase_index, week, day)
     )
     row = cur.fetchone()
     cur.close()
@@ -123,13 +134,16 @@ def get_day_completion(phase_index, week, day):
     return (completed, total)
 
 
-def get_week_completion(phase_index, week):
+def get_week_completion(phase_index, week, user_id=None):
     """Get completion stats for a specific week. Returns (completed, total, percent)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE phase_index = %s AND week = %s",
-        (phase_index, week)
+        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE user_id = %s AND phase_index = %s AND week = %s",
+        (user_id, phase_index, week)
     )
     row = cur.fetchone()
     cur.close()
@@ -139,13 +153,16 @@ def get_week_completion(phase_index, week):
     return (completed, total, percent)
 
 
-def get_phase_completion(phase_index):
+def get_phase_completion(phase_index, user_id=None):
     """Get completion stats for a specific phase. Returns (completed, total, percent)."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE phase_index = %s",
-        (phase_index,)
+        "SELECT COUNT(*) as total, SUM(CASE WHEN is_completed THEN 1 ELSE 0 END) as completed FROM resources WHERE user_id = %s AND phase_index = %s",
+        (user_id, phase_index)
     )
     row = cur.fetchone()
     cur.close()
@@ -155,14 +172,18 @@ def get_phase_completion(phase_index):
     return (completed, total, percent)
 
 
-def get_continue_resource(current_phase, current_week):
+def get_continue_resource(current_phase, current_week, user_id=None):
     """Get the resource to continue working on."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     
     # First check for in_progress
     cur.execute(
-        "SELECT * FROM resources WHERE status = 'in_progress' AND phase_index IS NOT NULL AND week IS NOT NULL AND day IS NOT NULL ORDER BY phase_index, week, day LIMIT 1"
+        "SELECT * FROM resources WHERE user_id = %s AND status = 'in_progress' AND phase_index IS NOT NULL AND week IS NOT NULL AND day IS NOT NULL ORDER BY phase_index, week, day LIMIT 1",
+        (user_id,)
     )
     in_progress = cur.fetchone()
     
@@ -175,8 +196,8 @@ def get_continue_resource(current_phase, current_week):
     
     # If none, get first incomplete in current position
     cur.execute(
-        "SELECT * FROM resources WHERE status = 'not_started' AND phase_index = %s AND week = %s AND day IS NOT NULL ORDER BY day, sort_order LIMIT 1",
-        (current_phase, current_week)
+        "SELECT * FROM resources WHERE user_id = %s AND status = 'not_started' AND phase_index = %s AND week = %s AND day IS NOT NULL ORDER BY day, sort_order LIMIT 1",
+        (user_id, current_phase, current_week)
     )
     incomplete = cur.fetchone()
     cur.close()
@@ -190,13 +211,16 @@ def get_continue_resource(current_phase, current_week):
     return None
 
 
-def get_hours_for_resource(resource_id):
+def get_hours_for_resource(resource_id, user_id=None):
     """Get total hours logged for a specific resource."""
+    if user_id is None:
+        user_id = current_user.id
+    
     conn = get_db()
     cur = get_db_cursor(conn)
     cur.execute(
-        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE resource_id = %s",
-        (resource_id,)
+        "SELECT COALESCE(SUM(hours), 0) as total FROM time_logs WHERE user_id = %s AND resource_id = %s",
+        (user_id, resource_id)
     )
     result = cur.fetchone()
     cur.close()
