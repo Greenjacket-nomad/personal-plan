@@ -7,17 +7,19 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+*.egg
 
-# Database
+# Database files
 *.db
 *.sqlite
 *.sqlite3
 
-# Environment
+# Environment variables
 .env
+.env.local
 .venv
-env/
 venv/
+ENV/
 
 # IDE
 .vscode/
@@ -30,6 +32,20 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Uploads
-curriculum-tracker/uploads/
+# Flask
+instance/
+.webassets-cache
 
+# Uploads (user-generated content)
+curriculum-tracker/uploads/*
+!curriculum-tracker/uploads/.gitkeep
+
+# Migration scripts (one-time use, keep in history but don't track new changes)
+# curriculum-tracker/migrate_data.py
+# curriculum-tracker/migrate_with_id_mapping.py
+# curriculum-tracker/fix_resource_tags.py
+# curriculum-tracker/test_postgres_connection.py
+# curriculum-tracker/verify_data.py
+
+# Logs
+*.log
