@@ -2,6 +2,8 @@
 
 A modern, full-stack web application for tracking learning progress through structured curricula. Built with Flask and PostgreSQL, featuring a responsive dashboard, real-time progress tracking, and comprehensive resource management.
 
+> **✨ Latest Update (v5.0)**: The application has been refactored into a modular architecture with clear separation of concerns. See the [Version 5.0](#version-50-modular-architecture-refactor) section for details.
+
 ## 🎯 Project Vision
 
 **Curriculum Tracker** is designed to solve the problem of managing complex, multi-phase learning journeys. Whether you're tracking a 17-week technical curriculum, a certification program, or any structured learning path, this application provides:
@@ -29,14 +31,24 @@ The application evolved from a simple SQLite-based tracker to a robust PostgreSQ
 ┌────────────────────▼────────────────────────────────────┐
 │              Flask Application Server                    │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │  Route Handlers (139 endpoints)                   │  │
-│  │  - Dashboard, Resources, Journal, Reports        │  │
-│  │  - File Upload, API Endpoints                     │  │
+│  │  Routes Layer (Blueprints)                        │  │
+│  │  - routes/main.py: HTML rendering                 │  │
+│  │  - routes/api.py: JSON API & form handlers       │  │
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │  Business Logic Layer                            │  │
-│  │  - Progress Calculation, Streak Tracking          │  │
-│  │  - Resource Management, Tag System                │  │
+│  │  Service Layer (Business Logic)                   │  │
+│  │  - services/resources.py: Resource queries       │  │
+│  │  - services/progress.py: Progress & metrics       │  │
+│  │  - services/reporting.py: Analytics              │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Database Layer (database.py)                    │  │
+│  │  - Connection management, migrations             │  │
+│  │  - Schema initialization                        │  │
+│  └──────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Utilities (utils.py)                            │  │
+│  │  - Helper functions, scheduling, paths            │  │
 │  └──────────────────────────────────────────────────┘  │
 └────────────────────┬────────────────────────────────────┘
                      │ psycopg2
@@ -53,13 +65,22 @@ The application evolved from a simple SQLite-based tracker to a robust PostgreSQ
 ### Core Components
 
 1. **Flask Application (`app.py`)**
-   - 2,754 lines of Python code
-   - 139 route handlers
-   - RESTful API endpoints
-   - File upload handling
-   - Real-time data processing
+   - Clean entry point using application factory pattern
+   - Blueprint registration and configuration
+   - Minimal, maintainable code structure
 
-2. **Database Layer**
+2. **Modular Architecture**
+   - **Database Layer** (`database.py`): Connection management, schema initialization, migrations
+   - **Service Layer** (`services/`): Business logic separated by domain
+     - `services/resources.py`: Resource management queries
+     - `services/progress.py`: Progress tracking and metrics
+     - `services/reporting.py`: Analytics and reporting
+   - **Routes Layer** (`routes/`): Organized by functionality
+     - `routes/main.py`: HTML rendering routes (dashboard, journal, resources, reports)
+     - `routes/api.py`: JSON API endpoints and form handlers
+   - **Utilities** (`utils.py`): Helper functions, path constants, scheduling logic
+
+3. **Database Layer**
    - PostgreSQL with psycopg2
    - RealDictCursor for dictionary-based row access
    - Optimized queries with batch operations
@@ -235,6 +256,31 @@ The application uses **12 interconnected tables** with proper normalization:
 - Enhanced reporting with theme support
 - Improved error handling
 - PostgreSQL datetime compatibility fixes
+
+### Version 5.0: Modular Architecture Refactor
+**Major Code Organization Improvement**
+
+**Refactoring Highlights:**
+- Extracted monolithic `app.py` into modular structure
+- Separated concerns: database, services, routes, utilities
+- Implemented Flask Blueprints for route organization
+- Created service layer for business logic separation
+- Improved maintainability and testability
+- Zero functionality lost - all features preserved
+
+**New Structure:**
+- `database.py`: Database connection and schema management
+- `utils.py`: Helper functions and path constants
+- `services/`: Business logic layer (resources, progress, reporting)
+- `routes/`: Route handlers organized by functionality (main, api)
+- `app.py`: Clean entry point with application factory pattern
+
+**Benefits:**
+- Easier to maintain and extend
+- Better code organization and readability
+- Improved testability of individual components
+- Scalable architecture for future features
+- Clear separation of concerns
 
 ---
 
@@ -438,12 +484,25 @@ SECRET_KEY=your_secret_key
 
 ```
 curriculum-tracker/
-├── app.py                    # Main Flask application (2,754 lines)
+├── app.py                    # Flask application entry point (application factory)
+├── database.py               # Database connection, schema, migrations
+├── utils.py                  # Helper functions, path constants, scheduling
 ├── constants.py              # Application constants and configuration
 ├── schema.sql                # PostgreSQL database schema
 ├── curriculum.yaml           # Curriculum structure definition
 ├── requirements.txt          # Python dependencies
 ├── .env                      # Environment variables (gitignored)
+│
+├── services/                 # Business logic layer
+│   ├── __init__.py
+│   ├── resources.py          # Resource-related database queries
+│   ├── progress.py          # Progress tracking and metrics
+│   └── reporting.py         # Analytics and reporting queries
+│
+├── routes/                   # Route handlers (Flask Blueprints)
+│   ├── __init__.py
+│   ├── main.py              # HTML rendering routes (dashboard, journal, etc.)
+│   └── api.py               # JSON API endpoints and form handlers
 │
 ├── static/
 │   ├── style.css            # Global styles and CSS variables
@@ -482,28 +541,56 @@ curriculum-tracker/
    # Create PostgreSQL database
    createdb curriculum_tracker
    
-   # Run schema
+   # Run schema (optional - app will auto-initialize)
    psql -d curriculum_tracker -f schema.sql
    ```
 
 3. **Environment Configuration:**
    ```bash
-   cp .env.example .env
-   # Edit .env with your PostgreSQL credentials
+   # Create .env file with your PostgreSQL credentials
+   POSTGRES_HOST=localhost
+   POSTGRES_DB=curriculum_tracker
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=your_password
+   POSTGRES_PORT=5432
+   SECRET_KEY=your_secret_key_here
    ```
 
 4. **Run Application:**
    ```bash
    python3 app.py
    # Server runs on http://localhost:5000
+   # Database will be automatically initialized on first run
    ```
+
+### Architecture Overview
+
+The application follows a **modular architecture** with clear separation of concerns:
+
+- **`app.py`**: Entry point that creates and configures the Flask application
+- **`database.py`**: Database connection management, schema initialization, migrations
+- **`utils.py`**: Helper functions, path constants, curriculum loading, scheduling
+- **`services/`**: Business logic layer
+  - `resources.py`: All resource-related database queries
+  - `progress.py`: Progress tracking, metrics, streaks, activity logging
+  - `reporting.py`: Analytics, burndown charts, time reports
+- **`routes/`**: Route handlers (Flask Blueprints)
+  - `main.py`: HTML rendering routes (dashboard, journal, resources, reports, etc.)
+  - `api.py`: JSON API endpoints and form submission handlers
+
+This structure makes the codebase:
+- **Maintainable**: Each module has a single responsibility
+- **Testable**: Services can be tested independently
+- **Scalable**: Easy to add new features without touching existing code
+- **Readable**: Clear organization and separation of concerns
 
 ### Database Migrations
 
-The application includes migration logic in `app.py`:
+The application includes migration logic in `database.py`:
 - Automatic schema updates on startup
 - Backward-compatible changes
 - Safe column additions
+- Migration functions: `run_migrations()`, `column_exists()`, `table_exists()`
 
 ### Testing
 
@@ -540,7 +627,9 @@ The application includes migration logic in `app.py`:
 - [ ] Improve error handling consistency
 - [ ] Add API documentation (OpenAPI/Swagger)
 - [ ] Implement caching layer (Redis)
-- [ ] Add database migration framework (Alembic)
+- [x] Refactor monolithic app.py into modular structure (v5.0)
+- [ ] Add unit tests for service layer
+- [ ] Add integration tests for routes
 
 ---
 
