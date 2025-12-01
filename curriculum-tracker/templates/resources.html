@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
         /* CSS Variable System - Same as dashboard */
         :root {
@@ -240,6 +241,68 @@
         
         .stat-number { font-weight: 700; }
         .color-input { border: 1px solid var(--border); border-radius: 8px; }
+        
+        /* Navigation Styles */
+        .nav-item {
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            transition: all 150ms ease;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+        }
+        
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .header a.text-2xl:hover {
+            transform: scale(1.05);
+            transition: transform 150ms ease;
+        }
+        
+        #breadcrumbs {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        #breadcrumbs a {
+            color: var(--text-secondary);
+            transition: color 150ms ease;
+        }
+        
+        #breadcrumbs a:hover {
+            color: var(--accent);
+        }
+        
+        #mobile-menu {
+            border-top: 1px solid var(--border);
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+        
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            transition: all 150ms ease;
+        }
+        
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
     </style>
     <script>
         (function() {
@@ -254,34 +317,100 @@
             const next = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
+            updateThemeIcon();
         }
+        
+        function updateThemeIcon() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-icon');
+            if (icon) {
+                icon.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+        }
+        
+        // Initialize theme icon
+        document.addEventListener('DOMContentLoaded', function() {
+            updateThemeIcon();
+        });
     </script>
 </head>
     <body class="min-h-screen">
     <header class="header py-6 px-8">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-bold text-primary"><i class="fas fa-book mr-2"></i>All Resources</h1>
-                <p class="text-secondary">{{ resources|length }} resources across all phases</p>
+        <div class="max-w-7xl mx-auto">
+            <!-- Unified Navigation -->
+            <div class="flex items-center justify-between">
+                <!-- Left: Logo + Breadcrumbs -->
+                <div class="flex items-center gap-6">
+                    <a href="/" class="text-2xl font-bold text-primary hover:text-accent transition-all" title="Dashboard">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        <span class="hidden md:inline">Curriculum Tracker</span>
+                    </a>
+                    {% if request.path != '/' %}
+                    <button onclick="goBack()" class="btn-secondary px-3 py-2 text-sm">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        <span class="hidden md:inline">Back</span>
+                    </button>
+                    {% endif %}
+                    <div id="breadcrumbs" class="text-sm text-secondary hidden md:flex items-center gap-2">
+                        <!-- Dynamic breadcrumbs inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Right: Navigation + Utilities -->
+                <div class="flex items-center gap-6">
+                    <!-- Main Navigation -->
+                    <nav class="hidden md:flex items-center gap-4">
+                        <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}">
+                            <i class="fas fa-home mr-1"></i>Dashboard
+                        </a>
+                        <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}">
+                            <i class="fas fa-book mr-1"></i>Curriculum
+                        </a>
+                        <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}">
+                            <i class="fas fa-book-open mr-1"></i>Journal
+                        </a>
+                        <a href="/calendar" class="nav-item {% if '/calendar' in request.path %}active{% endif %}">
+                            <i class="fas fa-calendar mr-1"></i>Calendar
+                        </a>
+                        <a href="/reports" class="nav-item {% if '/reports' in request.path %}active{% endif %}">
+                            <i class="fas fa-chart-bar mr-1"></i>Reports
+                        </a>
+                        <a href="/activity" class="nav-item {% if '/activity' in request.path %}active{% endif %}">
+                            <i class="fas fa-history mr-1"></i>Activity
+                        </a>
+                    </nav>
+                    
+                    <!-- Utilities -->
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                            <span class="theme-icon"></span>
+                        </button>
+                        <a href="/export" class="text-primary">
+                            <i class="fas fa-download mr-1"></i><span class="hidden md:inline">Export</span>
+                        </a>
+                    </div>
+                    
+                    <!-- Mobile Menu Toggle -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden text-primary">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-4">
-                <a href="/" class="text-primary"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                <a href="/curriculum/edit" class="text-primary"><i class="fas fa-edit mr-2"></i>Edit Curriculum</a>
-                <a href="/reports" class="text-primary"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
-                <a href="/export" class="text-primary"><i class="fas fa-download mr-2"></i>Export</a>
+            
+            <!-- Mobile Menu (hidden by default) -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4">
+                <nav class="flex flex-col gap-3">
+                    <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                    <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}"><i class="fas fa-book mr-2"></i>Curriculum</a>
+                    <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}"><i class="fas fa-book-open mr-2"></i>Journal</a>
+                    <a href="/calendar" class="nav-item {% if '/calendar' in request.path %}active{% endif %}"><i class="fas fa-calendar mr-2"></i>Calendar</a>
+                    <a href="/reports" class="nav-item {% if '/reports' in request.path %}active{% endif %}"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
+                    <a href="/activity" class="nav-item {% if '/activity' in request.path %}active{% endif %}"><i class="fas fa-history mr-2"></i>Activity</a>
+                </nav>
             </div>
         </div>
     </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="max-w-7xl mx-auto px-6 pt-4">
-        {% for category, message in messages %}
-        <div class="p-3 rounded-lg mb-2 card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">{{ message }}</div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
 
     <div class="max-w-7xl mx-auto p-6">
         <!-- Search & Filter -->
@@ -789,7 +918,195 @@
                 const resourceId = el.id.replace('attachments-', '');
                 loadAttachments(resourceId);
             });
+            
+            // Highlight search terms in results
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchQuery = urlParams.get('q');
+            if (searchQuery && searchQuery.trim()) {
+                highlightSearchTerms(searchQuery.trim());
+            }
         });
+        
+        function highlightSearchTerms(query) {
+            const searchLower = query.toLowerCase();
+            const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+            
+            // Highlight in title
+            document.querySelectorAll('.inline-edit-title .inline-edit-display span, .inline-edit-title .inline-edit-display a').forEach(el => {
+                if (el.textContent.toLowerCase().includes(searchLower)) {
+                    const highlighted = el.innerHTML.replace(regex, '<mark>$1</mark>');
+                    el.innerHTML = highlighted;
+                }
+            });
+            
+            // Highlight in notes/details
+            document.querySelectorAll('.details-content p').forEach(el => {
+                if (el.textContent.toLowerCase().includes(searchLower)) {
+                    const highlighted = el.innerHTML.replace(regex, '<mark>$1</mark>');
+                    el.innerHTML = highlighted;
+                }
+            });
+            
+            // Highlight in topic
+            document.querySelectorAll('.text-xs.uppercase').forEach(el => {
+                if (el.textContent.toLowerCase().includes(searchLower)) {
+                    const highlighted = el.innerHTML.replace(regex, '<mark>$1</mark>');
+                    el.innerHTML = highlighted;
+                }
+            });
+        }
+        
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+        
+        // Back button function
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '/';
+            }
+        }
+        
+        // Generate breadcrumbs dynamically
+        function generateBreadcrumbs() {
+            const breadcrumbs = document.getElementById('breadcrumbs');
+            if (!breadcrumbs) return;
+            
+            const path = window.location.pathname;
+            const parts = path.split('/').filter(Boolean);
+            
+            if (parts.length === 0) {
+                breadcrumbs.innerHTML = '<span>Dashboard</span>';
+                return;
+            }
+            
+            let html = '<a href="/" class="hover:text-accent">Dashboard</a>';
+            
+            const routeNames = {
+                'resources': 'Curriculum',
+                'curriculum': 'Curriculum',
+                'journal': 'Journal',
+                'calendar': 'Calendar',
+                'reports': 'Reports',
+                'activity': 'Activity',
+                'view': 'Week View',
+                'edit': 'Edit'
+            };
+            
+            let currentPath = '';
+            parts.forEach((part, index) => {
+                currentPath += '/' + part;
+                
+                if (part === 'calendar' && parts.length > index + 1) {
+                    const year = parts[index + 1];
+                    const month = parts[index + 2];
+                    if (month) {
+                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                           'July', 'August', 'September', 'October', 'November', 'December'];
+                        const monthName = monthNames[parseInt(month) - 1] || month;
+                        html += ` <i class="fas fa-chevron-right text-xs"></i> <span>${monthName} ${year}</span>`;
+                        return;
+                    }
+                }
+                
+                if (part === 'view' && parts.length > index + 1) {
+                    const phaseIndex = parseInt(parts[index + 1]);
+                    const week = parts[index + 2];
+                    if (week) {
+                        html += ` <i class="fas fa-chevron-right text-xs"></i> <span>Phase ${phaseIndex + 1} > Week ${week}</span>`;
+                        return;
+                    }
+                }
+                
+                if (index > 0 && parts[index - 1] === 'calendar' && (part.match(/^\d+$/) || index === 1)) {
+                    return;
+                }
+                if (index > 0 && parts[index - 1] === 'view' && part.match(/^\d+$/)) {
+                    return;
+                }
+                
+                const name = routeNames[part] || part.charAt(0).toUpperCase() + part.slice(1);
+                
+                if (index === parts.length - 1) {
+                    html += ` <i class="fas fa-chevron-right text-xs"></i> <span>${name}</span>`;
+                } else {
+                    html += ` <i class="fas fa-chevron-right text-xs"></i> <a href="${currentPath}" class="hover:text-accent">${name}</a>`;
+                }
+            });
+            
+            breadcrumbs.innerHTML = html;
+        }
+        
+        // Initialize breadcrumbs
+        document.addEventListener('DOMContentLoaded', function() {
+            generateBreadcrumbs();
+        });
+    </script>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Toast Notification Script -->
+    <script>
+        // Show flash messages as toasts
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for category, message in messages %}
+            showToast('{{ message|safe|replace("'", "\\'") }}', '{{ category }}');
+            {% endfor %}
+        });
+        {% endif %}
+        {% endwith %}
+        
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                </div>
+                <div class="toast-content">${message}</div>
+                <button class="toast-close" onclick="removeToast(this.parentElement)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after duration
+            setTimeout(() => {
+                removeToast(toast);
+            }, duration);
+        }
+        
+        function removeToast(toast) {
+            if (!toast) return;
+            toast.classList.add('removing');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
     </script>
 </body>
 </html>

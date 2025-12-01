@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/static/celebrations.js"></script>
@@ -369,6 +370,97 @@
         .bulk-btn-skip:hover { background: var(--bg-secondary); }
         .bulk-btn-error { background: var(--error); color: white; }
         .bulk-btn-error:hover { opacity: 0.9; }
+        
+        /* Navigation Styles */
+        .nav-item {
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            transition: all 150ms ease;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+        }
+        
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        /* Logo hover effect */
+        .header a.text-2xl:hover {
+            transform: scale(1.05);
+            transition: transform 150ms ease;
+        }
+        
+        /* Breadcrumb styles */
+        #breadcrumbs {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        #breadcrumbs a {
+            color: var(--text-secondary);
+            transition: color 150ms ease;
+        }
+        
+        #breadcrumbs a:hover {
+            color: var(--accent);
+        }
+        
+        /* Mobile menu */
+        #mobile-menu {
+            border-top: 1px solid var(--border);
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+        
+        /* Highlight flash animation for resource scrolling */
+        .highlight-flash {
+            animation: flashHighlight 2s ease-out;
+        }
+        
+        @keyframes flashHighlight {
+            0%, 100% { box-shadow: none; border-color: var(--border); }
+            50% { box-shadow: 0 0 20px 5px var(--warning); border-color: var(--warning); }
+        }
+        
+        /* Status Dropdown Menu */
+        .status-dropdown {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+        }
+        
+        .status-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            text-align: left;
+            border-radius: 6px;
+            transition: all 150ms ease;
+            color: var(--text-primary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .status-menu-item:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .status-menu-item.active {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
     </style>
     <script>
         // Load theme before page renders to prevent flash
@@ -383,28 +475,84 @@
     <body class="min-h-screen" style="background-color: var(--bg-primary)">
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
+            <!-- Unified Navigation -->
+            <div class="flex items-center justify-between mb-4">
+                <!-- Left: Logo + Breadcrumbs -->
+                <div class="flex items-center gap-6">
+                    <a href="/" class="text-2xl font-bold text-primary hover:text-accent transition-all" title="Dashboard">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        <span class="hidden md:inline">Curriculum Tracker</span>
+                    </a>
+                    <div id="breadcrumbs" class="text-sm text-secondary hidden md:flex items-center gap-2">
+                        <!-- Dynamic breadcrumbs inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Right: Navigation + Utilities -->
+                <div class="flex items-center gap-6">
+                    <!-- Main Navigation -->
+                    <nav class="hidden md:flex items-center gap-4">
+                        <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}">
+                            <i class="fas fa-home mr-1"></i>Dashboard
+                        </a>
+                        <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}">
+                            <i class="fas fa-book mr-1"></i>Curriculum
+                        </a>
+                        <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}">
+                            <i class="fas fa-book-open mr-1"></i>Journal
+                        </a>
+                        <a href="/#week-calendar-view" class="nav-item {% if '/calendar' in request.path %}active{% endif %}">
+                            <i class="fas fa-calendar mr-1"></i>Calendar
+                        </a>
+                        <a href="/reports" class="nav-item {% if '/reports' in request.path %}active{% endif %}">
+                            <i class="fas fa-chart-bar mr-1"></i>Reports
+                        </a>
+                        <a href="/activity" class="nav-item {% if '/activity' in request.path %}active{% endif %}">
+                            <i class="fas fa-history mr-1"></i>Activity
+                        </a>
+                    </nav>
+                    
+                    <!-- Utilities -->
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                            <span class="theme-icon"></span>
+                        </button>
+                        <a href="/export" class="text-primary">
+                            <i class="fas fa-download mr-1"></i><span class="hidden md:inline">Export</span>
+                        </a>
+                    </div>
+                    
+                    <!-- Mobile Menu Toggle -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden text-primary">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Menu (hidden by default) -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4">
+                <nav class="flex flex-col gap-3">
+                    <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                    <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}"><i class="fas fa-book mr-2"></i>Curriculum</a>
+                    <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}"><i class="fas fa-book-open mr-2"></i>Journal</a>
+                    <a href="/#week-calendar-view" class="nav-item {% if '/calendar' in request.path %}active{% endif %}"><i class="fas fa-calendar mr-2"></i>Calendar</a>
+                    <a href="/reports" class="nav-item {% if '/reports' in request.path %}active{% endif %}"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
+                    <a href="/activity" class="nav-item {% if '/activity' in request.path %}active{% endif %}"><i class="fas fa-history mr-2"></i>Activity</a>
+                </nav>
+            </div>
+            
+            <!-- Dashboard-Specific Content -->
             <div class="flex justify-between items-center mb-3">
                 <div>
-                    <h1 class="text-2xl font-bold text-primary"><i class="fas fa-graduation-cap mr-2"></i>Curriculum Tracker</h1>
                     <p class="text-secondary">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
                 </div>
-                <div class="flex items-center gap-6">
-                    <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
-                        <span class="theme-icon"></span>
-                    </button>
-                    <a href="/journal" class="text-primary"><i class="fas fa-book mr-2"></i>Journal</a>
-                    <a href="/activity" class="text-primary"><i class="fas fa-history mr-2"></i>Activity</a>
-                    <a href="/resources" class="text-primary"><i class="fas fa-database mr-2"></i>Resources</a>
-                    <a href="/reports" class="text-primary"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
-                    <a href="/export" class="text-primary"><i class="fas fa-download mr-2"></i>Export</a>
-                    <div class="text-right">
-                        <div class="stat-number text-accent">{{ "%.1f"|format(overall_progress) }}%</div>
-                        <div class="stat-label">Progress</div>
-                        <div class="stat-sublabel">
-                            <div>This Week: {{ "%.1f"|format(week_hours) }}/24h</div>
-                            <div>Total: {{ "%.1f"|format(total_hours) }}/408h</div>
-                            <div>Phase Target: {{ phase.hours }}h</div>
-                        </div>
+                <div class="text-right">
+                    <div class="stat-number text-accent">{{ "%.1f"|format(overall_progress) }}%</div>
+                    <div class="stat-label">Progress</div>
+                    <div class="stat-sublabel">
+                        <div>This Week: {{ "%.1f"|format(week_hours) }}/24h</div>
+                        <div>Total: {{ "%.1f"|format(total_hours) }}/408h</div>
+                        <div>Phase Target: {{ phase.hours }}h</div>
                     </div>
                 </div>
             </div>
@@ -426,31 +574,6 @@
         </div>
     </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    <div class="max-w-7xl mx-auto px-6 pt-4" id="flash-messages">
-        {% for category, message in messages %}
-        <div class="flash-message p-3 rounded-lg mb-2 flex items-center justify-between card {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">
-            <span>{{ message }}</span>
-            <button onclick="this.parentElement.remove()" class="ml-4 text-lg font-bold opacity-50 hover:opacity-100 btn-close-flash">&times;</button>
-        </div>
-        {% endfor %}
-    </div>
-    <script>
-        // Auto-dismiss flash messages after 5 seconds
-        setTimeout(() => {
-            const flashContainer = document.getElementById('flash-messages');
-            if (flashContainer) {
-                flashContainer.querySelectorAll('.flash-message').forEach(el => {
-                    el.style.transition = 'opacity 0.5s';
-                    el.style.opacity = '0';
-                    setTimeout(() => el.remove(), 500);
-                });
-            }
-        }, 5000);
-    </script>
-    {% endif %}
-    {% endwith %}
 
     <div class="max-w-7xl mx-auto p-6">
         <!-- Start Date Setup Card -->
@@ -508,7 +631,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <a href="/calendar" class="btn-secondary px-4 py-2"><i class="fas fa-calendar mr-2"></i>View Calendar</a>
+                <a href="/#week-calendar-view" class="btn-secondary px-4 py-2"><i class="fas fa-calendar mr-2"></i>View Calendar</a>
             </div>
         </div>
         {% endif %}
@@ -555,6 +678,54 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- Week Calendar View -->
+        <div class="card p-6 mb-6" id="week-calendar-view">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-primary">
+                    <i class="fas fa-calendar-week mr-2"></i>
+                    <span id="calendar-week-label">This Week</span>
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button onclick="openBlockDaysModal()" class="btn-secondary px-4 py-2">
+                        <i class="fas fa-ban mr-2"></i>Block Days
+                    </button>
+                    <button onclick="previousWeek()" class="btn-secondary px-3 py-2" title="Previous week">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button onclick="expandToMonth()" class="btn-secondary px-3 py-2" title="Expand to full month">
+                        <i class="fas fa-expand-alt"></i>
+                    </button>
+                    <button onclick="nextWeek()" class="btn-secondary px-3 py-2" title="Next week">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Week Grid (7 days) -->
+            <div class="grid grid-cols-7 gap-2" id="week-calendar-grid">
+                <!-- Days rendered by JavaScript -->
+            </div>
+            
+            <!-- Expanded Month View (hidden by default) -->
+            <div id="month-calendar-view" class="hidden mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="previousMonth()" class="btn-secondary px-3 py-2">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <h3 class="text-lg font-bold text-primary" id="month-label">January 2025</h3>
+                    <button onclick="nextMonth()" class="btn-secondary px-3 py-2">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-7 gap-2" id="month-calendar-grid">
+                    <!-- Month days rendered by JavaScript -->
+                </div>
+                <button onclick="collapseToWeek()" class="btn-secondary mt-4 px-3 py-2">
+                    <i class="fas fa-compress-alt mr-2"></i>Collapse to Week
+                </button>
+            </div>
+        </div>
 
         <!-- Journal Entry Widget -->
         <div class="card p-6 mb-6">
@@ -666,7 +837,17 @@
         <!-- Sidebar -->
         <div class="lg:col-span-1 space-y-4">
             <div class="card p-4">
-                <h2 class="font-bold mb-3 text-primary"><i class="fas fa-book mr-2"></i>Phases</h2>
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-primary"><i class="fas fa-book mr-2"></i>Phases</h2>
+                    <div class="flex items-center gap-2">
+                        <button onclick="navigateWeek('prev')" class="text-sm px-2 py-1 btn-secondary" title="Previous week">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button onclick="navigateWeek('next')" class="text-sm px-2 py-1 btn-primary" title="Next week">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
                 {% for p in phases %}
                 <form action="/jump-to-phase/{{ p.index }}" method="POST" class="mb-2">
                     <button type="submit" class="w-full text-left p-3 rounded-lg transition-all card {% if p.is_current %}phase-current{% elif p.is_complete %}phase-complete{% else %}phase-default{% endif %}">
@@ -682,19 +863,80 @@
                 </form>
                 {% endfor %}
             </div>
-            <div class="card p-4 space-y-2">
-                <form action="/prev-week" method="POST">
-                    <button class="btn-secondary w-full text-sm"><i class="fas fa-arrow-left mr-2"></i>Previous</button>
-                </form>
-                <form action="/next-week" method="POST">
-                    <button class="btn-primary w-full text-sm">Next<i class="fas fa-arrow-right ml-2"></i></button>
-                </form>
-            </div>
+            
+            <!-- Log Time Card (MOVED HERE) -->
             <div class="card p-4">
-                <a href="/calendar" class="block text-center py-2 px-4 btn-secondary text-sm font-medium">
-                    <i class="fas fa-calendar mr-2"></i>Calendar
-                </a>
+                <div class="flex items-center justify-between mb-3 cursor-pointer" onclick="toggleLogTime()">
+                    <h3 class="font-bold text-primary"><i class="fas fa-clock mr-2"></i>Log Time</h3>
+                    <i class="fas fa-chevron-down transition-transform" id="log-time-chevron"></i>
+                </div>
+                <div id="log-time-content" class="hidden-field">
+                <form action="/log" method="POST" class="space-y-3 mb-4">
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Hours</label>
+                        <input type="number" name="hours" step="0.25" min="0.25" value="1" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Date</label>
+                        <input type="date" name="date" value="{{ today }}" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Week (opt)</label>
+                        <select name="week" class="w-full">
+                            <option value="">Any</option>
+                            {% for w in range(1, phase.weeks + 1) %}
+                            <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>W{{ w }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Day (opt)</label>
+                        <select name="day" class="w-full">
+                            <option value="">Any</option>
+                            {% for d in range(1, 7) %}
+                            <option value="{{ d }}">D{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Resource (opt)</label>
+                        <select name="resource_id" class="w-full text-sm">
+                            <option value="">General time</option>
+                            {% for day in [1,2,3,4,5,6] %}
+                                {% if grouped_week_resources[day] %}
+                                    <optgroup label="Day {{ day }}">
+                                    {% for r in grouped_week_resources[day] %}
+                                        <option value="{{ r.id }}">{{ r.title[:50] }}</option>
+                                    {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs mb-1 text-secondary">Notes</label>
+                        <input type="text" name="notes" placeholder="What did you study?" class="w-full">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-primary w-full"><i class="fas fa-plus mr-1"></i>Log Time</button>
+                    </div>
+                </form>
+                {% if recent_logs %}
+                <div class="mt-4 flex flex-wrap gap-2">
+                    {% for log in recent_logs %}
+                    <div class="inline-flex items-center gap-2 tag">
+                        <span class="text-secondary">{{ log.date }}</span>
+                        <span class="font-bold text-accent">{{ log.hours }}h</span>
+                        <form action="/delete-log/{{ log.date }}" method="POST" class="inline">
+                            <button class="btn-delete transition-all"><i class="fas fa-times text-xs"></i></button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                </div>
             </div>
+            
         </div>
 
         <!-- Main -->
@@ -783,116 +1025,10 @@
                             {% endif %}
                         </div>
                         <div class="metric-details hidden w-full mt-2 p-2 rounded bg-tertiary">
-                            <p class="text-sm text-secondary">Brewing...</p>
+                            <p class="text-sm text-secondary">No linked resources yet</p>
                         </div>
                     </div>
                     {% endfor %}
-                </div>
-            </div>
-            
-            <!-- Stats Cards Row -->
-            <div class="grid grid-cols-3 gap-4">
-                <div class="card p-4">
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-primary">This Week</span>
-                        <span class="font-bold {% if week_hours >= expected_weekly %}text-success{% elif week_hours >= expected_weekly * 0.5 %}text-warning{% else %}text-error{% endif %}">
-                            {{ "%.1f"|format(week_hours) }}/{{ "%.1f"|format(expected_weekly) }}h
-                        </span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill {% if week_hours >= expected_weekly %}progress-success{% elif week_hours >= expected_weekly * 0.5 %}progress-warning{% else %}progress-error{% endif %}" style="width: {% if expected_weekly > 0 %}{{ ([week_hours / expected_weekly * 100, 100]|min)|round(1) }}{% else %}0{% endif %}%"></div>
-                    </div>
-                </div>
-                <div class="card p-4">
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-primary">Total</span>
-                        <span class="font-bold text-accent">{{ "%.1f"|format(total_hours) }}/{{ curriculum_total }}h</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {{ overall_progress }}%"></div>
-                    </div>
-                </div>
-                <div class="card p-4">
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-primary">Metrics</span>
-                        <span class="font-bold text-accent">{{ completed_texts|length }}/{{ phase.metrics|length }}</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {{ completed_texts|length / phase.metrics|length * 100 if phase.metrics|length > 0 else 0 }}%"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Log Time -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleLogTime()">
-                    <h3 class="font-bold text-primary"><i class="fas fa-clock mr-2"></i>Log Time</h3>
-                    <i class="fas fa-chevron-down transition-transform" id="log-time-chevron"></i>
-                </div>
-                <div id="log-time-content" class="hidden-field">
-                <form action="/log" method="POST" class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
-                    <div>
-                        <label class="block text-xs mb-1 text-secondary">Hours</label>
-                        <input type="number" name="hours" step="0.25" min="0.25" value="1" class="w-full">
-                    </div>
-                    <div>
-                        <label class="block text-xs mb-1 text-secondary">Date</label>
-                        <input type="date" name="date" value="{{ today }}" class="w-full">
-                    </div>
-                    <div>
-                        <label class="block text-xs mb-1 text-secondary">Week (opt)</label>
-                        <select name="week" class="w-full">
-                            <option value="">Any</option>
-                            {% for w in range(1, phase.weeks + 1) %}
-                            <option value="{{ w }}" {% if w == current_week %}selected{% endif %}>W{{ w }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs mb-1 text-secondary">Day (opt)</label>
-                        <select name="day" class="w-full">
-                            <option value="">Any</option>
-                            {% for d in range(1, 7) %}
-                            <option value="{{ d }}">D{{ d }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-xs mb-1 text-secondary">Resource (opt)</label>
-                        <select name="resource_id" class="w-full text-sm">
-                            <option value="">General time</option>
-                            {% for day in [1,2,3,4,5,6] %}
-                                {% if grouped_week_resources[day] %}
-                                    <optgroup label="Day {{ day }}">
-                                    {% for r in grouped_week_resources[day] %}
-                                        <option value="{{ r.id }}">{{ r.title[:50] }}</option>
-                                    {% endfor %}
-                                    </optgroup>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-span-2 md:col-span-6">
-                        <label class="block text-xs mb-1 text-secondary">Notes</label>
-                        <input type="text" name="notes" placeholder="What did you study?" class="w-full">
-                    </div>
-                    <div class="col-span-2 md:col-span-6">
-                        <button type="submit" class="btn-primary w-full md:w-auto"><i class="fas fa-plus mr-1"></i>Log Time</button>
-                    </div>
-                </form>
-                {% if recent_logs %}
-                <div class="mt-4 flex flex-wrap gap-2">
-                    {% for log in recent_logs %}
-                    <div class="inline-flex items-center gap-2 tag">
-                        <span class="text-secondary">{{ log.date }}</span>
-                        <span class="font-bold text-accent">{{ log.hours }}h</span>
-                        <form action="/delete-log/{{ log.date }}" method="POST" class="inline">
-                            <button class="btn-delete transition-all"><i class="fas fa-times text-xs"></i></button>
-                        </form>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
                 </div>
             </div>
             
@@ -947,11 +1083,10 @@
                         </div>
                         <div class="p-3 space-y-3 day-resources-container" data-day="{{ day }}" data-week="{{ current_week }}" data-phase="{{ phase_index }}">
                             {% for r in grouped_week_resources[day] %}
-                            <div class="flex items-start gap-3 p-3 card rounded resource-card" data-resource-id="{{ r.id }}">
+                            <div class="flex items-start gap-3 p-3 card rounded resource-card" id="resource-{{ r.id }}" data-resource-id="{{ r.id }}">
                                 <span class="drag-handle cursor-move mt-1">
                                     <i class="fas fa-grip-vertical"></i>
                                 </span>
-                                <input type="checkbox" class="resource-checkbox w-5 h-5 mt-1" onchange="toggleSelection({{ r.id }}, this)">
                                 <form action="/toggle-resource/{{ r.id }}" method="POST" class="toggle-resource-form" data-resource-id="{{ r.id }}" data-current-status="{{ r.get('status', 'not_started') }}">
                                     {% if search_query %}
                                     <input type="hidden" name="q" value="{{ search_query }}">
@@ -1304,46 +1439,37 @@
             if (chevron) chevron.style.transform = 'rotate(180deg)';
             
             // Load linked resources if not already loaded
-            if (details.innerHTML.includes('Loading')) {
-                const phaseIndex = parseInt(card.dataset.phase);
+            if (details.innerHTML.includes('Brewing') || details.innerHTML.includes('No linked resources yet')) {
                 const metricText = card.dataset.metric;
                 
-                // Find resources linked to this metric (Day 6 resources for the corresponding week)
-                const phaseData = {{ phase|tojson }};
-                const weekIndex = phaseData.metrics.indexOf(metricText);
-                
-                if (weekIndex !== -1) {
-                    const week = weekIndex + 1;
-                    const day = 6; // BUILD DAY
-                    
-                    // Get resources for this day from the API
-                    fetch(`/api/metric-resources?phase=${phaseIndex}&week=${week}&day=${day}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.resources && data.resources.length > 0) {
-                                let html = '<p class="text-sm font-semibold text-primary mb-2">Linked Resources:</p><ul class="space-y-1">';
-                                data.resources.forEach(r => {
-                                    const statusIcon = r.status === 'complete' ? '<i class="fas fa-check-circle text-success"></i>' : 
-                                                      r.status === 'in_progress' ? '<i class="fas fa-circle-notch text-warning"></i>' : 
-                                                      '<i class="far fa-circle text-muted"></i>';
-                                    html += `<li class="text-sm text-secondary flex items-center gap-2">
-                                        ${statusIcon}
-                                        <a href="/view/${phaseIndex}/${week}#resource-${r.id}" class="hover:text-accent">${r.title}</a>
-                                    </li>`;
-                                });
-                                html += '</ul>';
-                                details.innerHTML = html;
-                            } else {
-                                details.innerHTML = '<p class="text-sm text-secondary">Nothing here yet—time to add some!</p>';
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Error loading resources:', err);
-                            details.innerHTML = '<p class="text-sm text-error">Oops, something went sideways loading resources</p>';
-                        });
-                } else {
-                    details.innerHTML = '<p class="text-sm text-secondary">No linked resources found</p>';
-                }
+                // Get resources linked to this metric from the API (by metric_text only, works for any day)
+                const apiUrl = `/api/metric-resources?metric_text=${encodeURIComponent(metricText)}`;
+                fetch(apiUrl)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.resources && data.resources.length > 0) {
+                            let html = '<p class="text-sm font-semibold text-primary mb-2">Linked Resources:</p><ul class="space-y-1">';
+                            data.resources.forEach(r => {
+                                const statusIcon = r.status === 'complete' ? '<i class="fas fa-check-circle text-success"></i>' : 
+                                                  r.status === 'in_progress' ? '<i class="fas fa-circle-notch text-warning"></i>' : 
+                                                  '<i class="far fa-circle text-muted"></i>';
+                                html += `<li class="text-sm text-secondary flex items-center gap-2">
+                                    ${statusIcon}
+                                    <a href="/view/${r.phase_index}/${r.week}#resource-${r.id}" class="hover:text-accent">
+                                        ${r.title} <span class="text-xs text-muted">(Week ${r.week}, Day ${r.day})</span>
+                                    </a>
+                                </li>`;
+                            });
+                            html += '</ul>';
+                            details.innerHTML = html;
+                        } else {
+                            details.innerHTML = '<p class="text-sm text-secondary">No linked resources yet</p>';
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error loading resources:', err);
+                        details.innerHTML = '<p class="text-sm text-error">Oops, something went sideways loading resources</p>';
+                    });
             }
         } else {
             details.classList.add('hidden');
@@ -1351,8 +1477,684 @@
         }
     }
     
+    // Mobile menu toggle
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    }
+    
+    // Back button function
+    function goBack() {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = '/';
+        }
+    }
+    
+    // Generate breadcrumbs dynamically
+    function generateBreadcrumbs() {
+        const breadcrumbs = document.getElementById('breadcrumbs');
+        if (!breadcrumbs) return;
+        
+        const path = window.location.pathname;
+        const parts = path.split('/').filter(Boolean);
+        
+        // Dashboard is the root
+        if (parts.length === 0) {
+            breadcrumbs.innerHTML = '<span>Dashboard</span>';
+            return;
+        }
+        
+        let html = '<a href="/" class="hover:text-accent">Dashboard</a>';
+        
+        // Map routes to display names
+        const routeNames = {
+            'resources': 'Curriculum',
+            'curriculum': 'Curriculum',
+            'journal': 'Journal',
+            'calendar': 'Calendar',
+            'reports': 'Reports',
+            'activity': 'Activity',
+            'view': 'Week View',
+            'edit': 'Edit'
+        };
+        
+        let currentPath = '';
+        parts.forEach((part, index) => {
+            currentPath += '/' + part;
+            
+            // Special handling for calendar route: /calendar/2025/1
+            if (part === 'calendar' && parts.length > index + 1) {
+                const year = parts[index + 1];
+                const month = parts[index + 2];
+                if (month) {
+                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                       'July', 'August', 'September', 'October', 'November', 'December'];
+                    const monthName = monthNames[parseInt(month) - 1] || month;
+                    html += ` <i class="fas fa-chevron-right text-xs"></i> <span>${monthName} ${year}</span>`;
+                    return; // Skip next two parts
+                }
+            }
+            
+            // Special handling for view route: /view/0/2
+            if (part === 'view' && parts.length > index + 1) {
+                const phaseIndex = parseInt(parts[index + 1]);
+                const week = parts[index + 2];
+                if (week) {
+                    html += ` <i class="fas fa-chevron-right text-xs"></i> <span>Phase ${phaseIndex + 1} > Week ${week}</span>`;
+                    return; // Skip next two parts
+                }
+            }
+            
+            // Skip if already handled
+            if (index > 0 && parts[index - 1] === 'calendar' && (part.match(/^\d+$/) || index === 1)) {
+                return;
+            }
+            if (index > 0 && parts[index - 1] === 'view' && part.match(/^\d+$/)) {
+                return;
+            }
+            
+            const name = routeNames[part] || part.charAt(0).toUpperCase() + part.slice(1);
+            
+            if (index === parts.length - 1) {
+                // Last item - not clickable
+                html += ` <i class="fas fa-chevron-right text-xs"></i> <span>${name}</span>`;
+            } else {
+                // Intermediate item - clickable
+                html += ` <i class="fas fa-chevron-right text-xs"></i> <a href="${currentPath}" class="hover:text-accent">${name}</a>`;
+            }
+        });
+        
+        breadcrumbs.innerHTML = html;
+    }
+    
+    // Week Calendar Functions
+    let currentWeekStart = new Date();
+    let currentMonthView = new Date();
+    
+    // Set currentWeekStart to start of current week (Monday)
+    function getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        return new Date(d.setDate(diff));
+    }
+    
+    currentWeekStart = getWeekStart(new Date());
+    currentMonthView = new Date();
+    
+    function renderWeekCalendar() {
+        const grid = document.getElementById('week-calendar-grid');
+        const weekLabel = document.getElementById('calendar-week-label');
+        if (!grid) return;
+        
+        // Clear grid
+        grid.innerHTML = '';
+        
+        // Add day headers
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        dayNames.forEach(name => {
+            const header = document.createElement('div');
+            header.className = 'text-center font-semibold text-sm p-2 text-secondary';
+            header.textContent = name;
+            grid.appendChild(header);
+        });
+        
+        // Get week dates (Monday to Sunday)
+        const weekDates = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() + i);
+            weekDates.push(date);
+        }
+        
+        // Update week label
+        const startDate = weekDates[0];
+        const endDate = weekDates[6];
+        weekLabel.textContent = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        
+        // Create day cells
+        weekDates.forEach(date => {
+            const dateStr = date.toISOString().split('T')[0];
+            const dayNum = date.getDate();
+            const dayCell = createDayCell(dateStr, dayNum);
+            grid.appendChild(dayCell);
+        });
+    }
+    
+    function createDayCell(dateStr, dayNum) {
+        const cell = document.createElement('div');
+        cell.className = 'calendar-day-cell p-3 rounded-lg border cursor-pointer hover:border-accent transition-all';
+        cell.onclick = () => openDayModal(dateStr);
+        
+        // Fetch day data from API
+        fetch(`/api/calendar-day/${dateStr}`)
+            .then(r => r.json())
+            .then(data => {
+                let html = `<div class="font-bold text-sm mb-2">${dayNum}</div>`;
+                
+                // Show curriculum days
+                if (data.curriculum_days && data.curriculum_days.length > 0) {
+                    data.curriculum_days.forEach(cd => {
+                        // Get topic from first resource
+                        const topic = cd.resources && cd.resources[0] ? cd.resources[0].title : '';
+                        html += `<div class="text-xs mt-1 text-primary">
+                            <div class="font-semibold">${topic.substring(0, 30)}${topic.length > 30 ? '...' : ''}</div>
+                            <div class="text-secondary">${cd.completed_count}/${cd.resource_count} complete</div>
+                        </div>`;
+                    });
+                }
+                
+                // Show hours logged
+                if (data.hours > 0) {
+                    html += `<div class="text-xs mt-2 text-accent font-semibold">${data.hours}h logged</div>`;
+                }
+                
+                // Show blocked indicator
+                if (data.blocked) {
+                    cell.classList.add('calendar-day-blocked');
+                    html += `<div class="text-xs mt-2 text-error font-semibold">
+                        <i class="fas fa-ban mr-1"></i>Blocked
+                        ${data.blocked_reason ? `<br>${data.blocked_reason}` : ''}
+                    </div>`;
+                }
+                
+                cell.innerHTML = html;
+                
+                // Color code by hours
+                if (data.hours >= 4) {
+                    cell.classList.add('calendar-day-high');
+                } else if (data.hours >= 2) {
+                    cell.classList.add('calendar-day-medium');
+                } else if (data.hours > 0) {
+                    cell.classList.add('calendar-day-low');
+                }
+            })
+            .catch(err => {
+                console.error('Error loading day:', err);
+                cell.innerHTML = `<div class="font-bold text-sm">${dayNum}</div>`;
+            });
+        
+        return cell;
+    }
+    
+    function previousWeek() {
+        currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+        renderWeekCalendar();
+    }
+    
+    function nextWeek() {
+        currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+        renderWeekCalendar();
+    }
+    
+    function expandToMonth() {
+        const weekView = document.getElementById('week-calendar-grid');
+        const monthView = document.getElementById('month-calendar-view');
+        
+        if (weekView && monthView) {
+            weekView.style.display = 'none';
+            monthView.classList.remove('hidden');
+            renderMonthCalendar(currentWeekStart);
+        }
+    }
+    
+    function collapseToWeek() {
+        const weekView = document.getElementById('week-calendar-grid');
+        const monthView = document.getElementById('month-calendar-view');
+        
+        if (weekView && monthView) {
+            monthView.classList.add('hidden');
+            weekView.style.display = 'grid';
+        }
+    }
+    
+    function renderMonthCalendar(date) {
+        const grid = document.getElementById('month-calendar-grid');
+        const monthLabel = document.getElementById('month-label');
+        if (!grid || !monthLabel) return;
+        
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        
+        // Set month label
+        monthLabel.textContent = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Get days in month
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startDay = firstDay.getDay(); // 0 = Sunday
+        const daysInMonth = lastDay.getDate();
+        
+        // Clear grid
+        grid.innerHTML = '';
+        
+        // Add day headers
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        dayNames.forEach(name => {
+            const header = document.createElement('div');
+            header.className = 'text-center font-semibold text-sm p-2 text-secondary';
+            header.textContent = name;
+            grid.appendChild(header);
+        });
+        
+        // Add empty cells before first day
+        for (let i = 0; i < startDay; i++) {
+            const empty = document.createElement('div');
+            grid.appendChild(empty);
+        }
+        
+        // Add days
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayCell = createDayCell(dateStr, day);
+            grid.appendChild(dayCell);
+        }
+    }
+    
+    function previousMonth() {
+        currentMonthView.setMonth(currentMonthView.getMonth() - 1);
+        renderMonthCalendar(currentMonthView);
+    }
+    
+    function nextMonth() {
+        currentMonthView.setMonth(currentMonthView.getMonth() + 1);
+        renderMonthCalendar(currentMonthView);
+    }
+    
+    // Day Modal Functions
+    function openDayModal(dateStr) {
+        fetch(`/api/calendar-day/${dateStr}`)
+            .then(r => r.json())
+            .then(data => {
+                // Create or get modal
+                let modal = document.getElementById('day-modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'day-modal';
+                    modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                    modal.onclick = closeDayModal;
+                    document.body.appendChild(modal);
+                }
+                
+                const modalContent = document.createElement('div');
+                modalContent.className = 'card p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto';
+                modalContent.onclick = (e) => e.stopPropagation();
+                
+                const date = new Date(dateStr + 'T00:00:00');
+                let html = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-primary">${date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
+                        <button onclick="closeDayModal()" class="text-secondary hover:text-primary"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+                
+                // Blocked day section
+                if (data.blocked) {
+                    html += `
+                        <div class="mb-4 p-3 rounded-lg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error);">
+                            <p class="font-semibold text-error mb-2">
+                                <i class="fas fa-ban mr-2"></i>This day is blocked
+                            </p>
+                            ${data.blocked_reason ? `<p class="text-sm text-secondary mb-3">${data.blocked_reason}</p>` : ''}
+                            <form onsubmit="unblockDay(event, '${dateStr}')">
+                                <button type="submit" class="btn-secondary text-sm">
+                                    <i class="fas fa-check mr-1"></i>Unblock Day
+                                </button>
+                            </form>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <form onsubmit="blockDay(event, '${dateStr}')" class="mb-4">
+                            <div class="flex gap-2">
+                                <input type="text" name="reason" placeholder="Reason (optional)" class="flex-1">
+                                <button type="submit" class="btn-secondary text-sm">Block Day</button>
+                            </div>
+                        </form>
+                    `;
+                }
+                
+                // Curriculum days
+                if (data.curriculum_days && data.curriculum_days.length > 0) {
+                    html += '<div class="space-y-4">';
+                    data.curriculum_days.forEach(cd => {
+                        html += `
+                            <div class="p-4 rounded-lg border" style="border-left: 4px solid var(--accent); background: var(--bg-tertiary);">
+                                <h4 class="font-semibold mb-2 text-primary">
+                                    Phase ${cd.phase + 1}, Week ${cd.week}, Day ${cd.day}
+                                </h4>
+                                <p class="text-sm mb-3 text-secondary">
+                                    ${cd.completed_count}/${cd.resource_count} complete
+                                </p>
+                        `;
+                        if (cd.resources && cd.resources.length > 0) {
+                            html += '<ul class="space-y-2">';
+                            cd.resources.forEach(r => {
+                                const statusIcon = r.status === 'complete' 
+                                    ? '<i class="fas fa-check-circle text-success"></i>' 
+                                    : r.status === 'in_progress' 
+                                        ? '<i class="fas fa-circle-notch text-warning"></i>' 
+                                        : '<i class="far fa-circle text-muted"></i>';
+                                html += `
+                                    <li class="flex items-center gap-2 p-2 rounded bg-secondary">
+                                        ${statusIcon}
+                                        ${r.url 
+                                            ? `<a href="${r.url}" target="_blank" class="flex-1 hover:underline text-accent">${r.title}</a>`
+                                            : `<span class="flex-1 text-primary">${r.title}</span>`
+                                        }
+                                    </li>
+                                `;
+                            });
+                            html += '</ul>';
+                        }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+                
+                // Hours logged
+                if (data.hours > 0) {
+                    html += `
+                        <div class="mt-4 pt-4" style="border-top: 1px solid var(--border);">
+                            <p class="text-sm text-secondary">
+                                <i class="fas fa-clock mr-2"></i>Hours logged: 
+                                <span class="font-semibold text-primary">${data.hours}h</span>
+                            </p>
+                        </div>
+                    `;
+                }
+                
+                // Quick log time form
+                html += `
+                    <div class="mt-4 p-3 bg-tertiary rounded-lg">
+                        <h4 class="font-semibold text-primary mb-2">Quick Log Time</h4>
+                        <form onsubmit="quickLogTime(event, '${dateStr}')">
+                            <div class="flex gap-2">
+                                <input type="number" step="0.25" min="0.25" max="24" 
+                                       name="hours" placeholder="Hours" required 
+                                       class="flex-1 px-3 py-2 rounded">
+                                <input type="text" name="notes" placeholder="Notes (optional)" 
+                                       class="flex-1 px-3 py-2 rounded">
+                                <button type="submit" class="btn-primary px-4">Log</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                // Journal entry form
+                html += `
+                    <div class="mt-4 p-3 bg-tertiary rounded-lg">
+                        <h4 class="font-semibold text-primary mb-2">Journal Entry</h4>
+                        <form onsubmit="quickJournalEntry(event, '${dateStr}')">
+                            <textarea name="content" rows="3" placeholder="Reflect on this day..." 
+                                      class="w-full px-3 py-2 rounded mb-2"></textarea>
+                            <div class="flex items-center justify-between">
+                                <div class="flex gap-2 text-2xl">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="mood" value="great" class="hidden peer">
+                                        <i class="fas fa-smile opacity-40 peer-checked:opacity-100"></i>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="mood" value="okay" class="hidden peer">
+                                        <i class="fas fa-meh opacity-40 peer-checked:opacity-100"></i>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="mood" value="struggling" class="hidden peer">
+                                        <i class="fas fa-tired opacity-40 peer-checked:opacity-100"></i>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="mood" value="fire" class="hidden peer">
+                                        <i class="fas fa-fire-alt opacity-40 peer-checked:opacity-100"></i>
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn-primary px-4">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                modalContent.innerHTML = html;
+                modal.innerHTML = '';
+                modal.appendChild(modalContent);
+                modal.classList.remove('hidden');
+            })
+            .catch(err => {
+                console.error('Error loading day details:', err);
+                showToast('Failed to load day details', 'error');
+            });
+    }
+    
+    function closeDayModal() {
+        const modal = document.getElementById('day-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+    
+    function quickLogTime(event, dateStr) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        formData.append('date', dateStr);
+        
+        fetch('/log', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => {
+            if (r.ok) {
+                showToast('Time logged successfully!', 'success');
+                closeDayModal();
+                renderWeekCalendar();
+            } else {
+                showToast('Error logging time', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to log time', 'error');
+        });
+    }
+    
+    function quickJournalEntry(event, dateStr) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        formData.append('date', dateStr);
+        
+        fetch('/journal', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => {
+            if (r.ok) {
+                showToast('Journal entry saved!', 'success');
+                closeDayModal();
+            } else {
+                showToast('Error saving entry', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to save entry', 'error');
+        });
+    }
+    
+    function blockDay(event, dateStr) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        formData.append('date', dateStr);
+        
+        fetch('/schedule/block', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => {
+            if (r.ok) {
+                showToast('Day blocked successfully!', 'success');
+                closeDayModal();
+                renderWeekCalendar();
+            } else {
+                showToast('Error blocking day', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to block day', 'error');
+        });
+    }
+    
+    function unblockDay(event, dateStr) {
+        event.preventDefault();
+        const formData = new FormData();
+        formData.append('date', dateStr);
+        
+        fetch('/schedule/unblock', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => {
+            if (r.ok) {
+                showToast('Day unblocked successfully!', 'success');
+                closeDayModal();
+                renderWeekCalendar();
+            } else {
+                showToast('Error unblocking day', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to unblock day', 'error');
+        });
+    }
+    
+    // Block Days Range Modal
+    function openBlockDaysModal() {
+        let modal = document.getElementById('block-days-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'block-days-modal';
+            modal.className = 'hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.onclick = closeBlockDaysModal;
+            document.body.appendChild(modal);
+        }
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'card p-6 max-w-md w-full mx-4';
+        modalContent.onclick = (e) => e.stopPropagation();
+        modalContent.innerHTML = `
+            <h3 class="text-xl font-bold text-primary mb-4">Block Days</h3>
+            <form onsubmit="blockDaysRange(event)">
+                <div class="mb-4">
+                    <label class="block text-sm text-secondary mb-1">Start Date</label>
+                    <input type="date" name="start_date" required class="w-full">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-secondary mb-1">End Date</label>
+                    <input type="date" name="end_date" required class="w-full">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm text-secondary mb-1">Reason (optional)</label>
+                    <input type="text" name="reason" placeholder="e.g., Vacation" class="w-full">
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="btn-primary flex-1">Block Days</button>
+                    <button type="button" onclick="closeBlockDaysModal()" class="btn-secondary flex-1">Cancel</button>
+                </div>
+            </form>
+        `;
+        modal.innerHTML = '';
+        modal.appendChild(modalContent);
+        modal.classList.remove('hidden');
+    }
+    
+    function closeBlockDaysModal() {
+        const modal = document.getElementById('block-days-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+    
+    function blockDaysRange(event) {
+        event.preventDefault();
+        const form = event.target;
+        const startDate = new Date(form.start_date.value);
+        const endDate = new Date(form.end_date.value);
+        const reason = form.reason.value;
+        
+        // Block each day in range
+        const currentDate = new Date(startDate);
+        const promises = [];
+        
+        while (currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const formData = new FormData();
+            formData.append('date', dateStr);
+            formData.append('reason', reason);
+            
+            promises.push(
+                fetch('/schedule/block', {
+                    method: 'POST',
+                    body: formData
+                })
+            );
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        Promise.all(promises)
+            .then(() => {
+                showToast('Days blocked successfully!', 'success');
+                closeBlockDaysModal();
+                renderWeekCalendar();
+                form.reset();
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                showToast('Failed to block days', 'error');
+            });
+    }
+    
     // Initialize collapsible states
     document.addEventListener('DOMContentLoaded', function() {
+        generateBreadcrumbs();
+        renderWeekCalendar();
+        // Scroll to resource function
+        function scrollToResource(resourceId) {
+            const targetElement = document.getElementById(`resource-${resourceId}`);
+            if (targetElement) {
+                targetElement.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+                targetElement.classList.add('highlight-flash');
+                setTimeout(() => {
+                    targetElement.classList.remove('highlight-flash');
+                }, 2000);
+            }
+        }
+        
+        // Handle scroll-to-hash on page load (for Continue button, metric links, and calendar)
+        if (window.location.hash.startsWith('#resource-')) {
+            const resourceId = window.location.hash.replace('#resource-', '');
+            setTimeout(() => {
+                scrollToResource(resourceId);
+            }, 100);
+        } else if (window.location.hash === '#week-calendar-view') {
+            // Scroll to calendar view
+            setTimeout(() => {
+                const element = document.getElementById('week-calendar-view');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+        
         // Log Time - default collapsed
         const logTimeExpanded = localStorage.getItem('logTimeExpanded') === 'true';
         const logTimeContent = document.getElementById('log-time-content');
@@ -1379,31 +2181,33 @@
             const actualData = burndownData.actual || [];
             const startDate = new Date('{{ start_date }}');
             const today = new Date();
-            const totalDays = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
             const curriculumDays = 119; // 17 weeks * 7 days
             
-            // Ideal line data - straight diagonal
-            const idealLabels = [];
+            // Generate date labels from start_date
+            const dateLabels = [];
             const idealRemaining = [];
             for (let i = 0; i <= curriculumDays; i++) {
-                idealLabels.push(`Day ${i}`);
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                // Format as "Jan 1" or "1/1"
+                dateLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
                 idealRemaining.push(burndownData.total - (burndownData.total * i / curriculumDays));
             }
             
-            // Actual data - map dates to day numbers
-            const actualLabels = [];
-            const actualRemaining = [];
-            actualData.forEach((point, idx) => {
+            // Map actual data to dates
+            const actualDataArray = new Array(curriculumDays + 1).fill(null);
+            actualData.forEach(point => {
                 const pointDate = new Date(point.date + 'T00:00:00');
                 const dayNum = Math.ceil((pointDate - startDate) / (1000 * 60 * 60 * 24));
-                actualLabels.push(`Day ${dayNum}`);
-                actualRemaining.push(point.remaining);
+                if (dayNum >= 0 && dayNum <= curriculumDays) {
+                    actualDataArray[dayNum] = point.remaining;
+                }
             });
             
-            new Chart(burndownCtx, {
+            const chart = new Chart(burndownCtx, {
                 type: 'line',
                 data: {
-                    labels: idealLabels,
+                    labels: dateLabels,
                     datasets: [{
                         label: 'Ideal Progress',
                         data: idealRemaining,
@@ -1415,7 +2219,7 @@
                         tension: 0
                     }, {
                         label: 'Actual Progress',
-                        data: actualRemaining,
+                        data: actualDataArray,
                         borderColor: 'var(--success)',
                         borderWidth: 2,
                         fill: false,
@@ -1431,7 +2235,7 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Days'
+                                text: 'Date'
                             },
                             beginAtZero: true
                         },
@@ -1451,6 +2255,57 @@
                     }
                 }
             });
+            
+            // Fetch completion progress and add third line
+            fetch('/api/completion-progress')
+                .then(r => r.json())
+                .then(data => {
+                    const totalResources = {{ resources|length if resources else 0 }};
+                    if (totalResources === 0) return;
+                    
+                    const completionData = new Array(curriculumDays + 1).fill(null);
+                    data.forEach(point => {
+                        const pointDate = new Date(point.date + 'T00:00:00');
+                        const dayNum = Math.ceil((pointDate - startDate) / (1000 * 60 * 60 * 24));
+                        if (dayNum >= 0 && dayNum <= curriculumDays) {
+                            const percentComplete = (point.completed / totalResources) * 100;
+                            completionData[dayNum] = percentComplete;
+                        }
+                    });
+                    
+                    // Add third dataset
+                    chart.data.datasets.push({
+                        label: 'Curriculum Completion',
+                        data: completionData,
+                        borderColor: 'var(--warning)',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'var(--warning)',
+                        tension: 0.1,
+                        yAxisID: 'y2'
+                    });
+                    
+                    // Add secondary y-axis for percentage
+                    chart.options.scales.y2 = {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Completion %'
+                        },
+                        min: 0,
+                        max: 100,
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    };
+                    
+                    chart.update();
+                })
+                .catch(err => {
+                    console.error('Error loading completion progress:', err);
+                });
         }
         {% endif %}
         
@@ -1488,26 +2343,153 @@
             }
         {% endif %}
         
-        // Toggle resource status with celebration
+        // Toggle resource status - opens dropdown menu
         window.toggleResourceStatus = function(button) {
             const form = button.closest('form');
+            const resourceId = form.dataset.resourceId;
             const currentStatus = form.dataset.currentStatus;
             
-            // If marking as complete, celebrate immediately
-            if (currentStatus !== 'complete') {
-                const willBeComplete = currentStatus === 'in_progress' || currentStatus === 'not_started';
-                if (willBeComplete) {
-                    animateCheck(button);
-                    confetti('small');
-                    const card = button.closest('.resource-card') || button.closest('.card');
-                    if (card) glowCard(card);
-                }
-            }
+            // Remove existing menus
+            document.querySelectorAll('.status-dropdown').forEach(m => m.remove());
             
-            // Submit the form
-            form.submit();
+            // Create dropdown menu
+            const menu = document.createElement('div');
+            menu.className = 'status-dropdown absolute z-50 mt-2 bg-secondary rounded-lg shadow-lg border border-primary p-2';
+            menu.style.minWidth = '180px';
+            
+            const statuses = [
+                { value: 'not_started', label: 'Not Started', icon: 'far fa-circle', color: 'text-muted' },
+                { value: 'in_progress', label: 'In Progress', icon: 'fas fa-circle-notch', color: 'text-warning' },
+                { value: 'complete', label: 'Complete', icon: 'fas fa-check-circle', color: 'text-success' },
+                { value: 'skipped', label: 'Skipped', icon: 'fas fa-ban', color: 'text-error' }
+            ];
+            
+            let html = '';
+            statuses.forEach(status => {
+                const isActive = currentStatus === status.value;
+                html += `
+                    <button onclick="setResourceStatus(${resourceId}, '${status.value}', this)" 
+                            class="status-menu-item w-full text-left px-3 py-2 rounded flex items-center gap-2 ${isActive ? 'active' : ''}">
+                        <i class="${status.icon} ${status.color}"></i>
+                        <span>${status.label}</span>
+                        ${isActive ? '<i class="fas fa-check ml-auto text-accent"></i>' : ''}
+                    </button>
+                `;
+            });
+            menu.innerHTML = html;
+            
+            // Position menu below button
+            const rect = button.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.top = (rect.bottom + 5) + 'px';
+            menu.style.left = rect.left + 'px';
+            
+            // Add to body
+            document.body.appendChild(menu);
+            
+            // Close on outside click
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu(e) {
+                    if (!menu.contains(e.target) && !button.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    }
+                }, { once: true });
+            }, 0);
+        };
+        
+        // Set resource status via API
+        window.setResourceStatus = function(resourceId, newStatus, menuItem) {
+            fetch(`/api/resource/${resourceId}/status`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: newStatus})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove dropdown
+                    document.querySelectorAll('.status-dropdown').forEach(m => m.remove());
+                    
+                    // If marking as complete, celebrate
+                    if (newStatus === 'complete') {
+                        const button = document.querySelector(`[data-resource-id="${resourceId}"] button`);
+                        if (button) {
+                            animateCheck(button);
+                            confetti('small');
+                            const card = button.closest('.resource-card') || button.closest('.card');
+                            if (card) glowCard(card);
+                        }
+                    }
+                    
+                    // Reload page to show updated status
+                    location.reload();
+                } else {
+                    showToast('Error updating status: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                showToast('Failed to update status', 'error');
+            });
         };
     });
+    </script>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Toast Notification Script -->
+    <script>
+        // Show flash messages as toasts
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for category, message in messages %}
+            showToast('{{ message|safe|replace("'", "\\'") }}', '{{ category }}');
+            {% endfor %}
+        });
+        {% endif %}
+        {% endwith %}
+        
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                </div>
+                <div class="toast-content">${message}</div>
+                <button class="toast-close" onclick="removeToast(this.parentElement)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after duration
+            setTimeout(() => {
+                removeToast(toast);
+            }, duration);
+        }
+        
+        function removeToast(toast) {
+            if (!toast) return;
+            toast.classList.add('removing');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
     </script>
 </body>
 </html>

@@ -22,40 +22,113 @@
     100% { box-shadow: 0 0 0 0 var(--success); }
 }
 
-/* Toast */
-.toast {
+/* Toast Notifications */
+#toast-container {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 12px 24px;
-    border-radius: 8px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all 0.3s ease;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 24rem;
+    pointer-events: none;
 }
 
-.toast.show {
-    transform: translateY(0);
-    opacity: 1;
+.toast {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 300px;
+    animation: slideInRight 0.3s ease-out;
+    position: relative;
+    pointer-events: auto;
+}
+
+[data-theme="dark"] .toast {
+    background: rgba(26, 26, 26, 0.95);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .toast-success {
-    border-color: var(--success);
-    color: var(--success);
+    border-left: 4px solid var(--success);
 }
 
 .toast-error {
-    border-color: var(--error);
-    color: var(--error);
+    border-left: 4px solid var(--error);
 }
 
 .toast-info {
-    border-color: var(--accent);
+    border-left: 4px solid var(--accent);
+}
+
+.toast-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.toast-success .toast-icon {
+    color: var(--success);
+}
+
+.toast-error .toast-icon {
+    color: var(--error);
+}
+
+.toast-info .toast-icon {
     color: var(--accent);
+}
+
+.toast-content {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.toast-close {
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: color 150ms ease;
+    background: none;
+    border: none;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    color: var(--text-primary);
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.removing {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
 }
 
 /* Pulse */
@@ -76,5 +149,80 @@
 @keyframes slideIn {
     from { transform: translateX(20px); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
+}
+
+/* Calendar Day Cells */
+.calendar-day-cell {
+    min-height: 100px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+}
+
+.calendar-day-high {
+    background: var(--accent);
+    border-color: var(--accent-hover);
+    color: white;
+}
+
+.calendar-day-medium {
+    background: rgba(0, 212, 255, 0.3);
+    border-color: var(--accent);
+}
+
+.calendar-day-low {
+    background: rgba(0, 212, 255, 0.1);
+    border-color: var(--accent);
+}
+
+.calendar-day-blocked {
+    opacity: 0.6;
+    position: relative;
+    text-decoration: line-through;
+}
+
+.calendar-day-blocked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(239, 68, 68, 0.1) 10px,
+        rgba(239, 68, 68, 0.1) 20px
+    );
+    pointer-events: none;
+}
+
+/* Status Dropdown */
+.status-dropdown {
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: fixed;
+    z-index: 1000;
+}
+
+.status-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+    text-align: left;
+    border-radius: 6px;
+    transition: all 150ms ease;
+    color: var(--text-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.status-menu-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.status-menu-item.active {
+    background: var(--bg-tertiary);
+    font-weight: 600;
 }
 

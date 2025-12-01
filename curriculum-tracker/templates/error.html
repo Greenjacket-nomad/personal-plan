@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
         :root {
             --bg-primary: #f5f5f4;
@@ -70,10 +71,43 @@
             transform: translateY(-2px);
         }
         
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
         /* Utility Classes */
         .text-primary { color: var(--text-primary); }
         .text-secondary { color: var(--text-secondary); }
         .text-error { color: var(--error); }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--accent);
+            transition: all 0.3s ease;
+        }
+        
+        [data-theme="dark"] .header {
+            background: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(26, 26, 26, 0.95) 100%);
+        }
+        
+        .header a.text-2xl:hover {
+            transform: scale(1.05);
+            transition: transform 150ms ease;
+        }
     </style>
     <script>
         (function() {
@@ -84,16 +118,74 @@
         })();
     </script>
 </head>
-    <body class="min-h-screen flex items-center justify-center">
-    <div class="text-center px-6">
-        <div class="mb-8">
-            <i class="fas fa-exclamation-triangle text-8xl mb-4 text-error"></i>
-            <h1 class="text-4xl font-bold mb-2 text-primary">Oops!</h1>
-            <p class="text-xl text-secondary">{{ error or 'Oops, something went sideways' }}</p>
+    <body class="min-h-screen">
+    <header class="header py-6 px-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/" class="text-2xl font-bold text-primary hover:text-accent transition-all" title="Dashboard">
+                <i class="fas fa-graduation-cap mr-2"></i>
+                <span class="hidden md:inline">Curriculum Tracker</span>
+            </a>
+            <a href="/" class="btn-secondary">
+                <i class="fas fa-home mr-2"></i>Back to Dashboard
+            </a>
         </div>
-        <a href="/" class="btn-primary">
-            <i class="fas fa-home mr-2"></i>Back to Dashboard
-        </a>
+    </header>
+    
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="text-center px-6">
+            <div class="mb-8">
+                <i class="fas fa-exclamation-triangle text-8xl mb-4 text-error"></i>
+                <h1 class="text-4xl font-bold mb-2 text-primary">Oops!</h1>
+                <p class="text-xl text-secondary">{{ error or 'Oops, something went sideways' }}</p>
+            </div>
+            <a href="/" class="btn-primary">
+                <i class="fas fa-home mr-2"></i>Back to Dashboard
+            </a>
+        </div>
     </div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Toast Notification Script -->
+    <script>
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${iconMap[type] || iconMap.info}"></i>
+                </div>
+                <div class="toast-content">${message}</div>
+                <button class="toast-close" onclick="removeToast(this.parentElement)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                removeToast(toast);
+            }, duration);
+        }
+        
+        function removeToast(toast) {
+            if (!toast) return;
+            toast.classList.add('removing');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
+    </script>
 </body>
 </html>
