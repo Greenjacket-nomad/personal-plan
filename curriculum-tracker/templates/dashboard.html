@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Curriculum Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -462,15 +463,6 @@
             font-weight: 600;
         }
     </style>
-    <script>
-        // Load theme before page renders to prevent flash
-        (function() {
-            const saved = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = saved || (prefersDark ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-theme', theme);
-        })();
-    </script>
 </head>
     <body class="min-h-screen" style="background-color: var(--bg-primary)">
     <header class="header py-6 px-8">
@@ -495,7 +487,7 @@
                         <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}">
                             <i class="fas fa-home mr-1"></i>Dashboard
                         </a>
-                        <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}">
+                        <a href="/curriculum/board" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}">
                             <i class="fas fa-book mr-1"></i>Curriculum
                         </a>
                         <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}">
@@ -533,7 +525,7 @@
             <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4">
                 <nav class="flex flex-col gap-3">
                     <a href="/" class="nav-item {% if request.path == '/' or request.path.startswith('/view/') %}active{% endif %}"><i class="fas fa-home mr-2"></i>Dashboard</a>
-                    <a href="/resources" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}"><i class="fas fa-book mr-2"></i>Curriculum</a>
+                    <a href="/curriculum/board" class="nav-item {% if '/resources' in request.path or '/curriculum' in request.path %}active{% endif %}"><i class="fas fa-book mr-2"></i>Curriculum</a>
                     <a href="/journal" class="nav-item {% if '/journal' in request.path %}active{% endif %}"><i class="fas fa-book-open mr-2"></i>Journal</a>
                     <a href="/#week-calendar-view" class="nav-item {% if '/calendar' in request.path %}active{% endif %}"><i class="fas fa-calendar mr-2"></i>Calendar</a>
                     <a href="/reports" class="nav-item {% if '/reports' in request.path %}active{% endif %}"><i class="fas fa-chart-bar mr-2"></i>Reports</a>
@@ -547,12 +539,12 @@
                     <p class="text-secondary">Week {{ current_absolute_week }} of {{ total_weeks }}</p>
                 </div>
                 <div class="text-right">
-                    <div class="stat-number text-accent">{{ "%.1f"|format(overall_progress) }}%</div>
-                    <div class="stat-label">Progress</div>
-                    <div class="stat-sublabel">
-                        <div>This Week: {{ "%.1f"|format(week_hours) }}/24h</div>
-                        <div>Total: {{ "%.1f"|format(total_hours) }}/408h</div>
-                        <div>Phase Target: {{ phase.hours }}h</div>
+                    <div class="stat-number text-accent">{{ unified_progress.tasks_completed }}/{{ unified_progress.tasks_total }}</div>
+                    <div class="stat-label">Tasks Completed</div>
+                    <div class="stat-sublabel text-xs">
+                        <div>{{ "%.1f"|format(overall_progress) }}% complete</div>
+                        <div class="mt-1 text-muted">Hours Logged: {{ "%.1f"|format(total_hours) }}h</div>
+                        <div class="text-muted">This Week: {{ "%.1f"|format(week_hours) }}/24h</div>
                     </div>
                 </div>
             </div>
@@ -686,28 +678,7 @@
         {% include 'components/_journal_widget.html' %}
 
         <!-- Burndown Chart -->
-        {% if burndown_data and start_date %}
-        <div class="card p-6 mb-6">
-            <h2 class="text-xl font-bold text-primary mb-4"><i class="fas fa-chart-line mr-2"></i>Progress Burndown</h2>
-            <div class="grid grid-cols-3 gap-4 mb-4">
-                <div class="text-center">
-                    <p class="text-sm text-secondary mb-1">Total Hours</p>
-                    <p class="text-2xl font-bold text-primary"><span class="font-semibold text-primary ml-1">{{ burndown_data.total }}h</span></p>
-                </div>
-                <div class="text-center">
-                    <p class="text-sm text-secondary mb-1">Logged</p>
-                    <p class="text-2xl font-bold text-success"><span class="font-semibold text-success ml-1">{{ "%.1f"|format(burndown_data.logged) }}h</span></p>
-                </div>
-                <div class="text-center">
-                    <p class="text-sm text-secondary mb-1">Remaining</p>
-                    <p class="text-2xl font-bold text-primary"><span class="font-semibold text-primary ml-1">{{ "%.1f"|format(burndown_data.remaining) }}h</span></p>
-                </div>
-            </div>
-            <div style="height: 180px; max-height: 180px;">
-                <canvas id="burndown-chart"></canvas>
-            </div>
-        </div>
-        {% endif %}
+        {% include 'components/_burndown_chart.html' %}
     </div>
 
     <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -815,9 +786,9 @@
                 </div>
                 
                 <!-- Search & Filter Box -->
-                <form method="GET" action="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="mb-4">
+                <form method="GET" action="/resources" class="mb-4">
                     <div class="flex flex-wrap gap-2">
-                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="flex-1 min-w-[200px]">
+                        <input type="text" name="q" value="{{ search_query }}" placeholder="Search all resources..." class="flex-1 min-w-[200px]">
                         <select name="tag" class="">
                             <option value="">All Tags</option>
                             {% for t in all_tags %}
@@ -826,7 +797,7 @@
                         </select>
                         <button type="submit" class="btn-primary px-4 py-2"><i class="fas fa-search mr-1"></i>Search</button>
                         {% if search_query or request.args.get('tag') %}
-                        <a href="{% if view_phase is not none %}/view/{{ view_phase }}/{{ view_week }}{% else %}/{% endif %}" class="btn-secondary px-4 py-2">Nevermind</a>
+                        <a href="/" class="btn-secondary px-4 py-2">Clear</a>
                         {% endif %}
                     </div>
                 </form>
@@ -983,187 +954,26 @@
         <input type="hidden" id="bulk-ids" name="ids">
     </form>
 
+    <!-- Pass data to JavaScript before loading dashboard_logic.js -->
+    {% if burndown_data and start_date %}
+    <script>
+        window.burndownChartData = {
+            burndown_data: {{ burndown_data|tojson }},
+            start_date: '{{ start_date }}',
+            curriculum_days: 119,
+            total_resources: {{ resources|length if resources else 0 }}
+        };
+    </script>
+    {% endif %}
+    <script>
+        window.currentStreak = {{ current_streak }};
+    </script>
+    
     <!-- External JavaScript Modules -->
     <script src="/static/js/calendar.js"></script>
     <script src="/static/js/ui.js"></script>
     <script src="/static/js/resources.js"></script>
-    
-    <script>
-    // Initialize collapsible states and other page-specific initialization
-    document.addEventListener('DOMContentLoaded', function() {
-        
-        // Burndown Chart
-        {% if burndown_data and start_date %}
-        const burndownCtx = document.getElementById('burndown-chart');
-        if (burndownCtx && typeof Chart !== 'undefined') {
-            const burndownData = {{ burndown_data|tojson }};
-            const actualData = burndownData.actual || [];
-            const startDate = new Date('{{ start_date }}');
-            const today = new Date();
-            const curriculumDays = 119; // 17 weeks * 7 days
-            
-            // Generate date labels from start_date
-            const dateLabels = [];
-            const idealRemaining = [];
-            for (let i = 0; i <= curriculumDays; i++) {
-                const date = new Date(startDate);
-                date.setDate(date.getDate() + i);
-                // Format as "Jan 1" or "1/1"
-                dateLabels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-                idealRemaining.push(burndownData.total - (burndownData.total * i / curriculumDays));
-            }
-            
-            // Map actual data to dates
-            const actualDataArray = new Array(curriculumDays + 1).fill(null);
-            actualData.forEach(point => {
-                const pointDate = new Date(point.date + 'T00:00:00');
-                const dayNum = Math.ceil((pointDate - startDate) / (1000 * 60 * 60 * 24));
-                if (dayNum >= 0 && dayNum <= curriculumDays) {
-                    actualDataArray[dayNum] = point.remaining;
-                }
-            });
-            
-            const chart = new Chart(burndownCtx, {
-                type: 'line',
-                data: {
-                    labels: dateLabels,
-                    datasets: [{
-                        label: 'Ideal Progress',
-                        data: idealRemaining,
-                        borderColor: 'var(--accent)',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: 0,
-                        tension: 0
-                    }, {
-                        label: 'Actual Progress',
-                        data: actualDataArray,
-                        borderColor: 'var(--success)',
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: 4,
-                        pointBackgroundColor: 'var(--success)',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            },
-                            beginAtZero: true
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Hours Remaining'
-                            },
-                            beginAtZero: true
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
-                    }
-                }
-            });
-            
-            // Fetch completion progress and add third line
-            fetch('/api/completion-progress')
-                .then(r => r.json())
-                .then(data => {
-                    const totalResources = {{ resources|length if resources else 0 }};
-                    if (totalResources === 0) return;
-                    
-                    const completionData = new Array(curriculumDays + 1).fill(null);
-                    data.forEach(point => {
-                        const pointDate = new Date(point.date + 'T00:00:00');
-                        const dayNum = Math.ceil((pointDate - startDate) / (1000 * 60 * 60 * 24));
-                        if (dayNum >= 0 && dayNum <= curriculumDays) {
-                            const percentComplete = (point.completed / totalResources) * 100;
-                            completionData[dayNum] = percentComplete;
-                        }
-                    });
-                    
-                    // Add third dataset
-                    chart.data.datasets.push({
-                        label: 'Curriculum Completion',
-                        data: completionData,
-                        borderColor: 'var(--warning)',
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointBackgroundColor: 'var(--warning)',
-                        tension: 0.1,
-                        yAxisID: 'y2'
-                    });
-                    
-                    // Add secondary y-axis for percentage
-                    chart.options.scales.y2 = {
-                        type: 'linear',
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Completion %'
-                        },
-                        min: 0,
-                        max: 100,
-                        grid: {
-                            drawOnChartArea: false
-                        }
-                    };
-                    
-                    chart.update();
-                })
-                .catch(err => {
-                    console.error('Error loading completion progress:', err);
-                });
-        }
-        {% endif %}
-        
-        // Celebration triggers on page load
-        {% if current_streak >= 7 and current_streak < 30 %}
-            const streakElement = document.querySelector('[data-streak]');
-            if (streakElement) {
-                pulseStreak(streakElement);
-                if (current_streak === 7) {
-                    showToast('7-day streak! Keep it up!', 'success', 'fire');
-                    confetti('medium');
-                }
-            }
-        {% endif %}
-        
-        {% if current_streak >= 30 and current_streak < 100 %}
-            const streakElement = document.querySelector('[data-streak]');
-            if (streakElement) {
-                pulseStreak(streakElement);
-                if (current_streak === 30) {
-                    showToast('30 days! Unstoppable!', 'success', 'trophy');
-                    confetti('large');
-                }
-            }
-        {% endif %}
-        
-        {% if current_streak >= 100 %}
-            const streakElement = document.querySelector('[data-streak]');
-            if (streakElement) {
-                pulseStreak(streakElement);
-                if (current_streak === 100) {
-                    showToast('100 days! Legend status!', 'success', 'crown');
-                    confetti('large');
-                }
-            }
-        {% endif %}
-        
-    });
-    </script>
+    <script src="/static/js/dashboard_logic.js"></script>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -1175,7 +985,7 @@
         {% if messages %}
         document.addEventListener('DOMContentLoaded', function() {
             {% for category, message in messages %}
-            showToast('{{ message|safe|replace("'", "\\'") }}', '{{ category }}');
+            showToast('{{ message|replace("'", "\\'") }}', '{{ category }}');
             {% endfor %}
         });
         {% endif %}

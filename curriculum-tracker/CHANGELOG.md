@@ -5,7 +5,50 @@ All notable changes to the Curriculum Tracker project will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [5.0.0] - 2025-01-XX
+## [Unreleased]
+
+## [6.0.0] - 2025-01-02
+
+### Added
+- **Connection Pooling**: ThreadedConnectionPool implementation for efficient database connections
+- **Security Hardening**: CSRF protection, XSS prevention, secure file uploads with MIME validation
+- **Accessibility**: Full keyboard navigation support for Kanban board (Space, Arrow keys, Enter)
+- **Component Architecture**: Extracted burndown chart and JavaScript logic into separate files
+- **Implementation Status Documentation**: Comprehensive status report of all improvements
+
+### Changed
+- **Single Source of Truth**: Dashboard now reads from PostgreSQL database instead of YAML
+- **Database Driver**: Upgraded from `psycopg2-binary` to `psycopg2` for production stability
+- **Dashboard Template**: Reduced from 1,186 lines to 995 lines through component extraction
+- **Progress Metrics**: Unified progress calculation (Tasks Completed vs Hours Logged)
+
+### Fixed
+- **Performance**: Eliminated N+1 queries in structure service (100+ queries → 1-2 queries)
+- **Memory**: Streaming export prevents memory bombs on large datasets
+- **Race Conditions**: SERIALIZABLE transaction isolation prevents duplicate order_index values
+- **Data Integrity**: Strict FK enforcement, orphaned resources auto-moved to Inbox
+- **Global Search**: Dashboard search now searches entire curriculum, not just current week
+- **Dead Buttons**: Toggle complete and edit resource now fully functional
+
+### Security
+- **CSRF Protection**: Flask-WTF CSRFProtect initialized, all AJAX requests secured
+- **XSS Prevention**: Removed unsafe template filters, server-side sanitization
+- **Data Leak**: Activity logs filtered by user_id, proper access control
+- **File Uploads**: MIME type validation using python-magic prevents malicious uploads
+- **Backdoor Removal**: Default admin account disabled via migration
+
+### Removed
+- Removed obsolete SQLite database file (`tracker.db`)
+- Removed build artifacts (`__pycache__`, `.egg-info` directories)
+- Removed obsolete SQLite-related files (already completed in previous versions)
+
+### Updated
+- Updated `.gitignore` to prevent tracking build artifacts
+- Updated README with comprehensive documentation of all improvements
+- Updated requirements.txt with production-ready database driver
+- Updated documentation to reflect connection pooling and security features
+
+## [5.0.0] - 2025-01-01
 
 ### Added
 - Modular architecture with separated concerns

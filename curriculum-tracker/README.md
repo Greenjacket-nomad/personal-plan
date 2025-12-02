@@ -2,7 +2,7 @@
 
 A modern, full-stack web application for tracking learning progress through structured curricula. Built with Flask and PostgreSQL, featuring a responsive dashboard, real-time progress tracking, and comprehensive resource management.
 
-> **✨ Latest Update (v5.0)**: The application has been refactored into a modular architecture with clear separation of concerns. See the [Version 5.0](#version-50-modular-architecture-refactor) section for details.
+> **✨ Latest Update (v6.0)**: Production-ready improvements across architecture, security, performance, data integrity, UX, and code quality. See [Version 6.0](#version-60-production-ready-improvements) for details.
 
 ## 🎯 Project Vision
 
@@ -10,7 +10,7 @@ A modern, full-stack web application for tracking learning progress through stru
 
 - **Visual Progress Tracking:** See your journey at a glance with burndown charts, completion metrics, and time analytics
 - **Resource Organization:** Manage hundreds of learning resources with tags, filters, and search
-- **Flexible Architecture:** Adaptable to any curriculum structure through YAML configuration
+- **Dynamic Structure:** Fully database-driven curriculum structure with drag-and-drop Kanban board
 - **Production-Ready:** Built with scalability and maintainability in mind
 
 The application evolved from a simple SQLite-based tracker to a robust PostgreSQL-powered system with advanced features like file attachments, journaling, activity logging, and comprehensive reporting.
@@ -107,7 +107,7 @@ The application evolved from a simple SQLite-based tracker to a robust PostgreSQ
 
 - **Flask 3.0+**: Lightweight Python web framework
 - **PostgreSQL**: Production-grade relational database
-- **psycopg2-binary**: PostgreSQL adapter with RealDictCursor
+- **psycopg2**: PostgreSQL adapter with RealDictCursor (production-ready)
 - **python-dotenv**: Environment variable management
 - **PyYAML**: Curriculum configuration parsing
 - **Werkzeug**: File upload utilities
@@ -174,8 +174,9 @@ The application uses **12 interconnected tables** with proper normalization:
    - Reduced dashboard load time from 2-5s to 0.2-0.5s
 
 2. **Indexed Columns**: Foreign keys and frequently queried fields
-3. **Connection Pooling**: Efficient database connection management
-4. **Query Optimization**: Uses `STRING_AGG` for tag concatenation
+3. **Connection Pooling**: ThreadedConnectionPool for efficient connection management (v6.0)
+4. **Query Optimization**: Uses JOINs to fetch entire structure in 1-2 queries instead of 100+ (v6.0)
+5. **Streaming Export**: Generator-based JSON export prevents memory issues on large datasets (v6.0)
 
 ---
 
@@ -250,13 +251,6 @@ The application uses **12 interconnected tables** with proper normalization:
 - STATUS_CYCLE constant usage
 - Performance optimizations
 
-### Current Version: 4.1
-- File attachment support (PDFs, images, videos, documents)
-- Status dropdown menus (4-state system)
-- Enhanced reporting with theme support
-- Improved error handling
-- PostgreSQL datetime compatibility fixes
-
 ### Version 5.0: Modular Architecture Refactor
 **Major Code Organization Improvement**
 
@@ -281,6 +275,47 @@ The application uses **12 interconnected tables** with proper normalization:
 - Improved testability of individual components
 - Scalable architecture for future features
 - Clear separation of concerns
+
+### Version 6.0: Production-Ready Improvements
+**Critical Enhancements Across All Layers**
+
+This version represents a comprehensive improvement initiative addressing architecture, security, performance, data integrity, UX, and code quality.
+
+#### 1. Architecture: Single Source of Truth
+- **Database as SSOT**: Dashboard and Kanban board now both read from PostgreSQL
+- **Eliminated Split-Brain**: Removed YAML runtime dependency
+- **Dynamic Structure**: Database-driven phases, weeks, days with drag-and-drop management
+
+#### 2. Security Hardening
+- **CSRF Protection**: Flask-WTF CSRFProtect initialized, all AJAX requests secured
+- **XSS Prevention**: Removed unsafe template filters, server-side sanitization
+- **Data Leak Fix**: Activity logs filtered by user_id, proper access control
+- **Secure File Uploads**: MIME type validation using python-magic
+- **Backdoor Removal**: Default admin account disabled via migration
+
+#### 3. Performance Optimization
+- **N+1 Query Elimination**: Optimized structure service with JOIN queries (1-2 queries vs 100+)
+- **Database-Side Filtering**: Search/filter operations done in SQL, not Python
+- **Streaming Export**: Generator-based JSON export prevents memory issues
+- **Connection Pooling**: ThreadedConnectionPool for efficient connection management
+
+#### 4. Data Integrity
+- **Race Condition Prevention**: SERIALIZABLE isolation + SELECT FOR UPDATE locking
+- **FK Enforcement**: Strict foreign key validation, orphaned resources auto-moved to Inbox
+- **Safe Imports**: User-modified fields preserved during curriculum imports
+
+#### 5. UX & Accessibility
+- **Active Board Buttons**: Toggle complete and edit resource fully functional
+- **Global Search**: Search entire curriculum from dashboard
+- **Unified Progress Metrics**: Standardized "Tasks Completed" vs "Hours Logged"
+- **Keyboard Navigation**: Full keyboard support for SortableJS (Space, Arrow keys, Enter)
+- **ARIA Labels**: Complete accessibility support for screen readers
+
+#### 6. Code Quality & Maintenance
+- **Dashboard Refactor**: Extracted components (burndown chart, JavaScript logic)
+- **Production Driver**: psycopg2 (not binary) with documented build dependencies
+- **Dead Code Removal**: Old SQLite files and incompatible scripts removed
+- **Connection Pooling**: Proper pool initialization and management
 
 ---
 
@@ -395,21 +430,27 @@ The application uses **12 interconnected tables** with proper normalization:
 
 ### Input Validation
 - SQL injection prevention (parameterized queries)
-- XSS protection (Jinja2 auto-escaping)
-- File upload validation (extension whitelist)
+- XSS protection (Jinja2 auto-escaping, no unsafe filters)
+- File upload validation (extension whitelist + MIME type verification)
 - File size limits (16MB max)
+
+### CSRF Protection
+- Flask-WTF CSRFProtect initialized globally
+- All AJAX POST requests include X-CSRFToken headers
+- Form submissions automatically protected
 
 ### Data Protection
 - Environment variables for sensitive data
-- Secure filename handling (Werkzeug)
+- Secure filename handling (Werkzeug + UUID renaming)
 - Foreign key constraints
 - Cascading deletes for data integrity
+- User-scoped data access (activity logs filtered by user_id)
 
-### Error Handling
-- Graceful error pages
-- User-friendly error messages
-- No sensitive data in error responses
-- Proper HTTP status codes
+### Security Hardening (v6.0)
+- MIME type validation using python-magic prevents malicious file uploads
+- Activity log data leak fixed (user_id filtering)
+- Admin backdoor removed (default account disabled)
+- Server-side sanitization for all user-generated content
 
 ---
 
@@ -488,8 +529,8 @@ curriculum-tracker/
 ├── database.py               # Database connection, schema, migrations
 ├── utils.py                  # Helper functions, path constants, scheduling
 ├── constants.py              # Application constants and configuration
-├── schema.sql                # PostgreSQL database schema
-├── curriculum.yaml           # Curriculum structure definition
+├── curriculum.yaml           # Curriculum structure definition (legacy, migrated to database)
+├── migrations/               # Alembic database migrations
 ├── requirements.txt          # Python dependencies
 ├── .env                      # Environment variables (gitignored)
 │
@@ -506,16 +547,29 @@ curriculum-tracker/
 │
 ├── static/
 │   ├── style.css            # Global styles and CSS variables
+│   ├── js/                  # JavaScript modules
+│   │   ├── board.js         # Kanban board functionality
+│   │   ├── calendar.js      # Calendar view logic
+│   │   ├── dashboard_logic.js # Dashboard-specific JavaScript
+│   │   ├── resources.js     # Resource management
+│   │   └── ui.js            # UI utilities
 │   └── celebrations.js      # Animation and celebration effects
 │
 ├── templates/
-│   ├── dashboard.html       # Main dashboard (2,496 lines)
+│   ├── dashboard.html       # Main dashboard (995 lines, refactored)
+│   ├── curriculum_board.html # Kanban board interface
 │   ├── resources.html       # Resource management
 │   ├── journal.html         # Journal entries
 │   ├── reports.html         # Analytics and charts
 │   ├── activity.html        # Activity log
 │   ├── curriculum_editor.html  # Curriculum configuration
-│   └── error.html           # Error pages
+│   ├── error.html           # Error pages
+│   └── components/          # Reusable component partials
+│       ├── _burndown_chart.html
+│       ├── _journal_widget.html
+│       ├── _metrics_sidebar.html
+│       ├── _resource_card.html
+│       └── _week_calendar.html
 │
 ├── uploads/                 # User-uploaded files (gitignored)
 │   └── .gitkeep            # Preserve directory structure
@@ -538,12 +592,22 @@ curriculum-tracker/
 
 2. **Database Setup:**
    ```bash
+   # Install PostgreSQL development headers (required for psycopg2)
+   # On Ubuntu/Debian:
+   sudo apt-get install libpq-dev python3-dev
+   # On macOS (with Homebrew):
+   brew install postgresql
+   # On Alpine Linux:
+   apk add postgresql-dev python3-dev
+   
    # Create PostgreSQL database
    createdb curriculum_tracker
    
-   # Run schema (optional - app will auto-initialize)
-   psql -d curriculum_tracker -f schema.sql
+   # Run Alembic migrations
+   python3 -m alembic upgrade head
    ```
+   
+   **Note:** The `psycopg2` package (not `psycopg2-binary`) requires PostgreSQL development headers to compile. For development/testing, you can use `psycopg2-binary` instead, but production deployments should use `psycopg2` for better compatibility and performance.
 
 3. **Environment Configuration:**
    ```bash
@@ -680,3 +744,16 @@ Built with:
 ---
 
 **Built with ❤️ for structured learning and progress tracking**
+
+---
+
+## 📋 Implementation Status
+
+For detailed verification of all improvements and features, see:
+- **`IMPLEMENTATION_STATUS.md`** - Complete status report of all 6 improvement prompts
+- **`CHANGELOG.md`** - Detailed version history and changes
+## 📋 Implementation Status
+
+For detailed verification of all improvements and features, see:
+- **`IMPLEMENTATION_STATUS.md`** - Complete status report of all 6 improvement prompts
+- **`CHANGELOG.md`** - Detailed version history and changes

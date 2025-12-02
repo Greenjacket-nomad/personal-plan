@@ -1,5 +1,11 @@
 // Curriculum Board - Kanban Board Implementation
 
+// CSRF Protection Helper
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 let boardData = null;
 let selectedResources = new Set();
 let sortableInstances = {};
@@ -107,11 +113,11 @@ function renderPhase(phase) {
                         <span class="text-sm text-secondary">${progress.completed}/${progress.total}</span>
                     </div>
                     
-                    <button onclick="showAddWeek(${phase.id})" class="btn-secondary px-3 py-1 text-sm">
+                    <button onclick="showAddWeek(${phase.id})" class="btn-secondary px-3 py-1 text-sm" aria-label="Add week">
                         <i class="fas fa-plus mr-1"></i>Add Week
                     </button>
                     
-                    <button onclick="editPhaseSettings(${phase.id})" class="btn-secondary px-3 py-1 text-sm">
+                    <button onclick="editPhaseSettings(${phase.id})" class="btn-secondary px-3 py-1 text-sm" aria-label="Edit phase settings">
                         <i class="fas fa-cog"></i>
                     </button>
                 </div>
@@ -149,7 +155,7 @@ function renderWeekHTML(week, phaseId) {
                 }
             </div>
             
-            <button onclick="showAddDay(${week.id})" class="w-full mt-2 px-3 py-2 text-sm btn-secondary text-center">
+            <button onclick="showAddDay(${week.id})" class="w-full mt-2 px-3 py-2 text-sm btn-secondary text-center" aria-label="Add day">
                 <i class="fas fa-plus mr-1"></i>Add Day
             </button>
         </div>
@@ -198,7 +204,7 @@ function renderDayHTML(day, weekId) {
                         </button>
                     </div>
                 </div>
-                <button onclick="showQuickAddResource(${day.id})" class="w-full text-xs text-muted hover:text-accent text-center py-1">
+                <button onclick="showQuickAddResource(${day.id})" class="w-full text-xs text-muted hover:text-accent text-center py-1" aria-label="Add resource">
                     <i class="fas fa-plus mr-1"></i>Add Resource
                 </button>
             </div>
@@ -218,10 +224,14 @@ function renderResourceHTML(resource, dayId) {
         : '';
     
     return `
-        <div class="resource-item card p-2 text-sm cursor-pointer hover:border-accent group ${isComplete ? 'opacity-60' : ''}" 
+        <div class="resource-item card p-2 text-sm cursor-pointer hover:border-accent group focus:ring-2 focus:ring-accent focus:outline-none ${isComplete ? 'opacity-60' : ''}" 
              data-resource-id="${resource.id}" 
              data-day-id="${dayId}"
-             onclick="handleResourceClick(event, ${resource.id})">
+             tabindex="0"
+             role="button"
+             aria-label="Resource: ${escapeHtml(resource.title)}"
+             onclick="handleResourceClick(event, ${resource.id})"
+             onkeydown="handleResourceKeydown(event, ${resource.id})">
             <div class="flex items-start gap-2">
                 <i class="fas ${icon} text-muted mt-0.5 flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
@@ -233,15 +243,18 @@ function renderResourceHTML(resource, dayId) {
                 </div>
                 <div class="resource-actions flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                     <button onclick="event.stopPropagation(); toggleResourceComplete(${resource.id})" 
-                            class="text-success hover:opacity-80">
+                            class="text-success hover:opacity-80"
+                            aria-label="${isComplete ? 'Mark as incomplete' : 'Mark as complete'}">
                         <i class="fas fa-check"></i>
                     </button>
                     <button onclick="event.stopPropagation(); editResource(${resource.id})" 
-                            class="text-muted hover:text-accent">
+                            class="text-muted hover:text-accent"
+                            aria-label="Edit resource">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button onclick="event.stopPropagation(); deleteResource(${resource.id})" 
-                            class="text-error hover:opacity-80">
+                            class="text-error hover:opacity-80"
+                            aria-label="Delete resource">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -339,7 +352,10 @@ async function handleDayReorder(evt) {
     try {
         const response = await fetch('/api/structure/reorder', {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
             body: JSON.stringify({
                 type: 'day',
                 id: dayId,
@@ -366,7 +382,10 @@ async function handleResourceReorder(evt) {
         // Use the resource reorder endpoint if it exists, or update day_id
         const response = await fetch(`/api/resource/${resourceId}/reorder`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
             body: JSON.stringify({
                 day_id: newDayId,
                 sort_order: newIndex
@@ -377,7 +396,10 @@ async function handleResourceReorder(evt) {
             // Fallback: just update the day_id
             await fetch(`/api/resource/${resourceId}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: JSON.stringify({day_id: newDayId})
             });
         }
@@ -460,7 +482,10 @@ async function updateStructureTitle(type, id, title) {
     try {
         const response = await fetch(`/api/structure/${type}/${id}`, {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
             body: JSON.stringify({title})
         });
         
@@ -515,7 +540,10 @@ async function createResource(dayId) {
     try {
         const response = await fetch('/api/resource', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
             body: JSON.stringify({
                 day_id: dayId,
                 title,
@@ -544,7 +572,10 @@ async function createPhase() {
     try {
         const response = await fetch('/api/structure/phase', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
             body: JSON.stringify({title})
         });
         
@@ -562,7 +593,10 @@ function showAddWeek(phaseId) {
     
     fetch('/api/structure/week', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
         body: JSON.stringify({phase_id: phaseId, title})
     })
     .then(r => r.json())
@@ -582,7 +616,10 @@ function showAddDay(weekId) {
     
     fetch('/api/structure/day', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
         body: JSON.stringify({week_id: weekId, title})
     })
     .then(r => r.json())
@@ -629,6 +666,109 @@ function handleResourceClick(event, resourceId) {
     // TODO: Show resource detail modal
 }
 
+function handleResourceKeydown(event, resourceId) {
+    const resourceElement = event.target.closest('.resource-item');
+    if (!resourceElement) return;
+    
+    switch(event.key) {
+        case ' ':
+        case 'Enter':
+            event.preventDefault();
+            if (event.key === 'Enter') {
+                // Enter: edit resource
+                editResource(resourceId);
+            } else {
+                // Space: toggle complete
+                toggleResourceComplete(resourceId);
+            }
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            moveFocus(resourceElement, 'up');
+            break;
+        case 'ArrowDown':
+            event.preventDefault();
+            moveFocus(resourceElement, 'down');
+            break;
+        case 'ArrowLeft':
+            event.preventDefault();
+            moveFocus(resourceElement, 'left');
+            break;
+        case 'ArrowRight':
+            event.preventDefault();
+            moveFocus(resourceElement, 'right');
+            break;
+        case 'Escape':
+            resourceElement.blur();
+            break;
+    }
+}
+
+function moveFocus(currentElement, direction) {
+    const allResources = Array.from(document.querySelectorAll('.resource-item'));
+    const currentIndex = allResources.indexOf(currentElement);
+    
+    if (currentIndex === -1) return;
+    
+    let nextIndex = currentIndex;
+    const currentDayId = currentElement.dataset.dayId;
+    
+    switch(direction) {
+        case 'up':
+            // Find previous resource in same or previous day
+            for (let i = currentIndex - 1; i >= 0; i--) {
+                if (allResources[i].dataset.dayId) {
+                    nextIndex = i;
+                    break;
+                }
+            }
+            break;
+        case 'down':
+            // Find next resource in same or next day
+            for (let i = currentIndex + 1; i < allResources.length; i++) {
+                if (allResources[i].dataset.dayId) {
+                    nextIndex = i;
+                    break;
+                }
+            }
+            break;
+        case 'left':
+            // Move to previous day
+            const currentDay = document.querySelector(`[data-day-id="${currentDayId}"]`);
+            const currentWeekForLeft = currentDay?.closest('[data-week-id]');
+            const prevDay = currentWeekForLeft?.querySelectorAll('.day-card');
+            const currentDayIndex = Array.from(prevDay || []).findIndex(d => d.dataset.dayId === currentDayId);
+            if (currentDayIndex > 0 && prevDay) {
+                const prevDayCard = prevDay[currentDayIndex - 1];
+                const firstResource = prevDayCard.querySelector('.resource-item');
+                if (firstResource) {
+                    firstResource.focus();
+                    return;
+                }
+            }
+            break;
+        case 'right':
+            // Move to next day
+            const currentDayForRight = document.querySelector(`[data-day-id="${currentDayId}"]`);
+            const currentWeekForRight = currentDayForRight?.closest('[data-week-id]');
+            const allDays = currentWeekForRight?.querySelectorAll('.day-card');
+            const currentDayIndexForRight = Array.from(allDays || []).findIndex(d => d.dataset.dayId === currentDayId);
+            if (currentDayIndexForRight >= 0 && allDays && currentDayIndexForRight < allDays.length - 1) {
+                const nextDayCard = allDays[currentDayIndexForRight + 1];
+                const firstResource = nextDayCard.querySelector('.resource-item');
+                if (firstResource) {
+                    firstResource.focus();
+                    return;
+                }
+            }
+            break;
+    }
+    
+    if (nextIndex !== currentIndex && allResources[nextIndex]) {
+        allResources[nextIndex].focus();
+    }
+}
+
 function updateResourceSelection() {
     document.querySelectorAll('.resource-item').forEach(item => {
         const id = parseInt(item.dataset.resourceId);
@@ -641,13 +781,160 @@ function updateResourceSelection() {
 }
 
 async function toggleResourceComplete(resourceId) {
-    // TODO: Toggle resource completion status
-    showToast('Complete toggle coming soon', 'info');
+    // Find the resource in boardData to get current status
+    let currentStatus = 'not_started';
+    let resource = null;
+    
+    if (boardData && boardData.phases) {
+        for (const phase of boardData.phases) {
+            if (phase.weeks) {
+                for (const week of phase.weeks) {
+                    if (week.days) {
+                        for (const day of week.days) {
+                            if (day.resources) {
+                                const found = day.resources.find(r => r.id === resourceId);
+                                if (found) {
+                                    resource = found;
+                                    currentStatus = found.status || 'not_started';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Toggle between complete and not_started
+    const newStatus = currentStatus === 'complete' ? 'not_started' : 'complete';
+    
+    // Optimistic UI update
+    const resourceElement = document.querySelector(`[data-resource-id="${resourceId}"]`);
+    if (resourceElement) {
+        if (newStatus === 'complete') {
+            resourceElement.classList.add('opacity-60');
+            resourceElement.querySelector('.font-medium').classList.add('line-through');
+        } else {
+            resourceElement.classList.remove('opacity-60');
+            resourceElement.querySelector('.font-medium').classList.remove('line-through');
+        }
+    }
+    
+    try {
+        const response = await fetch(`/api/resource/${resourceId}/status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update status');
+        }
+        
+        // Reload board to ensure consistency
+        await loadBoard();
+        showToast(newStatus === 'complete' ? 'Resource marked as complete' : 'Resource marked as incomplete', 'success');
+    } catch (error) {
+        console.error('Error toggling resource status:', error);
+        showToast('Failed to update resource status', 'error');
+        // Reload to fix UI state
+        await loadBoard();
+    }
 }
 
-function editResource(resourceId) {
-    // TODO: Open resource edit modal
-    showToast('Edit resource coming soon', 'info');
+async function editResource(resourceId) {
+    // Find the resource in boardData to populate the form
+    let resource = null;
+    
+    if (boardData && boardData.phases) {
+        for (const phase of boardData.phases) {
+            if (phase.weeks) {
+                for (const week of phase.weeks) {
+                    if (week.days) {
+                        for (const day of week.days) {
+                            if (day.resources) {
+                                const found = day.resources.find(r => r.id === resourceId);
+                                if (found) {
+                                    resource = found;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (!resource) {
+        showToast('Resource not found', 'error');
+        return;
+    }
+    
+    // Populate the modal form
+    document.getElementById('edit-resource-id').value = resourceId;
+    document.getElementById('edit-resource-title').value = resource.title || '';
+    document.getElementById('edit-resource-url').value = resource.url || '';
+    document.getElementById('edit-resource-type').value = resource.resource_type || 'link';
+    document.getElementById('edit-resource-difficulty').value = resource.difficulty || 'medium';
+    document.getElementById('edit-resource-minutes').value = resource.estimated_minutes || '';
+    document.getElementById('edit-resource-notes').value = resource.notes || '';
+    
+    // Show the modal
+    document.getElementById('edit-resource-modal').classList.remove('hidden');
+    document.getElementById('edit-resource-title').focus();
+}
+
+function closeEditResourceModal() {
+    document.getElementById('edit-resource-modal').classList.add('hidden');
+    document.getElementById('edit-resource-form').reset();
+}
+
+async function saveResourceEdit(event) {
+    event.preventDefault();
+    
+    const resourceId = document.getElementById('edit-resource-id').value;
+    const title = document.getElementById('edit-resource-title').value.trim();
+    
+    if (!title) {
+        showToast('Title is required', 'error');
+        return;
+    }
+    
+    const updateData = {
+        title: title,
+        url: document.getElementById('edit-resource-url').value.trim() || null,
+        resource_type: document.getElementById('edit-resource-type').value,
+        difficulty: document.getElementById('edit-resource-difficulty').value,
+        estimated_minutes: document.getElementById('edit-resource-minutes').value ? parseInt(document.getElementById('edit-resource-minutes').value) : null,
+        notes: document.getElementById('edit-resource-notes').value.trim() || null
+    };
+    
+    try {
+        const response = await fetch(`/api/resource/${resourceId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update resource');
+        }
+        
+        closeEditResourceModal();
+        await loadBoard();
+        showToast('Resource updated successfully', 'success');
+    } catch (error) {
+        console.error('Error updating resource:', error);
+        showToast('Failed to update resource', 'error');
+    }
 }
 
 async function deleteResource(resourceId) {
@@ -655,7 +942,10 @@ async function deleteResource(resourceId) {
     
     try {
         const response = await fetch(`/api/resource/${resourceId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
         });
         
         if (!response.ok) throw new Error('Delete failed');
@@ -751,4 +1041,7 @@ window.toggleResourceComplete = toggleResourceComplete;
 window.editResource = editResource;
 window.deleteResource = deleteResource;
 window.toggleInbox = toggleInbox;
+window.closeEditResourceModal = closeEditResourceModal;
+window.saveResourceEdit = saveResourceEdit;
+window.handleResourceKeydown = handleResourceKeydown;
 

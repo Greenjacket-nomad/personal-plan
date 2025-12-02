@@ -1,5 +1,11 @@
 // UI Interaction Functions
 
+// CSRF Protection Helper
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 // Dark Mode Functions
 function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
@@ -221,7 +227,10 @@ function navigateWeek(direction) {
     // For now, we'll use the API endpoint
     fetch('/api/navigate-week', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
         body: JSON.stringify({
             direction: direction,
             current_phase: currentPhase,

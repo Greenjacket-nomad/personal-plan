@@ -1,5 +1,11 @@
 // Resource Management Functions
 
+// CSRF Protection Helper
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 let selectedResources = new Set();
 
 function toggleSelection(id, checkbox) {
@@ -54,7 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Save new order via fetch
                 fetch('/reorder', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
                     body: JSON.stringify({
                         resource_id: parseInt(resourceId),
                         new_position: newPosition,
@@ -127,7 +136,10 @@ window.toggleResourceStatus = function(button) {
 window.setResourceStatus = function(resourceId, newStatus, menuItem) {
     fetch(`/api/resource/${resourceId}/status`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
         body: JSON.stringify({status: newStatus})
     })
     .then(r => r.json())

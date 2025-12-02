@@ -49,3 +49,10 @@ curriculum-tracker/uploads/*
 
 # Logs
 *.log
+
+# Build artifacts (explicit)
+curriculum-tracker/*.egg-info/
+
+# Test databases
+curriculum-tracker/tracker.db
+curriculum-tracker/test*.db

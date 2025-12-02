@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Curriculum Board - Curriculum Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -178,17 +179,17 @@
                 </nav>
                 
                 <div class="flex items-center gap-3">
-                    <button onclick="toggleInbox()" class="btn-secondary px-3 py-2 text-sm relative" id="inbox-toggle">
+                    <button onclick="toggleInbox()" class="btn-secondary px-3 py-2 text-sm relative" id="inbox-toggle" aria-label="Toggle inbox drawer">
                         <i class="fas fa-inbox mr-1"></i>
                         <span class="hidden md:inline">Inbox</span>
                         <span id="inbox-count" class="ml-2 px-2 py-0.5 rounded-full text-xs bg-accent text-white hidden">0</span>
                     </button>
-                    <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                    <button onclick="toggleTheme()" class="theme-toggle" aria-label="Toggle dark mode">
                         <span class="theme-icon"></span>
                     </button>
                 </div>
                 
-                <button onclick="toggleMobileMenu()" class="md:hidden text-primary">
+                <button onclick="toggleMobileMenu()" class="md:hidden text-primary" aria-label="Toggle mobile menu">
                     <i class="fas fa-bars text-xl"></i>
                 </button>
             </div>
@@ -231,7 +232,7 @@
                     <h3 class="font-bold text-primary">
                         <i class="fas fa-inbox mr-2"></i>Inbox
                     </h3>
-                    <button onclick="toggleInbox()" class="text-muted hover:text-primary">
+                    <button onclick="toggleInbox()" class="text-muted hover:text-primary" aria-label="Close inbox drawer">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -250,6 +251,72 @@
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
+    
+    <!-- Edit Resource Modal -->
+    <div id="edit-resource-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="card p-6 max-w-md w-full mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-primary">Edit Resource</h3>
+                <button onclick="closeEditResourceModal()" class="text-muted hover:text-primary" aria-label="Close modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="edit-resource-form" onsubmit="saveResourceEdit(event)">
+                <input type="hidden" id="edit-resource-id">
+                
+                <div class="mb-4">
+                    <label for="edit-resource-title" class="block text-sm text-secondary mb-1">Title</label>
+                    <input type="text" id="edit-resource-title" required class="w-full" placeholder="Resource title">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-resource-url" class="block text-sm text-secondary mb-1">URL</label>
+                    <input type="url" id="edit-resource-url" class="w-full" placeholder="https://...">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-resource-type" class="block text-sm text-secondary mb-1">Type</label>
+                    <select id="edit-resource-type" class="w-full">
+                        <option value="link">Link</option>
+                        <option value="video">Video</option>
+                        <option value="article">Article</option>
+                        <option value="docs">Docs</option>
+                        <option value="course">Course</option>
+                        <option value="project">Project</option>
+                        <option value="lab">Lab</option>
+                        <option value="tutorial">Tutorial</option>
+                        <option value="action">Action</option>
+                        <option value="note">Note</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-resource-difficulty" class="block text-sm text-secondary mb-1">Difficulty</label>
+                    <select id="edit-resource-difficulty" class="w-full">
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-resource-minutes" class="block text-sm text-secondary mb-1">Estimated Minutes</label>
+                    <input type="number" id="edit-resource-minutes" class="w-full" placeholder="60" min="1">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-resource-notes" class="block text-sm text-secondary mb-1">Notes</label>
+                    <textarea id="edit-resource-notes" class="w-full" rows="3" placeholder="Additional notes..."></textarea>
+                </div>
+                
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="closeEditResourceModal()" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
     
     <!-- Scripts -->
     <script src="/static/js/board.js"></script>

@@ -10,87 +10,161 @@ from database import get_db, get_db_cursor
 def get_structure(user_id, include_resources=False):
     """Get full nested structure: phases -> weeks -> days.
     
+    OPTIMIZED: Uses JOINs to fetch entire structure in 1-2 queries instead of 100+.
     If include_resources=True, also includes resources for each day.
     """
     conn = get_db()
     cur = get_db_cursor(conn)
     
-    # Get all phases
-    cur.execute("""
-        SELECT id, title, order_index, color
-        FROM phases
-        WHERE user_id = %s
-        ORDER BY order_index
-    """, (user_id,))
-    phases = cur.fetchall()
+    # Single query to get all structure data (phases, weeks, days) with JOINs
+    query = """
+        SELECT 
+            p.id as phase_id, 
+            p.title as phase_title, 
+            p.order_index as phase_order,
+            p.color as phase_color, 
+            COALESCE(p.metrics, ARRAY[]::TEXT[]) as phase_metrics,
+            w.id as week_id, 
+            w.title as week_title, 
+            w.order_index as week_order,
+            d.id as day_id, 
+            d.title as day_title, 
+            d.order_index as day_order
+        FROM phases p
+        LEFT JOIN weeks w ON p.id = w.phase_id AND w.user_id = %s
+        LEFT JOIN days d ON w.id = d.week_id AND d.user_id = %s
+        WHERE p.user_id = %s
+        ORDER BY p.order_index, w.order_index NULLS LAST, d.order_index NULLS LAST
+    """
+    cur.execute(query, (user_id, user_id, user_id))
+    rows = cur.fetchall()
     
-    result = []
-    for phase in phases:
-        phase_id = phase['id']
+    # Build nested structure from flat data
+    phases_dict = {}
+    weeks_dict = {}
+    days_dict = {}
+    
+    for row in rows:
+        phase_id = row['phase_id']
+        week_id = row['week_id']
+        day_id = row['day_id']
         
-        # Get weeks for this phase
-        cur.execute("""
-            SELECT id, title, order_index
-            FROM weeks
-            WHERE user_id = %s AND phase_id = %s
-            ORDER BY order_index
-        """, (user_id, phase_id))
-        weeks = cur.fetchall()
+        # Build phase (only once per phase)
+        if phase_id not in phases_dict:
+            phases_dict[phase_id] = {
+                'id': phase_id,
+                'title': row['phase_title'],
+                'order_index': row['phase_order'],
+                'color': row['phase_color'],
+                'metrics': row['phase_metrics'] or [],
+                'weeks': []
+            }
         
-        weeks_list = []
-        for week in weeks:
-            week_id = week['id']
-            
-            # Get days for this week
-            cur.execute("""
-                SELECT id, title, order_index
-                FROM days
-                WHERE user_id = %s AND week_id = %s
-                ORDER BY order_index
-            """, (user_id, week_id))
-            days = cur.fetchall()
-            
-            days_list = []
-            for day in days:
-                day_id = day['id']
-                day_data = {
-                    'id': day['id'],
-                    'title': day['title'],
-                    'order_index': day['order_index'],
-                    'resources': []
+        # Build week (only if week exists and not already added)
+        if week_id and week_id not in weeks_dict:
+            weeks_dict[week_id] = {
+                'id': week_id,
+                'title': row['week_title'],
+                'order_index': row['week_order'],
+                'days': []
+            }
+            phases_dict[phase_id]['weeks'].append(weeks_dict[week_id])
+        
+        # Build day (only if day exists and not already added)
+        if day_id and day_id not in days_dict:
+            days_dict[day_id] = {
+                'id': day_id,
+                'title': row['day_title'],
+                'order_index': row['day_order'],
+                'resources': []
+            }
+            if week_id:
+                weeks_dict[week_id]['days'].append(days_dict[day_id])
+    
+    # If resources are needed, fetch all in a single query
+    if include_resources and days_dict:
+        day_ids = list(days_dict.keys())
+        placeholders = ','.join(['%s'] * len(day_ids))
+        cur.execute(f"""
+            SELECT id, title, url, resource_type, status, difficulty, 
+                   estimated_minutes, scheduled_date, is_completed, day_id, sort_order
+            FROM resources
+            WHERE user_id = %s AND day_id IN ({placeholders})
+            ORDER BY day_id, sort_order, created_at
+        """, [user_id] + day_ids)
+        
+        resources = cur.fetchall()
+        
+        # Group resources by day_id
+        for resource in resources:
+            day_id = resource['day_id']
+            if day_id in days_dict:
+                resource_dict = {
+                    'id': resource['id'],
+                    'title': resource['title'],
+                    'url': resource.get('url'),
+                    'resource_type': resource.get('resource_type'),
+                    'status': resource.get('status'),
+                    'difficulty': resource.get('difficulty'),
+                    'estimated_minutes': resource.get('estimated_minutes'),
+                    'scheduled_date': resource.get('scheduled_date'),
+                    'is_completed': resource.get('is_completed', False)
                 }
-                
-                # Get resources for this day if requested
-                if include_resources:
-                    cur.execute("""
-                        SELECT id, title, url, resource_type, status, difficulty, 
-                               estimated_minutes, scheduled_date, is_completed
-                        FROM resources
-                        WHERE user_id = %s AND day_id = %s
-                        ORDER BY sort_order, created_at
-                    """, (user_id, day_id))
-                    resources = cur.fetchall()
-                    day_data['resources'] = [dict(r) for r in resources]
-                
-                days_list.append(day_data)
-            
-            weeks_list.append({
-                'id': week['id'],
-                'title': week['title'],
-                'order_index': week['order_index'],
-                'days': days_list
-            })
-        
-        result.append({
-            'id': phase['id'],
-            'title': phase['title'],
-            'order_index': phase['order_index'],
-            'color': phase['color'],
-            'weeks': weeks_list
-        })
+                days_dict[day_id]['resources'].append(resource_dict)
     
     cur.close()
+    
+    # Convert to list and sort by order_index
+    result = sorted(phases_dict.values(), key=lambda x: x['order_index'])
+    
+    # Sort weeks and days within each phase
+    for phase in result:
+        phase['weeks'] = sorted(phase['weeks'], key=lambda x: x['order_index'])
+        for week in phase['weeks']:
+            week['days'] = sorted(week['days'], key=lambda x: x['order_index'])
+    
     return {'phases': result}
+
+
+def get_structure_for_dashboard(user_id):
+    """Get curriculum structure in dashboard-compatible format.
+    
+    Converts DB structure to YAML-like format expected by dashboard template:
+    {phases: [{name, weeks (int), hours, metrics, index, id}]}
+    
+    Hours are calculated from time_logs aggregation using phase_index (order_index).
+    """
+    from services.progress import get_hours_for_phase
+    
+    structure = get_structure(user_id, include_resources=False)
+    
+    curriculum_phases = []
+    for phase in structure['phases']:
+        phase_order = phase['order_index']
+        weeks_count = len(phase['weeks'])
+        
+        # Calculate hours from time_logs using phase_index (order_index)
+        # This maintains compatibility with existing get_hours_for_phase function
+        hours_logged = get_hours_for_phase(phase_order, None, user_id)
+        
+        # Default hours calculation: 24 hours per week (same as YAML structure)
+        default_hours = weeks_count * 24
+        
+        # Use logged hours if available, otherwise use default
+        phase_hours = int(hours_logged) if hours_logged > 0 else default_hours
+        
+        curriculum_phases.append({
+            'name': phase['title'],
+            'weeks': weeks_count,
+            'hours': phase_hours,
+            'metrics': phase.get('metrics', []) or [],
+            'index': phase_order,
+            'id': phase['id'],
+            'color': phase.get('color', '#6366f1'),
+            'weeks_list': phase['weeks']  # Keep for reference if needed
+        })
+    
+    return {'phases': curriculum_phases}
 
 
 def get_phases(user_id):
@@ -379,23 +453,26 @@ def get_or_create_inbox(user_id):
 
 
 def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
-    """Reorder structure item (week or day) with transaction-based constraint handling.
+    """Reorder structure item (week or day) with atomic operations and proper locking.
     
-    CRITICAL: Uses transaction to handle UniqueConstraint on (user_id, order_index).
+    CRITICAL: Uses SERIALIZABLE isolation level and SELECT FOR UPDATE to prevent race conditions.
+    Prevents duplicate order_index values when concurrent requests modify the same parent.
     
     Algorithm:
-    1. Fetch item being moved
-    2. Pull item out (set order_index to -9999)
-    3. Shift neighbors in NEW location
-    4. Insert item at new_index
-    5. Shift neighbors in OLD location (close gap)
+    1. Lock item and fetch current state
+    2. Lock all siblings in both old and new parent
+    3. Pull item out (set order_index to temporary negative value)
+    4. Shift neighbors atomically
+    5. Insert item at new_index
+    6. Close gap in old location
     """
     conn = get_db()
     cur = get_db_cursor(conn)
     
     try:
-        # Start transaction
+        # Start transaction with SERIALIZABLE isolation level to prevent race conditions
         conn.autocommit = False
+        cur.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
         
         table_map = {
             'week': ('weeks', 'phase_id'),
@@ -407,15 +484,18 @@ def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
         
         table, parent_column = table_map[model]
         
-        # Step 1: Fetch item being moved
+        # Step 1: Fetch item being moved WITH LOCK
         cur.execute(f"""
             SELECT id, {parent_column} as old_parent_id, order_index as old_order_index
             FROM {table}
             WHERE id = %s AND user_id = %s
+            FOR UPDATE
         """, (item_id, user_id))
         
         item = cur.fetchone()
         if not item:
+            conn.rollback()
+            conn.autocommit = True
             raise ValueError(f"{model.capitalize()} not found or access denied")
         
         old_parent_id = item['old_parent_id']
@@ -440,19 +520,39 @@ def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
         """, (new_parent_id, user_id))
         
         if not cur.fetchone():
+            conn.rollback()
+            conn.autocommit = True
             raise ValueError(f"New parent {model} not found or access denied")
         
-        # Step 2: Pull item out (set to temporary negative value)
+        # Step 2: Lock all siblings in both old and new parent to prevent concurrent modifications
+        # Lock old parent siblings
+        cur.execute(f"""
+            SELECT id FROM {table}
+            WHERE user_id = %s AND {parent_column} = %s AND id != %s
+            FOR UPDATE
+        """, (user_id, old_parent_id, item_id))
+        cur.fetchall()  # Execute lock
+        
+        # Lock new parent siblings (if different parent)
+        if old_parent_id != new_parent_id:
+            cur.execute(f"""
+                SELECT id FROM {table}
+                WHERE user_id = %s AND {parent_column} = %s
+                FOR UPDATE
+            """, (user_id, new_parent_id))
+            cur.fetchall()  # Execute lock
+        
+        # Step 3: Pull item out (set to temporary negative value to avoid constraint violation)
         cur.execute(f"""
             UPDATE {table}
             SET order_index = -9999
             WHERE id = %s AND user_id = %s
         """, (item_id, user_id))
         
-        # Step 3 & 5: Handle shifting based on move direction
+        # Step 4 & 6: Handle shifting based on move direction
         if old_parent_id != new_parent_id:
             # Moving to different parent
-            # Step 3: Shift neighbors in NEW location (make room)
+            # Step 4: Shift neighbors in NEW location (make room)
             cur.execute(f"""
                 UPDATE {table}
                 SET order_index = order_index + 1
@@ -460,7 +560,7 @@ def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
             """, (user_id, new_parent_id, new_index))
         elif new_index < old_order_index:
             # Moving earlier in same parent
-            # Step 3: Shift neighbors in NEW location (make room)
+            # Step 4: Shift neighbors in NEW location (make room)
             cur.execute(f"""
                 UPDATE {table}
                 SET order_index = order_index + 1
@@ -469,28 +569,28 @@ def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
             """, (user_id, new_parent_id, new_index, old_order_index))
         elif new_index > old_order_index:
             # Moving later in same parent
-            # Step 5 first: Close gap in OLD location (items shift left)
+            # Step 6 first: Close gap in OLD location (items shift left)
             cur.execute(f"""
                 UPDATE {table}
                 SET order_index = order_index - 1
                 WHERE user_id = %s AND {parent_column} = %s 
                 AND order_index > %s AND order_index <= %s
             """, (user_id, old_parent_id, old_order_index, new_index))
-            # Step 3: Shift neighbors in NEW location (make room)
+            # Step 4: Shift neighbors in NEW location (make room)
             cur.execute(f"""
                 UPDATE {table}
                 SET order_index = order_index + 1
                 WHERE user_id = %s AND {parent_column} = %s AND order_index > %s
             """, (user_id, new_parent_id, new_index))
         
-        # Step 4: Insert item at new_index
+        # Step 5: Insert item at new_index
         cur.execute(f"""
             UPDATE {table}
             SET {parent_column} = %s, order_index = %s
             WHERE id = %s AND user_id = %s
         """, (new_parent_id, new_index, item_id, user_id))
         
-        # Step 5: Shift neighbors in OLD location (close gap) - only for different parent or earlier move
+        # Step 6: Shift neighbors in OLD location (close gap) - only for different parent
         if old_parent_id != new_parent_id:
             cur.execute(f"""
                 UPDATE {table}
@@ -503,7 +603,7 @@ def reorder_structure(model, item_id, new_parent_id, new_index, user_id):
         return True
         
     except Exception as e:
-        # Rollback on error
+        # Rollback on error (including serialization failures)
         conn.rollback()
         raise e
     finally:

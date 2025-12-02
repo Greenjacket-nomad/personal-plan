@@ -1,0 +1,24 @@
+<!-- Burndown Chart Component -->
+{% if burndown_data and start_date %}
+<div class="card p-6 mb-6">
+    <h2 class="text-xl font-bold text-primary mb-4"><i class="fas fa-chart-line mr-2"></i>Progress Burndown</h2>
+    <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="text-center">
+            <p class="text-sm text-secondary mb-1">Total Hours</p>
+            <p class="text-2xl font-bold text-primary"><span class="font-semibold text-primary ml-1">{{ burndown_data.total }}h</span></p>
+        </div>
+        <div class="text-center">
+            <p class="text-sm text-secondary mb-1">Logged</p>
+            <p class="text-2xl font-bold text-success"><span class="font-semibold text-success ml-1">{{ "%.1f"|format(burndown_data.logged) }}h</span></p>
+        </div>
+        <div class="text-center">
+            <p class="text-sm text-secondary mb-1">Remaining</p>
+            <p class="text-2xl font-bold text-primary"><span class="font-semibold text-primary ml-1">{{ "%.1f"|format(burndown_data.remaining) }}h</span></p>
+        </div>
+    </div>
+    <div style="height: 180px; max-height: 180px;">
+        <canvas id="burndown-chart"></canvas>
+    </div>
+</div>
+{% endif %}
+

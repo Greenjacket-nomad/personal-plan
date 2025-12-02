@@ -6,6 +6,7 @@ Handles PostgreSQL connections, migrations, and schema setup.
 
 import os
 import psycopg2
+from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from flask import g
 
@@ -25,11 +26,51 @@ DB_CONFIG = {
     'port': os.getenv('POSTGRES_PORT', '5432')
 }
 
+# Global connection pool (initialized in app.py)
+connection_pool = None
+
+
+def init_pool(minconn=2, maxconn=10):
+    """Initialize connection pool for database connections.
+    
+    Args:
+        minconn: Minimum number of connections in the pool (default: 2)
+        maxconn: Maximum number of connections in the pool (default: 10)
+    
+    Raises:
+        psycopg2.Error: If pool initialization fails
+    """
+    global connection_pool
+    try:
+        connection_pool = pool.ThreadedConnectionPool(
+            minconn, maxconn, **DB_CONFIG
+        )
+    except (psycopg2.Error, Exception) as e:
+        raise RuntimeError(f"Failed to initialize connection pool: {e}")
+
 
 def get_db():
-    """Get database connection using Flask's g object for automatic cleanup."""
+    """Get database connection from the connection pool.
+    
+    Connections are stored in Flask's g object and automatically
+    returned to the pool at the end of the request via close_db().
+    
+    Returns:
+        psycopg2.connection: Database connection from the pool
+    
+    Raises:
+        RuntimeError: If connection pool is not initialized
+        psycopg2.pool.PoolError: If no connections are available
+    """
+    if connection_pool is None:
+        raise RuntimeError("Connection pool not initialized. Call init_pool() first.")
+    
     if 'db' not in g:
-        g.db = psycopg2.connect(**DB_CONFIG)
+        try:
+            g.db = connection_pool.getconn()
+        except pool.PoolError as e:
+            raise RuntimeError(f"Failed to get connection from pool: {e}")
+    
     return g.db
 
 
@@ -39,15 +80,22 @@ def get_db_cursor(conn):
 
 
 def close_db(exception):
-    """Automatically close database connection and cursors at end of request."""
+    """Return database connection to the pool at end of request.
+    
+    This is registered as a Flask teardown handler, so it runs
+    automatically after each request completes.
+    
+    Args:
+        exception: Exception that occurred during request handling, if any
+    """
     db = g.pop('db', None)
-    if db is not None:
-        # Close any open cursors
-        if hasattr(db, 'cursors'):
-            for cursor in db.cursors:
-                if not cursor.closed:
-                    cursor.close()
-        db.close()
+    if db is not None and connection_pool is not None:
+        # Return connection to pool (pool handles cleanup of cursors)
+        try:
+            connection_pool.putconn(db)
+        except Exception as e:
+            # Log error but don't raise - teardown handlers shouldn't fail
+            print(f"Warning: Error returning connection to pool: {e}")
 
 
 
@@ -71,12 +119,18 @@ def init_db():
     - sort_order: For drag-and-drop ordering within days
     - user_modified: Flag indicating if user manually edited this resource
     """
-    # Use get_db() if in Flask context, otherwise create direct connection
+    # Use get_db() if in Flask context and pool is initialized,
+    # otherwise create direct connection (for migrations/scripts)
     created_directly = False
     try:
-        conn = get_db()
+        if connection_pool is not None:
+            conn = get_db()
+        else:
+            # Pool not initialized (outside Flask context), create direct connection
+            conn = psycopg2.connect(**DB_CONFIG)
+            created_directly = True
     except RuntimeError:
-        # Outside Flask context, create connection directly
+        # Outside Flask context or pool not available, create connection directly
         conn = psycopg2.connect(**DB_CONFIG)
         created_directly = True
     

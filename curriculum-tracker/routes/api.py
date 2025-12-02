@@ -13,7 +13,7 @@ from constants import STATUS_CYCLE
 
 # Import from new modular structure
 from database import get_db, get_db_cursor
-from utils import load_curriculum, allowed_file, UPLOAD_FOLDER, recalculate_schedule_from
+from utils import load_curriculum, allowed_file, UPLOAD_FOLDER, recalculate_schedule_from, validate_file_mime_type
 from services.progress import (
     get_progress, update_progress, log_activity
 )
@@ -922,24 +922,31 @@ def upload_resource_file(resource_id):
     if file.filename == '':
         return jsonify({"error": "No filename"}), 400
     
-    if file and allowed_file(file.filename):
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = UPLOAD_FOLDER / filename
-        file.save(str(filepath))
-        
-        conn = get_db()
-        cur = get_db_cursor(conn)
-        cur.execute("""
-            INSERT INTO attachments (filename, original_filename, file_type, file_size, resource_id)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        """, (filename, file.filename, ext, filepath.stat().st_size, resource_id))
-        conn.commit()
-        cur.close()
-        
-        return jsonify({"success": True, "filename": filename})
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed"}), 400
     
-    return jsonify({"error": "File type not allowed"}), 400
+    # Validate MIME type matches extension
+    is_valid, detected_mime, expected_mime = validate_file_mime_type(file)
+    if not is_valid:
+        return jsonify({
+            "error": f"File content does not match extension. Detected: {detected_mime}, Expected: {expected_mime}"
+        }), 400
+    
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = UPLOAD_FOLDER / filename
+    file.save(str(filepath))
+    
+    conn = get_db()
+    cur = get_db_cursor(conn)
+    cur.execute("""
+        INSERT INTO attachments (filename, original_filename, file_type, file_size, resource_id)
+        VALUES (%s, %s, %s, %s, %s) RETURNING id
+    """, (filename, file.filename, ext, filepath.stat().st_size, resource_id))
+    conn.commit()
+    cur.close()
+    
+    return jsonify({"success": True, "filename": filename})
 
 
 @api_bp.route("/upload/journal/<int:journal_id>", methods=["POST"])
@@ -952,24 +959,31 @@ def upload_journal_file(journal_id):
     if file.filename == '':
         return jsonify({"error": "No filename"}), 400
     
-    if file and allowed_file(file.filename):
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = UPLOAD_FOLDER / filename
-        file.save(str(filepath))
-        
-        conn = get_db()
-        cur = get_db_cursor(conn)
-        cur.execute("""
-            INSERT INTO attachments (filename, original_filename, file_type, file_size, journal_id)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        """, (filename, file.filename, ext, filepath.stat().st_size, journal_id))
-        conn.commit()
-        cur.close()
-        
-        return jsonify({"success": True, "filename": filename})
+    if not allowed_file(file.filename):
+        return jsonify({"error": "File type not allowed"}), 400
     
-    return jsonify({"error": "File type not allowed"}), 400
+    # Validate MIME type matches extension
+    is_valid, detected_mime, expected_mime = validate_file_mime_type(file)
+    if not is_valid:
+        return jsonify({
+            "error": f"File content does not match extension. Detected: {detected_mime}, Expected: {expected_mime}"
+        }), 400
+    
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = UPLOAD_FOLDER / filename
+    file.save(str(filepath))
+    
+    conn = get_db()
+    cur = get_db_cursor(conn)
+    cur.execute("""
+        INSERT INTO attachments (filename, original_filename, file_type, file_size, journal_id)
+        VALUES (%s, %s, %s, %s, %s) RETURNING id
+    """, (filename, file.filename, ext, filepath.stat().st_size, journal_id))
+    conn.commit()
+    cur.close()
+    
+    return jsonify({"success": True, "filename": filename})
 
 
 @api_bp.route("/api/attachments/resource/<int:resource_id>")

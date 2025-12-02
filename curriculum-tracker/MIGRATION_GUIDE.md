@@ -1,5 +1,7 @@
 # Migration Guide: v4.1 → v5.0
 
+> **⚠️ NOTE: This guide is outdated.** This document describes the migration from monolithic to modular architecture (v5.0). The application has since evolved to support dynamic curriculum structures with database-driven phases, weeks, and days (replacing the static YAML configuration). For current migration information, see `CHANGELOG.md` and the Alembic migration files in `migrations/versions/`.
+
 This guide helps developers understand the architectural changes in version 5.0.
 
 ## Overview

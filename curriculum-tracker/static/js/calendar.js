@@ -1,4 +1,11 @@
 // Week Calendar Functions
+
+// CSRF Protection Helper
+function getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
 let currentWeekStart = new Date();
 let currentMonthView = new Date();
 
@@ -372,6 +379,9 @@ function quickLogTime(event, dateStr) {
     
     fetch('/log', {
         method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        },
         body: formData
     })
     .then(r => {
@@ -403,6 +413,9 @@ function quickJournalEntry(event, dateStr) {
     
     fetch('/journal', {
         method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        },
         body: formData
     })
     .then(r => {
@@ -433,6 +446,9 @@ function blockDay(event, dateStr) {
     
     fetch('/schedule/block', {
         method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        },
         body: formData
     })
     .then(r => {
@@ -463,6 +479,9 @@ function unblockDay(event, dateStr) {
     
     fetch('/schedule/unblock', {
         method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        },
         body: formData
     })
     .then(r => {
@@ -553,6 +572,9 @@ function blockDaysRange(event) {
         promises.push(
             fetch('/schedule/block', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
                 body: formData
             })
         );

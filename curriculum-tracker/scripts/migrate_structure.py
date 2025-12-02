@@ -58,23 +58,33 @@ def get_db_cursor(conn):
     return conn.cursor(cursor_factory=RealDictCursor)
 
 
-def create_phase(conn, user_id, title, order_index, color='#6366f1'):
+def create_phase(conn, user_id, title, order_index, color='#6366f1', metrics=None):
     """Create or get existing phase for a user."""
     cur = get_db_cursor(conn)
     try:
+        # Ensure metrics is a list (empty if None)
+        metrics_list = metrics if metrics is not None else []
+        
         # Try to insert (will fail silently if exists due to unique constraint)
         cur.execute("""
-            INSERT INTO phases (user_id, title, order_index, color)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (user_id, order_index) DO NOTHING
+            INSERT INTO phases (user_id, title, order_index, color, metrics)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (user_id, order_index) 
+            DO UPDATE SET metrics = EXCLUDED.metrics
             RETURNING id
-        """, (user_id, title, order_index, color))
+        """, (user_id, title, order_index, color, metrics_list))
         
         result = cur.fetchone()
         if result:
             return result['id']
         
-        # If insert didn't return ID, phase already exists - fetch it
+        # If insert didn't return ID, phase already exists - update metrics and fetch it
+        cur.execute("""
+            UPDATE phases SET metrics = %s
+            WHERE user_id = %s AND order_index = %s
+        """, (metrics_list, user_id, order_index))
+        conn.commit()
+        
         cur.execute("""
             SELECT id FROM phases
             WHERE user_id = %s AND order_index = %s
@@ -168,9 +178,10 @@ def migrate_user(conn, user_id, curriculum_data):
         for phase_idx, phase_data in enumerate(curriculum_data.get('phases', [])):
             phase_title = phase_data.get('name', f'Phase {phase_idx + 1}')
             num_weeks = phase_data.get('weeks', 0)
+            metrics = phase_data.get('metrics', [])  # Extract metrics from YAML
             
-            # Create phase
-            phase_id = create_phase(conn, user_id, phase_title, phase_idx)
+            # Create phase with metrics
+            phase_id = create_phase(conn, user_id, phase_title, phase_idx, '#6366f1', metrics)
             if not phase_id:
                 print(f"    Warning: Failed to create phase {phase_idx}")
                 continue

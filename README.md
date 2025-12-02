@@ -8,7 +8,7 @@ A modern, full-stack web application for tracking learning progress through stru
 
 - **Visual Progress Tracking:** See your journey at a glance with burndown charts, completion metrics, and time analytics
 - **Resource Organization:** Manage hundreds of learning resources with tags, filters, and search
-- **Flexible Architecture:** Adaptable to any curriculum structure through YAML configuration
+- **Dynamic Structure:** Fully database-driven curriculum structure with drag-and-drop Kanban board
 - **Production-Ready:** Built with scalability and maintainability in mind
 
 The application evolved from a simple SQLite-based tracker to a robust PostgreSQL-powered system with advanced features like file attachments, journaling, activity logging, and comprehensive reporting.
@@ -440,8 +440,7 @@ SECRET_KEY=your_secret_key
 curriculum-tracker/
 ├── app.py                    # Main Flask application (2,754 lines)
 ├── constants.py              # Application constants and configuration
-├── schema.sql                # PostgreSQL database schema
-├── curriculum.yaml           # Curriculum structure definition
+├── curriculum.yaml           # Curriculum structure definition (legacy, migrated to database)
 ├── requirements.txt          # Python dependencies
 ├── .env                      # Environment variables (gitignored)
 │
@@ -482,8 +481,9 @@ curriculum-tracker/
    # Create PostgreSQL database
    createdb curriculum_tracker
    
-   # Run schema
-   psql -d curriculum_tracker -f schema.sql
+   # Run Alembic migrations
+   cd curriculum-tracker
+   python3 -m alembic upgrade head
    ```
 
 3. **Environment Configuration:**
@@ -500,10 +500,10 @@ curriculum-tracker/
 
 ### Database Migrations
 
-The application includes migration logic in `app.py`:
-- Automatic schema updates on startup
-- Backward-compatible changes
-- Safe column additions
+The application uses Alembic for database migrations:
+- Migrations are located in `curriculum-tracker/migrations/versions/`
+- Run migrations: `python3 -m alembic upgrade head`
+- Create new migration: `python3 -m alembic revision -m "description"`
 
 ### Testing
 

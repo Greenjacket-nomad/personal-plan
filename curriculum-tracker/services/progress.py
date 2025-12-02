@@ -172,10 +172,9 @@ def log_activity(action, entity_type=None, entity_id=None, details=None, user_id
     
     conn = get_db()
     cur = get_db_cursor(conn)
-    # Note: activity_log table may need user_id column added in future migration
     cur.execute(
-        "INSERT INTO activity_log (action, entity_type, entity_id, details) VALUES (%s, %s, %s, %s)",
-        (action, entity_type, entity_id, details)
+        "INSERT INTO activity_log (action, entity_type, entity_id, details, user_id) VALUES (%s, %s, %s, %s, %s)",
+        (action, entity_type, entity_id, details, user_id)
     )
     cur.close()
     conn.commit()
@@ -349,4 +348,64 @@ def get_overdue_days(user_id=None):
     cur.close()
     
     return [dict(row) for row in overdue]
+
+
+def get_unified_progress(user_id=None, curriculum_total_hours=None):
+    """Get unified progress metrics from same dataset.
+    
+    Returns both tasks completed and hours logged, ensuring they use
+    the same user_id filter for consistency.
+    
+    Args:
+        user_id: User ID to filter by
+        curriculum_total_hours: Total expected hours for curriculum (optional, for percentage)
+    
+    Returns:
+        dict with:
+        - tasks_completed: int (count of completed resources)
+        - tasks_total: int (total resources)
+        - tasks_percent: float (percentage of tasks completed)
+        - hours_logged: float (total hours from time_logs)
+        - hours_percent: float (percentage if curriculum_total_hours provided, else None)
+    """
+    if user_id is None:
+        user_id = current_user.id
+    
+    conn = get_db()
+    cur = get_db_cursor(conn)
+    
+    # Get tasks completed and total from resources table
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'complete' OR is_completed = TRUE THEN 1 ELSE 0 END) as completed
+        FROM resources
+        WHERE user_id = %s
+    """, (user_id,))
+    tasks_result = cur.fetchone()
+    
+    tasks_total = tasks_result['total'] or 0
+    tasks_completed = tasks_result['completed'] or 0
+    tasks_percent = (tasks_completed / tasks_total * 100) if tasks_total > 0 else 0
+    
+    # Get total hours from time_logs table (same user_id)
+    cur.execute("""
+        SELECT COALESCE(SUM(hours), 0) as total
+        FROM time_logs
+        WHERE user_id = %s
+    """, (user_id,))
+    hours_result = cur.fetchone()
+    
+    hours_logged = hours_result['total'] or 0
+    hours_percent = (hours_logged / curriculum_total_hours * 100) if curriculum_total_hours and curriculum_total_hours > 0 else None
+    
+    cur.close()
+    
+    return {
+        'tasks_completed': tasks_completed,
+        'tasks_total': tasks_total,
+        'tasks_percent': tasks_percent,
+        'hours_logged': hours_logged,
+        'hours_percent': hours_percent
+    }
 

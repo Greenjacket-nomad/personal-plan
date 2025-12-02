@@ -9,7 +9,7 @@ import psycopg2
 import calendar
 import uuid
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app, send_from_directory
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app, send_from_directory, stream_with_context
 from flask_login import login_user, logout_user, login_required, current_user
 from constants import STATUS_CYCLE
 
@@ -29,8 +29,9 @@ from services.progress import (
 from services.resources import (
     get_resources, get_all_resources, get_all_tags, get_resources_by_week,
     get_day_completion, get_week_completion, get_phase_completion,
-    get_continue_resource
+    get_continue_resource, get_resources_filtered
 )
+from services.structure import get_structure_for_dashboard
 from services.reporting import get_burndown_data
 from services.progress import log_activity
 
@@ -54,7 +55,8 @@ def login():
         
         if user:
             login_user(user)
-            flash(f"Welcome back, {user.username}!", "success")
+            from utils import sanitize_flash_message
+            flash(f"Welcome back, {sanitize_flash_message(user.username)}!", "success")
             next_page = request.args.get("next") or url_for("main.dashboard")
             return redirect(next_page)
         else:
@@ -77,7 +79,8 @@ def logout():
 @login_required
 def dashboard(view_phase=None, view_week=None):
     init_if_needed()
-    curriculum = load_curriculum()
+    # Use database structure instead of YAML
+    curriculum = get_structure_for_dashboard(current_user.id)
     progress = get_progress()
     current_phase = progress['current_phase']
     current_week = progress['current_week']
@@ -108,7 +111,6 @@ def dashboard(view_phase=None, view_week=None):
     
     phase = curriculum["phases"][display_phase]
     week_hours = get_current_week_hours()
-    total_hours = get_total_hours()
     curriculum_total = sum(p["hours"] for p in curriculum["phases"])
     expected_weekly = phase["hours"] / phase["weeks"] if phase["weeks"] > 0 else 0
     completed = get_completed_metrics(display_phase)
@@ -116,7 +118,12 @@ def dashboard(view_phase=None, view_week=None):
     total_weeks = sum(p["weeks"] for p in curriculum["phases"])
     weeks_before = sum(p["weeks"] for p in curriculum["phases"][:display_phase])
     current_absolute_week = weeks_before + display_week
-    overall_progress = (total_hours / curriculum_total * 100) if curriculum_total > 0 else 0
+    
+    # Get unified progress metrics (Tasks Completed is primary)
+    from services.progress import get_unified_progress
+    unified_progress = get_unified_progress(current_user.id, curriculum_total)
+    overall_progress = unified_progress['tasks_percent']  # Primary metric: Tasks Completed
+    total_hours = unified_progress['hours_logged']  # Secondary metric: Hours Logged
     recent_logs = get_recent_logs()
     resources = get_resources(display_phase)
     grouped_week, ungrouped_week = get_resources_by_week(display_phase, display_week)
@@ -297,6 +304,7 @@ def dashboard(view_phase=None, view_week=None):
         current_phase=current_phase, current_week_state=current_week, view_phase=view_phase, view_week=view_week,
         week_hours=week_hours, expected_weekly=expected_weekly, total_hours=total_hours,
         curriculum_total=curriculum_total, overall_progress=min(overall_progress, 100),
+        unified_progress=unified_progress,
         completed_texts=completed_texts, recent_logs=recent_logs, phases=phases_data,
         resources=resources, grouped_week_resources=grouped_week, ungrouped_week_resources=ungrouped_week, all_tags=all_tags, today=today_date,
         current_absolute_week=current_absolute_week, total_weeks=total_weeks, search_query=search_query,
@@ -312,63 +320,35 @@ def dashboard(view_phase=None, view_week=None):
 
 
 @main_bp.route("/resources")
+@login_required
 def resources_page():
-    """Show all resources with filters."""
+    """Show all resources with database-side filtering for optimal performance."""
     curriculum = load_curriculum()
-    all_resources = get_all_resources()
     
     # Read filter parameters
-    search_query = request.args.get("q", "").strip()
-    filter_type = request.args.get("type", "").strip()
-    filter_phase = request.args.get("phase", "").strip()
-    filter_tag = request.args.get("tag", "").strip()
-    filter_status = request.args.get("status", "").strip()
+    search_query = request.args.get("q", "").strip() or None
+    filter_type = request.args.get("type", "").strip() or None
+    filter_phase = request.args.get("phase", "").strip() or None
+    filter_tag = request.args.get("tag", "").strip() or None
+    filter_status = request.args.get("status", "").strip() or None
     
-    # Apply filters
-    filtered_resources = all_resources
-    
-    # Search filter (title, notes, topic)
-    if search_query:
-        search_lower = search_query.lower()
-        filtered_resources = [
-            r for r in filtered_resources
-            if search_lower in (r.get("title", "") or "").lower()
-            or search_lower in (r.get("notes", "") or "").lower()
-            or search_lower in (r.get("topic", "") or "").lower()
-        ]
-    
-    # Type filter
-    if filter_type:
-        filtered_resources = [
-            r for r in filtered_resources
-            if r.get("resource_type") == filter_type
-        ]
-    
-    # Phase filter
+    # Convert phase filter to int if provided
+    phase_index = None
     if filter_phase:
         try:
             phase_index = int(filter_phase)
-            filtered_resources = [
-                r for r in filtered_resources
-                if r.get("phase_index") == phase_index
-            ]
         except ValueError:
             pass
     
-    # Tag filter
-    if filter_tag:
-        filtered_resources = [
-            r for r in filtered_resources
-            if filter_tag in r.get("tags", [])
-        ]
-    
-    # Status filter
-    if filter_status == "completed":
-        filtered_resources = [r for r in filtered_resources if r.get("is_completed")]
-    elif filter_status == "pending":
-        filtered_resources = [r for r in filtered_resources if not r.get("is_completed")]
-    elif filter_status == "favorites":
-        filtered_resources = [r for r in filtered_resources if r.get("is_favorite")]
+    # Get filtered resources directly from database (no in-memory filtering)
+    filtered_resources = get_resources_filtered(
+        user_id=current_user.id,
+        search_query=search_query,
+        resource_type=filter_type,
+        phase_index=phase_index,
+        tag=filter_tag,
+        status=filter_status
+    )
     
     # Batch query for resource hours (fixes N+1 query problem)
     resource_hours = {}
@@ -429,11 +409,15 @@ def curriculum_board():
 
 
 @main_bp.route("/activity")
+@login_required
 def activity():
-    """Show activity history."""
+    """Show activity history filtered by current user."""
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 100")
+    cur.execute(
+        "SELECT * FROM activity_log WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
+        (current_user.id,)
+    )
     logs = cur.fetchall()
     cur.close()
     return render_template("activity.html", logs=logs)
@@ -695,24 +679,100 @@ def reports():
 
 
 @main_bp.route("/export")
+@login_required
 def export_data():
-    conn = get_db()
-    cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM config")
-    config = {r["key"]: r["value"] for r in cur.fetchall()}
-    cur.execute("SELECT date, hours, notes, phase_index FROM time_logs ORDER BY date")
-    time_logs = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT phase_index, metric_text, completed_date FROM completed_metrics")
-    metrics = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT phase_index, week, day, title, topic, url, resource_type, notes, is_completed, is_favorite, source FROM resources")
-    resources = [dict(r) for r in cur.fetchall()]
-    cur.execute("SELECT name, color FROM tags")
-    tags = [dict(r) for r in cur.fetchall()]
-    cur.close()
-    data = {"exported_at": datetime.now().isoformat(), "config": config, "time_logs": time_logs,
-            "completed_metrics": metrics, "resources": resources, "tags": tags}
-    return Response(json.dumps(data, indent=2), mimetype="application/json",
-        headers={"Content-Disposition": "attachment;filename=curriculum_export.json"})
+    """Export all user data as streaming JSON to prevent memory issues.
+    
+    Uses streaming response with stream_with_context to keep database connection
+    alive during the download, preventing "connection closed" errors.
+    """
+    def generate():
+        conn = get_db()
+        cur = get_db_cursor(conn)
+        
+        try:
+            # Start JSON object
+            yield '{"exported_at": "' + datetime.now().isoformat() + '",\n'
+            
+            # Stream config/settings
+            yield '"config": '
+            cur.execute("SELECT key, value FROM settings")
+            config_items = []
+            for row in cur.fetchall():
+                config_items.append(f'"{row["key"]}": {json.dumps(row["value"])}')
+            if config_items:
+                yield '{' + ','.join(config_items) + '}'
+            else:
+                yield '{}'
+            yield ',\n'
+            
+            # Stream time_logs
+            yield '"time_logs": [\n'
+            cur.execute(
+                "SELECT date, hours, notes, phase_index FROM time_logs WHERE user_id = %s ORDER BY date",
+                (current_user.id,)
+            )
+            first = True
+            for row in cur:
+                if not first:
+                    yield ',\n'
+                yield json.dumps(dict(row), indent=2).replace('\n', '\n  ')
+                first = False
+            yield '\n],\n'
+            
+            # Stream completed_metrics
+            yield '"completed_metrics": [\n'
+            cur.execute(
+                "SELECT phase_index, metric_text, completed_date FROM completed_metrics WHERE user_id = %s",
+                (current_user.id,)
+            )
+            first = True
+            for row in cur:
+                if not first:
+                    yield ',\n'
+                yield json.dumps(dict(row), indent=2).replace('\n', '\n  ')
+                first = False
+            yield '\n],\n'
+            
+            # Stream resources
+            yield '"resources": [\n'
+            cur.execute(
+                """SELECT phase_index, week, day, title, topic, url, resource_type, notes, 
+                          is_completed, is_favorite, source, scheduled_date, status
+                   FROM resources 
+                   WHERE user_id = %s
+                   ORDER BY phase_index, week, day""",
+                (current_user.id,)
+            )
+            first = True
+            for row in cur:
+                if not first:
+                    yield ',\n'
+                yield json.dumps(dict(row), indent=2).replace('\n', '\n  ')
+                first = False
+            yield '\n],\n'
+            
+            # Stream tags (global but we'll include them)
+            yield '"tags": [\n'
+            cur.execute("SELECT name, color FROM tags ORDER BY name")
+            first = True
+            for row in cur:
+                if not first:
+                    yield ',\n'
+                yield json.dumps(dict(row), indent=2).replace('\n', '\n  ')
+                first = False
+            yield '\n]\n'
+            
+            # Close JSON object
+            yield '}'
+        finally:
+            cur.close()
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment;filename=curriculum_export.json"}
+    )
 
 
 @main_bp.route("/settings/start-date", methods=["POST"])

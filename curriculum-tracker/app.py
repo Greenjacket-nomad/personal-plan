@@ -16,8 +16,9 @@ except (ImportError, PermissionError, OSError):
     pass  # python-dotenv not installed or .env not accessible, use environment variables directly
 
 # Import from new modular structure
-from database import close_db, init_db
+from database import close_db, init_db, init_pool
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
 from services.auth import User
 from routes.main import main_bp
 from routes.api import api_bp
@@ -31,6 +32,17 @@ def create_app():
     app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key")
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
     
+    # Initialize database connection pool
+    # Pool size: min=2, max=10 (tune based on expected concurrent users)
+    try:
+        min_conn = int(os.environ.get('DB_POOL_MIN', '2'))
+        max_conn = int(os.environ.get('DB_POOL_MAX', '10'))
+        init_pool(minconn=min_conn, maxconn=max_conn)
+        print(f"✓ Connection pool initialized (min={min_conn}, max={max_conn})")
+    except Exception as e:
+        print(f"ERROR: Failed to initialize connection pool: {e}")
+        raise
+    
     # Configure Flask-Login
     login_manager = LoginManager()
     login_manager.login_view = 'main.login'
@@ -40,7 +52,10 @@ def create_app():
     def load_user(user_id):
         return User.get_user(int(user_id))
     
-    # Register teardown handler
+    # Configure CSRF Protection
+    csrf = CSRFProtect(app)
+    
+    # Register teardown handler to return connections to pool
     app.teardown_appcontext(close_db)
     
     # Register blueprints
