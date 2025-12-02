@@ -1,0 +1,428 @@
+/* ============================================
+   Design System - Centralized Design Tokens
+   ============================================ */
+
+/* ============================================
+   Spacing Scale (8px Grid System)
+   ============================================ */
+:root {
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+    --spacing-3xl: 64px;
+}
+
+/* ============================================
+   Typography Scale
+   ============================================ */
+:root {
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 24px;
+    --text-2xl: 32px;
+    --text-3xl: 48px;
+    
+    /* Font Weights */
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    
+    /* Line Heights */
+    --line-height-tight: 1.2;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+    
+    /* Letter Spacing */
+    --letter-spacing-tight: -0.02em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.05em;
+}
+
+/* ============================================
+   Color Palette - Light Theme
+   ============================================ */
+:root {
+    /* Background Colors */
+    --bg-primary: #f5f5f4;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e7e5e4;
+    
+    /* Text Colors */
+    --text-primary: #1c1917;
+    --text-secondary: #44403c;
+    --text-muted: #6b6560; /* WCAG AA: 4.6:1 on bg-primary, 5.2:1 on bg-secondary */
+    
+    /* Border Colors */
+    --border: rgba(0, 0, 0, 0.15);
+    --border-light: rgba(0, 0, 0, 0.08);
+    --border-dark: rgba(0, 0, 0, 0.25);
+    
+    /* Brand Colors */
+    --accent: #0066ff;
+    --accent-hover: #0052cc;
+    --accent-light: rgba(0, 102, 255, 0.1);
+    --accent-dark: #0040a3;
+    
+    /* Semantic Colors */
+    --success: #16a34a;
+    --success-light: rgba(22, 163, 74, 0.1);
+    --success-dark: #15803d;
+    
+    --warning: #ca8a04;
+    --warning-light: rgba(202, 138, 4, 0.1);
+    --warning-dark: #a16207;
+    
+    --error: #dc2626;
+    --error-light: rgba(220, 38, 38, 0.1);
+    --error-dark: #b91c1c;
+    
+    --info: #0066ff;
+    --info-light: rgba(0, 102, 255, 0.1);
+    --info-dark: #0052cc;
+    
+    /* Phase Colors */
+    --phase-1: #2563eb;
+    --phase-2: #7c3aed;
+    --phase-3: #0d9488;
+    --phase-4: #ea580c;
+}
+
+/* ============================================
+   Color Palette - Dark Theme
+   ============================================ */
+[data-theme="dark"] {
+    /* Background Colors */
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #171717;
+    --bg-tertiary: #262626;
+    
+    /* Text Colors */
+    --text-primary: #fafafa;
+    --text-secondary: #d4d4d4;
+    --text-muted: #a3a3a3;
+    
+    /* Border Colors */
+    --border: rgba(255, 255, 255, 0.15);
+    --border-light: rgba(255, 255, 255, 0.08);
+    --border-dark: rgba(255, 255, 255, 0.25);
+    
+    /* Brand Colors */
+    --accent: #00d4ff;
+    --accent-hover: #00b8e6;
+    --accent-light: rgba(0, 212, 255, 0.15);
+    --accent-dark: #0099cc;
+    
+    /* Semantic Colors */
+    --success: #22c55e;
+    --success-light: rgba(34, 197, 94, 0.15);
+    --success-dark: #16a34a;
+    
+    --warning: #eab308;
+    --warning-light: rgba(234, 179, 8, 0.15);
+    --warning-dark: #ca8a04;
+    
+    --error: #ef4444;
+    --error-light: rgba(239, 68, 68, 0.15);
+    --error-dark: #dc2626;
+    
+    --info: #00d4ff;
+    --info-light: rgba(0, 212, 255, 0.15);
+    --info-dark: #00b8e6;
+    
+    /* Phase Colors */
+    --phase-1: #3b82f6;
+    --phase-2: #8b5cf6;
+    --phase-3: #14b8a6;
+    --phase-4: #f97316;
+}
+
+/* ============================================
+   Elevation System (Shadows)
+   ============================================ */
+:root {
+    --shadow-flat: none;
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.18);
+    --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.2);
+    
+    /* Hover Elevations */
+    --shadow-hover-sm: 0 4px 8px rgba(0, 0, 0, 0.12);
+    --shadow-hover-md: 0 8px 16px rgba(0, 0, 0, 0.15);
+    --shadow-hover-lg: 0 12px 24px rgba(0, 0, 0, 0.18);
+    --shadow-hover-xl: 0 16px 32px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] {
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.6);
+    --shadow-2xl: 0 16px 32px rgba(0, 0, 0, 0.7);
+    
+    --shadow-hover-sm: 0 4px 8px rgba(0, 0, 0, 0.4);
+    --shadow-hover-md: 0 8px 16px rgba(0, 0, 0, 0.5);
+    --shadow-hover-lg: 0 12px 24px rgba(0, 0, 0, 0.6);
+    --shadow-hover-xl: 0 16px 32px rgba(0, 0, 0, 0.7);
+}
+
+/* ============================================
+   Transition Timing
+   ============================================ */
+:root {
+    --transition-fast: 150ms;
+    --transition-base: 200ms;
+    --transition-slow: 300ms;
+    --transition-page: 400ms;
+    --transition-modal: 250ms;
+    
+    /* Easing Functions */
+    --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ============================================
+   Border Radius
+   ============================================ */
+:root {
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --radius-full: 9999px;
+}
+
+/* ============================================
+   Z-Index Scale
+   ============================================ */
+:root {
+    --z-base: 0;
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+    --z-toast: 9999;
+}
+
+/* ============================================
+   Typography Base Styles
+   ============================================ */
+* {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color var(--transition-slow) var(--ease-in-out), 
+                color var(--transition-slow) var(--ease-in-out);
+    font-size: var(--text-base);
+    line-height: var(--line-height-normal);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: var(--letter-spacing-tight);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    color: var(--text-primary);
+}
+
+h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-weight-bold);
+}
+
+h2 {
+    font-size: var(--text-2xl);
+}
+
+h3 {
+    font-size: var(--text-xl);
+}
+
+h4 {
+    font-size: var(--text-lg);
+}
+
+/* ============================================
+   Responsive Breakpoints
+   ============================================ */
+/* Mobile-first approach */
+/* 640px = large phone */
+/* 768px = tablet */
+/* 1024px = small desktop */
+/* 1280px = standard desktop */
+/* 1536px = large desktop */
+
+/* ============================================
+   Glass Effect
+   ============================================ */
+.glass {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="light"] .glass {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .glass {
+    background: rgba(26, 26, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================
+   Micro-Animations
+   ============================================ */
+
+/* Fade In */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn var(--transition-base) var(--ease-out);
+}
+
+/* Fade Out */
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.fade-out {
+    animation: fadeOut var(--transition-base) var(--ease-out);
+}
+
+/* Slide Up */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-up {
+    animation: slideUp var(--transition-base) var(--ease-out);
+}
+
+/* Slide Down */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-down {
+    animation: slideDown var(--transition-base) var(--ease-out);
+}
+
+/* Scale In */
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.scale-in {
+    animation: scaleIn var(--transition-fast) var(--ease-out);
+}
+
+/* Pulse */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Shake */
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-4px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(4px);
+    }
+}
+
+.shake {
+    animation: shake 0.5s var(--ease-out);
+}
+
+/* Spin */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Bounce */
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.bounce {
+    animation: bounce 0.6s var(--ease-out);
+}
+

@@ -1,0 +1,41 @@
+{# Standardized Modal Component
+   Usage:
+   {% include 'components/_modal.html' with {
+       'id': 'modal-id',
+       'title': 'Modal Title',
+       'subtitle': 'Optional subtitle',
+       'size': 'medium', // small, medium, large, fullscreen
+       'close_button': true,
+       'footer_align': 'right', // left, center, right, space-between
+       'footer_compact': false
+   } %}
+   
+   Content goes between {% block modal_body %} and {% endblock %}
+   Footer actions go between {% block modal_footer %} and {% endblock %}
+#}
+<div id="{{ id }}" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-title" aria-describedby="{% if subtitle %}{{ id }}-subtitle{% endif %}">
+    <div class="modal modal-{{ size|default('medium') }}">
+        <div class="modal-header">
+            <div>
+                <h2 id="{{ id }}-title" class="modal-title">{{ title }}</h2>
+                {% if subtitle %}
+                <p id="{{ id }}-subtitle" class="modal-subtitle">{{ subtitle }}</p>
+                {% endif %}
+            </div>
+            {% if close_button|default(true) %}
+            <button type="button" class="modal-close" onclick="closeModal('{{ id }}')" aria-label="Close modal">
+                <i class="fas fa-times"></i>
+            </button>
+            {% endif %}
+        </div>
+        <div class="modal-body{% if footer_compact %} modal-body-compact{% endif %}">
+            {% block modal_body %}{% endblock %}
+        </div>
+        {% block modal_footer %}
+        <div class="modal-footer modal-footer-{{ footer_align|default('right') }}{% if footer_compact %} modal-footer-compact{% endif %}">
+            {% block modal_footer_content %}{% endblock %}
+        </div>
+        {% endblock %}
+    </div>
+</div>
+

@@ -1,0 +1,219 @@
+{# Quick Add Panel Component
+   Usage:
+   {% include 'components/_quick_add_panel.html' %}
+#}
+<div id="quick-add-panel" class="quick-add-panel">
+    <div class="quick-add-overlay" onclick="closeQuickAddPanel()"></div>
+    <div class="quick-add-content card">
+        <div class="quick-add-header">
+            <h3>Quick Add</h3>
+            <button type="button" class="modal-close" onclick="closeQuickAddPanel()" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="quick-add-body">
+            <div class="quick-add-tabs">
+                <button type="button" class="quick-add-tab active" data-tab="task" onclick="switchQuickAddTab('task')">
+                    <i class="fas fa-tasks"></i> Task
+                </button>
+                <button type="button" class="quick-add-tab" data-tab="journal" onclick="switchQuickAddTab('journal')">
+                    <i class="fas fa-book"></i> Journal
+                </button>
+                <button type="button" class="quick-add-tab" data-tab="resource" onclick="switchQuickAddTab('resource')">
+                    <i class="fas fa-link"></i> Resource
+                </button>
+            </div>
+            <div class="quick-add-forms">
+                <form id="quick-add-task" class="quick-add-form active" method="POST" action="/add-task">
+                    <input type="text" name="title" placeholder="Task title..." required class="form-input" autofocus>
+                    <textarea name="notes" placeholder="Notes (optional)" class="form-input" rows="3"></textarea>
+                    <button type="submit" class="btn-primary w-full">Add Task</button>
+                </form>
+                <form id="quick-add-journal" class="quick-add-form" method="POST" action="/journal">
+                    <textarea name="content" placeholder="What's on your mind?" required class="form-input" rows="4" autofocus></textarea>
+                    <button type="submit" class="btn-primary w-full">Save Entry</button>
+                </form>
+                <form id="quick-add-resource" class="quick-add-form" method="POST" action="/add-resource">
+                    <input type="url" name="url" placeholder="Resource URL..." required class="form-input" autofocus>
+                    <input type="text" name="title" placeholder="Title (optional)" class="form-input">
+                    <button type="submit" class="btn-primary w-full">Add Resource</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.quick-add-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-modal);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+}
+
+.quick-add-panel.show {
+    display: flex;
+}
+
+.quick-add-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.quick-add-content {
+    position: relative;
+    z-index: 1;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideIn var(--transition-modal) var(--ease-out);
+}
+
+.quick-add-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.quick-add-header h3 {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.quick-add-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+
+.quick-add-tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.quick-add-tab {
+    background: none;
+    border: none;
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--transition-fast) var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.quick-add-tab:hover {
+    color: var(--accent);
+}
+
+.quick-add-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.quick-add-forms {
+    position: relative;
+}
+
+.quick-add-form {
+    display: none;
+}
+
+.quick-add-form.active {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.w-full {
+    width: 100%;
+}
+</style>
+
+<script>
+function openQuickAddPanel() {
+    const panel = document.getElementById('quick-add-panel');
+    if (panel) {
+        panel.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        // Focus first input in active form
+        const activeForm = panel.querySelector('.quick-add-form.active');
+        if (activeForm) {
+            const firstInput = activeForm.querySelector('input, textarea');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+        }
+    }
+}
+
+function closeQuickAddPanel() {
+    const panel = document.getElementById('quick-add-panel');
+    if (panel) {
+        panel.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+function switchQuickAddTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.quick-add-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.tab === tabName) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Update forms
+    document.querySelectorAll('.quick-add-form').forEach(form => {
+        form.classList.remove('active');
+        if (form.id === `quick-add-${tabName}`) {
+            form.classList.add('active');
+            const firstInput = form.querySelector('input, textarea');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 100);
+            }
+        }
+    });
+}
+
+// Keyboard shortcut: 'q' to open quick add
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeElement = document.activeElement;
+        if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            openQuickAddPanel();
+        }
+    }
+    
+    if (e.key === 'Escape') {
+        closeQuickAddPanel();
+    }
+});
+
+window.openQuickAddPanel = openQuickAddPanel;
+window.closeQuickAddPanel = closeQuickAddPanel;
+window.switchQuickAddTab = switchQuickAddTab;
+</script>
+

@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <style>
         :root {
@@ -16,7 +17,7 @@
             --bg-tertiary: #e7e5e4;
             --text-primary: #1c1917;
             --text-secondary: #44403c;
-            --text-muted: #78716c;
+            --text-muted: #6b6560; /* Improved contrast: 4.6:1 on bg-primary, 5.2:1 on bg-secondary (meets WCAG AA) */
             --border: rgba(0, 0, 0, 0.15);
             --accent: #0066ff;
             --accent-hover: #0052cc;
@@ -115,6 +116,196 @@
         
         .empty-state { color: var(--text-secondary); }
         .empty-state-icon { color: var(--text-muted); opacity: 0.2; }
+        
+        /* Activity Timeline - Vertical Timeline with Alternating Cards */
+        .activity-timeline {
+            position: relative;
+            padding-left: var(--spacing-2xl);
+            padding-top: var(--spacing-lg);
+        }
+        
+        /* Vertical line */
+        .activity-timeline::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--spacing-xl) + 6px);
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent), var(--border));
+            z-index: 0;
+        }
+        
+        .activity-timeline-group {
+            position: relative;
+            margin-bottom: var(--spacing-2xl);
+        }
+        
+        .activity-group-header {
+            font-size: var(--text-sm);
+            font-weight: var(--font-weight-semibold);
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: var(--letter-spacing-wide);
+            margin-bottom: var(--spacing-lg);
+            padding-left: var(--spacing-xl);
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .activity-group-header::before {
+            content: '';
+            position: absolute;
+            left: calc(var(--spacing-xl) - 6px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 3px solid var(--bg-primary);
+            z-index: 2;
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+        
+        .activity-group-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .activity-group-count {
+            background: var(--accent-light);
+            color: var(--accent);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+            font-weight: var(--font-weight-semibold);
+        }
+        
+        .activity-item {
+            position: relative;
+            margin-bottom: var(--spacing-md);
+            transition: all var(--transition-fast) var(--ease-out);
+            cursor: pointer;
+            z-index: 1;
+        }
+        
+        /* Timeline node on each item */
+        .activity-item::before {
+            content: '';
+            position: absolute;
+            left: calc(-1 * var(--spacing-2xl) + var(--spacing-xl) - 4px);
+            top: var(--spacing-md);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 2px solid var(--accent);
+            z-index: 2;
+        }
+        
+        /* Alternating layout on desktop */
+        @media (min-width: 768px) {
+            .timeline-item-left {
+                margin-right: 50%;
+                padding-right: var(--spacing-lg);
+            }
+            
+            .timeline-item-right {
+                margin-left: 50%;
+                padding-left: var(--spacing-lg);
+            }
+            
+            .timeline-item-left::before {
+                left: calc(50% - 4px);
+            }
+            
+            .timeline-item-right::before {
+                left: calc(-1 * var(--spacing-2xl) + var(--spacing-xl) - 4px);
+            }
+        }
+        
+        .activity-item:hover {
+            transform: translateY(-2px);
+        }
+        
+        .activity-item-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            transition: all var(--transition-fast) var(--ease-out);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .activity-item:hover .activity-item-card {
+            box-shadow: var(--shadow-md);
+            border-color: var(--accent);
+        }
+        
+        .activity-item.user-action .activity-item-card {
+            background: var(--accent-light);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .activity-item.system-event {
+            background: rgba(107, 101, 96, 0.05);
+            border-left-color: var(--text-muted);
+            opacity: 0.8;
+        }
+        
+        [data-theme="dark"] .activity-item.user-action {
+            background: rgba(0, 212, 255, 0.1);
+        }
+        
+        [data-theme="dark"] .activity-item.system-event {
+            background: rgba(163, 163, 163, 0.1);
+        }
+        
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 150ms ease;
+        }
+        
+        .filter-chip:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .filter-chip.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        
+        .filter-chip .count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
         
         /* Navigation Styles */
         .nav-item {
@@ -218,8 +409,22 @@
             }
         }
     </script>
+    <script src="/static/js/accessibility.js"></script>
 </head>
     <body class="min-h-screen">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    {% set current_page = 'activity' %}
+    {% set user_name = current_user.username if current_user else 'User' %}
+    {% include 'components/_sidebar_nav.html' %}
+    
+    <!-- Mobile Tab Bar (Mobile) -->
+    {% set current_page = 'activity' %}
+    {% include 'components/_mobile_tabbar.html' %}
+    
+    <!-- Main Content Wrapper -->
+    <div class="main-content-wrapper">
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <!-- Unified Navigation -->
@@ -293,40 +498,87 @@
         </div>
     </header>
 
-    <div class="max-w-5xl mx-auto p-6">
+    <main id="main-content" class="max-w-5xl mx-auto p-6">
         <div class="card p-6">
-            <h2 class="font-bold mb-4 text-primary"><i class="fas fa-history mr-2"></i>Recent Activity</h2>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="font-bold text-primary"><i class="fas fa-history mr-2"></i>Recent Activity</h2>
+            </div>
+            
             {% if logs %}
-            <div class="space-y-2">
-                {% for log in logs %}
-                <div class="p-3 glass rounded-lg {% if 'complete' in log.action %}activity-complete{% elif 'hours' in log.action %}activity-hours{% elif 'reset' in log.action %}activity-reset{% else %}activity-default{% endif %}">
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                {% if 'complete' in log.action %}<i class="fas fa-check-circle text-success"></i>
-                                {% elif 'hours' in log.action %}<i class="fas fa-clock text-accent"></i>
-                                {% elif 'metric' in log.action %}<i class="fas fa-trophy text-warning"></i>
-                                {% elif 'reset' in log.action %}<i class="fas fa-redo text-error"></i>
-                                {% else %}<i class="fas fa-bolt text-accent"></i>{% endif %}
-                                <span class="font-medium text-primary">{{ log.action.replace('_', ' ')|title }}</span>
-                            </div>
-                            {% if log.details %}
-                            <p class="text-sm ml-6 text-secondary">{{ log.details }}</p>
-                            {% endif %}
-                        </div>
-                        <span class="text-xs text-muted">{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '' }}</span>
-                    </div>
+            <!-- Activity Statistics Summary -->
+            <div class="activity-stats">
+                {% set complete_count = logs|selectattr('action', 'search', 'complete')|list|length %}
+                {% set hours_count = logs|selectattr('action', 'search', 'hours')|list|length %}
+                {% set metric_count = logs|selectattr('action', 'search', 'metric')|list|length %}
+                <div class="activity-stat-pill" onclick="filterActivity('complete')">
+                    <i class="fas fa-check-circle"></i>
+                    <span class="activity-stat-label">Completed</span>
+                    <span class="activity-stat-value">{{ complete_count }}</span>
                 </div>
-                {% endfor %}
+                <div class="activity-stat-pill" onclick="filterActivity('hours')">
+                    <i class="fas fa-clock"></i>
+                    <span class="activity-stat-label">Time Logged</span>
+                    <span class="activity-stat-value">{{ hours_count }}</span>
+                </div>
+                <div class="activity-stat-pill" onclick="filterActivity('metric')">
+                    <i class="fas fa-trophy"></i>
+                    <span class="activity-stat-label">Metrics</span>
+                    <span class="activity-stat-value">{{ metric_count }}</span>
+                </div>
+                <div class="activity-stat-pill active" onclick="filterActivity('all')">
+                    <i class="fas fa-list"></i>
+                    <span class="activity-stat-label">Total</span>
+                    <span class="activity-stat-value">{{ logs|length }}</span>
+                </div>
+            </div>
+            
+            <!-- Filter Chips -->
+            <div class="filter-chips" id="activity-filters">
+                {% set complete_count = logs|selectattr('action', 'search', 'complete')|list|length %}
+                {% set hours_count = logs|selectattr('action', 'search', 'hours')|list|length %}
+                {% set metric_count = logs|selectattr('action', 'search', 'metric')|list|length %}
+                <button class="filter-chip active" data-filter="all" onclick="filterActivity('all')">
+                    <span>All</span>
+                    <span class="count">{{ logs|length }}</span>
+                </button>
+                <button class="filter-chip" data-filter="complete" onclick="filterActivity('complete')">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Completions</span>
+                    <span class="count">{{ complete_count }}</span>
+                </button>
+                <button class="filter-chip" data-filter="hours" onclick="filterActivity('hours')">
+                    <i class="fas fa-clock"></i>
+                    <span>Time Logged</span>
+                    <span class="count">{{ hours_count }}</span>
+                </button>
+                <button class="filter-chip" data-filter="metric" onclick="filterActivity('metric')">
+                    <i class="fas fa-trophy"></i>
+                    <span>Metrics</span>
+                    <span class="count">{{ metric_count }}</span>
+                </button>
+            </div>
+            
+            <div class="activity-timeline" id="activity-timeline">
+                <!-- Groups will be inserted here by JavaScript -->
             </div>
             {% else %}
             <div class="text-center py-12 empty-state">
                 <i class="fas fa-history text-6xl mb-4 empty-state-icon"></i>
-                <p>Nothing here yet—time to start tracking your progress!</p>
+                <h3 class="text-lg font-semibold text-primary mb-2">Your journey begins here!</h3>
+                <p class="text-secondary mb-4">Start tracking your progress and your activity will appear here.</p>
+                <a href="/" class="btn-primary inline-flex items-center">
+                    <i class="fas fa-arrow-right mr-2"></i>Go to Dashboard
+                </a>
             </div>
             {% endif %}
         </div>
-    </div>
+    </main>
+    
+    <script>
+        // Pass logs data to JavaScript
+        window.activityLogs = {{ logs|tojson if logs else '[]' }};
+    </script>
+    <script src="/static/js/activity.js"></script>
     
     <script>
         // Mobile menu toggle
@@ -422,6 +674,7 @@
             generateBreadcrumbs();
         });
     </script>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -466,5 +719,6 @@
             }, 300);
         }
     </script>
-</body>
+    </div> <!-- End main-content-wrapper -->
+    </body>
 </html>

@@ -138,14 +138,16 @@ function renderPhase(phase) {
 }
 
 function renderWeekHTML(week, phaseId) {
+    const dayCount = week.days ? week.days.reduce((sum, day) => sum + (day.resources ? day.resources.length : 0), 0) : 0;
     return `
         <div class="week-column flex-shrink-0 w-72" data-week-id="${week.id}" data-phase-id="${phaseId}">
-            <div class="week-header glass p-3 rounded-lg mb-2 flex items-center gap-2">
-                <i class="fas fa-grip-vertical drag-handle text-muted cursor-move"></i>
+            <div class="week-header glass p-3 rounded-lg mb-2 flex items-center gap-2" style="background: rgba(var(--bg-secondary-rgb, 255, 255, 255), 0.6); border-left: 3px solid var(--accent);">
+                <i class="fas fa-grip-vertical drag-handle text-muted cursor-grab" style="cursor: grab;" title="Drag to reorder"></i>
                 <div class="editable-title flex-1" data-type="week" data-id="${week.id}">
                     <h3 class="font-semibold text-primary inline-block">${escapeHtml(week.title)}</h3>
                     <input type="text" value="${escapeHtml(week.title)}" class="hidden w-full font-semibold bg-transparent border-b-2 border-accent outline-none">
                 </div>
+                <span class="text-xs text-muted bg-tertiary px-2 py-1 rounded-full" title="Total resources in this week">${dayCount}</span>
             </div>
             
             <div class="days-container space-y-2" data-week-id="${week.id}">
@@ -216,28 +218,47 @@ function renderResourceHTML(resource, dayId) {
     const icon = RESOURCE_TYPE_ICONS[resource.resource_type] || 'fa-link';
     const difficulty = resource.difficulty || 'medium';
     const difficultyColor = DIFFICULTY_COLORS[difficulty] || DIFFICULTY_COLORS.medium;
-    const isComplete = resource.status === 'complete';
+    const status = resource.status || 'not_started';
+    const isComplete = status === 'complete';
+    
+    // Status-based colors and styling
+    const statusColors = {
+        'not_started': '#3b82f6',      // Light blue
+        'in_progress': '#f59e0b',       // Warm yellow
+        'complete': '#16a34a'           // Green
+    };
+    const statusColor = statusColors[status] || statusColors.not_started;
+    const statusClass = `status-${status}`;
+    
     const timeDisplay = resource.estimated_minutes 
         ? (resource.estimated_minutes < 60 
             ? `${resource.estimated_minutes}m` 
             : `${(resource.estimated_minutes / 60).toFixed(1)}h`)
         : '';
     
+    const titleTruncated = resource.title.length > 50 ? resource.title.substring(0, 50) + '...' : resource.title;
     return `
-        <div class="resource-item card p-2 text-sm cursor-pointer hover:border-accent group focus:ring-2 focus:ring-accent focus:outline-none ${isComplete ? 'opacity-60' : ''}" 
+        <div class="resource-item card p-2 text-sm cursor-pointer hover:border-accent group focus:ring-2 focus:ring-accent focus:outline-none ${statusClass} ${isComplete ? 'opacity-60' : ''}" 
              data-resource-id="${resource.id}" 
              data-day-id="${dayId}"
+             data-status="${status}"
+             data-difficulty="${difficulty}"
              tabindex="0"
              role="button"
              aria-label="Resource: ${escapeHtml(resource.title)}"
              onclick="handleResourceClick(event, ${resource.id})"
-             onkeydown="handleResourceKeydown(event, ${resource.id})">
+             onkeydown="handleResourceKeydown(event, ${resource.id})"
+             data-tooltip="${escapeHtml(resource.title)}"
+             style="cursor: grab; position: relative; border-left: 3px solid ${statusColor};">
+            <div class="drag-handle-resource absolute left-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity" style="cursor: grab;">
+                <i class="fas fa-grip-vertical text-xs text-muted"></i>
+            </div>
             <div class="flex items-start gap-2">
                 <i class="fas ${icon} text-muted mt-0.5 flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <span class="difficulty-dot w-2 h-2 rounded-full flex-shrink-0" style="background: ${difficultyColor}"></span>
-                        <span class="font-medium text-primary ${isComplete ? 'line-through' : ''} truncate">${escapeHtml(resource.title)}</span>
+                        <span class="font-medium text-primary ${isComplete ? 'line-through' : ''} truncate" title="${escapeHtml(resource.title)}">${titleTruncated}</span>
                     </div>
                     ${timeDisplay ? `<div class="text-xs text-muted mt-1">${timeDisplay}</div>` : ''}
                 </div>
@@ -292,9 +313,17 @@ function initializeSortables() {
         sortableInstances[`days-${container.dataset.weekId}`] = new Sortable(container, {
             animation: 150,
             handle: '.day-card',
-            ghostClass: 'opacity-50',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
             group: 'days',
-            onEnd: (evt) => handleDayReorder(evt)
+            onStart: (evt) => {
+                evt.to.classList.add('sortable-drag-over');
+            },
+            onEnd: (evt) => {
+                evt.to.classList.remove('sortable-drag-over');
+                handleDayReorder(evt);
+                showToast('Day moved', 'success');
+            }
         });
     });
     
@@ -306,9 +335,20 @@ function initializeSortables() {
         
         sortableInstances[`resources-${container.dataset.dayId}`] = new Sortable(container, {
             animation: 150,
-            ghostClass: 'opacity-50',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
             group: 'resources',
-            onEnd: (evt) => handleResourceReorder(evt)
+            onStart: (evt) => {
+                evt.to.classList.add('sortable-drag-over');
+            },
+            onEnd: (evt) => {
+                evt.to.classList.remove('sortable-drag-over');
+                handleResourceReorder(evt);
+                showToast('Resource moved', 'success');
+            },
+            onAdd: (evt) => {
+                evt.to.classList.remove('sortable-drag-over');
+            }
         });
     });
 }
@@ -650,6 +690,11 @@ function editPhaseSettings(phaseId) {
 // ============================================================================
 
 function handleResourceClick(event, resourceId) {
+    // Don't trigger if clicking on action buttons
+    if (event.target.closest('.resource-actions') || event.target.closest('button')) {
+        return;
+    }
+    
     // Handle Shift+Click for multi-select
     if (event.shiftKey) {
         event.preventDefault();
@@ -662,8 +707,18 @@ function handleResourceClick(event, resourceId) {
         return;
     }
     
-    // Single click: open resource details
-    // TODO: Show resource detail modal
+    // Double click: quick edit inline
+    if (event.detail === 2) {
+        event.preventDefault();
+        quickEditResource(resourceId);
+        return;
+    }
+    
+    // Single click: toggle quick edit if already expanded
+    const resourceEl = document.querySelector(`[data-resource-id="${resourceId}"]`);
+    if (resourceEl && resourceEl.classList.contains('quick-edit-expanded')) {
+        return; // Already expanded, don't toggle
+    }
 }
 
 function handleResourceKeydown(event, resourceId) {
@@ -844,6 +899,194 @@ async function toggleResourceComplete(resourceId) {
         // Reload to fix UI state
         await loadBoard();
     }
+}
+
+// Quick edit: inline expansion without modal
+function quickEditResource(resourceId) {
+    const resourceEl = document.querySelector(`[data-resource-id="${resourceId}"]`);
+    if (!resourceEl) return;
+    
+    // Check if already expanded
+    if (resourceEl.classList.contains('quick-edit-expanded')) {
+        collapseQuickEdit(resourceId);
+        return;
+    }
+    
+    // Get resource data
+    const resource = findResourceById(resourceId);
+    if (!resource) {
+        // Fetch if not in memory
+        fetch(`/api/resource/${resourceId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                expandQuickEdit(resourceEl, data);
+            })
+            .catch(err => {
+                console.error('Error fetching resource:', err);
+                showToast('Failed to load resource details', 'error');
+            });
+        return;
+    }
+    
+    expandQuickEdit(resourceEl, resource);
+}
+
+function expandQuickEdit(resourceEl, resource) {
+    // Collapse any other expanded quick-edit
+    document.querySelectorAll('.resource-item.quick-edit-expanded').forEach(el => {
+        if (el !== resourceEl) {
+            collapseQuickEdit(el.dataset.resourceId);
+        }
+    });
+    
+    const resourceId = resource.id || resourceEl.dataset.resourceId;
+    const currentTitle = resourceEl.querySelector('.font-medium').textContent.trim();
+    const currentNotes = resource.notes || '';
+    const currentStatus = resource.status || 'not_started';
+    const currentDifficulty = resource.difficulty || 'medium';
+    
+    // Create expanded edit form
+    const editForm = `
+        <div class="quick-edit-form mt-2 pt-2 border-t border-primary">
+            <div class="space-y-2">
+                <div>
+                    <label class="text-xs text-secondary block mb-1">Title</label>
+                    <input type="text" 
+                           id="quick-edit-title-${resourceId}" 
+                           value="${escapeHtml(currentTitle)}" 
+                           class="w-full text-sm px-2 py-1 border border-primary rounded bg-secondary text-primary"
+                           placeholder="Resource title">
+                </div>
+                <div>
+                    <label class="text-xs text-secondary block mb-1">Status</label>
+                    <select id="quick-edit-status-${resourceId}" 
+                            class="w-full text-sm px-2 py-1 border border-primary rounded bg-secondary text-primary">
+                        <option value="not_started" ${currentStatus === 'not_started' ? 'selected' : ''}>Not Started</option>
+                        <option value="in_progress" ${currentStatus === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                        <option value="complete" ${currentStatus === 'complete' ? 'selected' : ''}>Complete</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-secondary block mb-1">Difficulty</label>
+                    <select id="quick-edit-difficulty-${resourceId}" 
+                            class="w-full text-sm px-2 py-1 border border-primary rounded bg-secondary text-primary">
+                        <option value="easy" ${currentDifficulty === 'easy' ? 'selected' : ''}>Easy</option>
+                        <option value="medium" ${currentDifficulty === 'medium' ? 'selected' : ''}>Medium</option>
+                        <option value="hard" ${currentDifficulty === 'hard' ? 'selected' : ''}>Hard</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-secondary block mb-1">Notes</label>
+                    <textarea id="quick-edit-notes-${resourceId}" 
+                              rows="2"
+                              class="w-full text-sm px-2 py-1 border border-primary rounded bg-secondary text-primary"
+                              placeholder="Additional notes...">${escapeHtml(currentNotes)}</textarea>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <button onclick="saveQuickEdit(${resourceId})" 
+                            class="btn-primary px-3 py-1 text-xs flex-1">
+                        <i class="fas fa-check mr-1"></i>Save
+                    </button>
+                    <button onclick="collapseQuickEdit(${resourceId})" 
+                            class="btn-secondary px-3 py-1 text-xs">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Insert form after resource content
+    const resourceContent = resourceEl.querySelector('.flex-1');
+    resourceContent.insertAdjacentHTML('afterend', editForm);
+    
+    // Mark as expanded
+    resourceEl.classList.add('quick-edit-expanded');
+    
+    // Focus title input
+    setTimeout(() => {
+        const titleInput = document.getElementById(`quick-edit-title-${resourceId}`);
+        if (titleInput) titleInput.focus();
+    }, 50);
+}
+
+function collapseQuickEdit(resourceId) {
+    const resourceEl = document.querySelector(`[data-resource-id="${resourceId}"]`);
+    if (!resourceEl) return;
+    
+    const editForm = resourceEl.querySelector('.quick-edit-form');
+    if (editForm) {
+        editForm.remove();
+    }
+    
+    resourceEl.classList.remove('quick-edit-expanded');
+}
+
+async function saveQuickEdit(resourceId) {
+    const titleInput = document.getElementById(`quick-edit-title-${resourceId}`);
+    const statusSelect = document.getElementById(`quick-edit-status-${resourceId}`);
+    const difficultySelect = document.getElementById(`quick-edit-difficulty-${resourceId}`);
+    const notesTextarea = document.getElementById(`quick-edit-notes-${resourceId}`);
+    
+    if (!titleInput || !statusSelect || !difficultySelect) {
+        showToast('Error: Form fields not found', 'error');
+        return;
+    }
+    
+    const updates = {
+        title: titleInput.value.trim(),
+        status: statusSelect.value,
+        difficulty: difficultySelect.value,
+        notes: notesTextarea ? notesTextarea.value.trim() : ''
+    };
+    
+    if (!updates.title) {
+        showToast('Title is required', 'error');
+        titleInput.focus();
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/resource/${resourceId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(updates)
+        });
+        
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        showToast('Resource updated', 'success');
+        collapseQuickEdit(resourceId);
+        
+        // Reload board to reflect changes
+        loadBoard();
+    } catch (error) {
+        console.error('Error saving quick edit:', error);
+        showToast('Failed to save changes', 'error');
+    }
+}
+
+function findResourceById(resourceId) {
+    // Try to find resource in current board data
+    if (!boardData || !boardData.phases) return null;
+    
+    for (const phase of boardData.phases) {
+        if (!phase.weeks) continue;
+        for (const week of phase.weeks) {
+            if (!week.days) continue;
+            for (const day of week.days) {
+                if (!day.resources) continue;
+                const resource = day.resources.find(r => r.id === parseInt(resourceId));
+                if (resource) return resource;
+            }
+        }
+    }
+    return null;
 }
 
 async function editResource(resourceId) {
@@ -1044,4 +1287,7 @@ window.toggleInbox = toggleInbox;
 window.closeEditResourceModal = closeEditResourceModal;
 window.saveResourceEdit = saveResourceEdit;
 window.handleResourceKeydown = handleResourceKeydown;
+window.quickEditResource = quickEditResource;
+window.collapseQuickEdit = collapseQuickEdit;
+window.saveQuickEdit = saveQuickEdit;
 

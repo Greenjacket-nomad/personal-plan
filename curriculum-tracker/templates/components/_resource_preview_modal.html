@@ -1,0 +1,108 @@
+{% from 'components/_modal.html' import modal %}
+
+<div id="resource-preview-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resource-preview-modal-title" tabindex="-1">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3 id="resource-preview-modal-title" class="modal-title">Resource Preview</h3>
+            <button type="button" class="modal-close" aria-label="Close modal" onclick="closeModal('resource-preview-modal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body modal-body-scrollable">
+            <div id="resource-preview-body" class="resource-preview-body">
+                <p class="text-text-muted text-center py-lg">Loading resource preview...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="preview-download-btn" style="display: none;">
+                <i class="fas fa-download mr-1"></i> Download
+            </button>
+            <div class="flex gap-md ml-auto">
+                <button type="button" class="btn-tertiary" id="preview-edit-btn">
+                    <i class="fas fa-edit mr-1"></i> Edit
+                </button>
+                <a href="#" class="btn-primary" id="preview-view-btn" target="_blank" rel="noopener noreferrer" style="display: none;">
+                    <i class="fas fa-external-link-alt mr-1"></i> View Full
+                </a>
+                <button type="button" class="btn-secondary" onclick="closeModal('resource-preview-modal')">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.resource-preview-body {
+    padding: var(--spacing-lg);
+}
+
+.resource-preview-image img {
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: var(--radius-lg);
+}
+
+.resource-preview-video iframe,
+.resource-preview-pdf iframe {
+    width: 100%;
+    height: 500px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+}
+
+.resource-preview-link {
+    text-align: center;
+    padding: var(--spacing-xl);
+}
+
+.resource-preview-description h4 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-primary);
+}
+
+.resource-preview-description p {
+    color: var(--text-secondary);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
+}
+
+.resource-preview-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+    margin-top: var(--spacing-lg);
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.meta-item i {
+    width: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.resource-preview-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    transition: color var(--transition-fast) var(--ease-out);
+}
+
+.resource-preview-btn:hover {
+    color: var(--accent);
+}
+</style>

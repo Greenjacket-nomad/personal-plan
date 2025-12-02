@@ -118,11 +118,38 @@ function toggleMetricDetails(element) {
     }
 }
 
-// Mobile menu toggle
+// Mobile menu toggle with overlay
 function toggleMobileMenu() {
     const menu = document.getElementById('mobile-menu');
+    let overlay = document.getElementById('mobile-menu-overlay');
+    
     if (menu) {
-        menu.classList.toggle('hidden');
+        const isHidden = menu.classList.contains('hidden');
+        
+        if (isHidden) {
+            // Show menu
+            menu.classList.remove('hidden');
+            // Create overlay if it doesn't exist
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'mobile-menu-overlay';
+                overlay.className = 'mobile-menu-overlay';
+                overlay.onclick = toggleMobileMenu;
+                document.body.appendChild(overlay);
+            } else {
+                overlay.classList.remove('hidden');
+            }
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+        } else {
+            // Hide menu
+            menu.classList.add('hidden');
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+            // Restore body scroll
+            document.body.style.overflow = '';
+        }
     }
 }
 
@@ -304,6 +331,92 @@ function scrollToResource(resourceId) {
     }
 }
 
+// Unsaved Changes Warning
+function initUnsavedChangesWarning(formSelector) {
+    const form = typeof formSelector === 'string' 
+        ? document.querySelector(formSelector) 
+        : formSelector;
+    
+    if (!form) return;
+    
+    let hasUnsavedChanges = false;
+    let initialFormData = new FormData(form);
+    
+    // Track form changes
+    function checkForChanges() {
+        const currentFormData = new FormData(form);
+        hasUnsavedChanges = false;
+        
+        // Compare form data
+        for (let [key, value] of initialFormData.entries()) {
+            if (currentFormData.get(key) !== value) {
+                hasUnsavedChanges = true;
+                break;
+            }
+        }
+        
+        // Check for new fields
+        for (let [key, value] of currentFormData.entries()) {
+            if (!initialFormData.has(key) || initialFormData.get(key) !== value) {
+                hasUnsavedChanges = true;
+                break;
+            }
+        }
+        
+        updateSaveButtonIndicator();
+    }
+    
+    // Update save button visual indicator
+    function updateSaveButtonIndicator() {
+        const saveButton = form.querySelector('button[type="submit"], input[type="submit"], .btn-save');
+        if (saveButton) {
+            if (hasUnsavedChanges) {
+                saveButton.classList.add('has-unsaved-changes');
+                if (!saveButton.querySelector('.unsaved-indicator')) {
+                    const indicator = document.createElement('span');
+                    indicator.className = 'unsaved-indicator';
+                    indicator.innerHTML = '<i class="fas fa-circle text-xs"></i>';
+                    indicator.setAttribute('aria-label', 'Unsaved changes');
+                    indicator.title = 'You have unsaved changes';
+                    saveButton.appendChild(indicator);
+                }
+            } else {
+                saveButton.classList.remove('has-unsaved-changes');
+                const indicator = saveButton.querySelector('.unsaved-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        }
+    }
+    
+    // Listen for form changes
+    const inputs = form.querySelectorAll('input, textarea, select');
+    inputs.forEach(input => {
+        input.addEventListener('input', checkForChanges);
+        input.addEventListener('change', checkForChanges);
+    });
+    
+    // Reset on successful submit
+    form.addEventListener('submit', function() {
+        hasUnsavedChanges = false;
+        initialFormData = new FormData(form);
+        updateSaveButtonIndicator();
+    });
+    
+    // Warn before leaving page
+    window.addEventListener('beforeunload', function(e) {
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            return e.returnValue;
+        }
+    });
+    
+    // Reset flag when form is successfully submitted (handled by form action)
+    // This is a fallback - the form submit handler above should catch most cases
+}
+
 // Initialize UI on page load
 document.addEventListener('DOMContentLoaded', function() {
     generateBreadcrumbs();
@@ -341,5 +454,11 @@ document.addEventListener('DOMContentLoaded', function() {
         journalContent.classList.remove('hidden-field');
         if (journalChevron) journalChevron.style.transform = 'rotate(180deg)';
     }
+    
+    // Initialize unsaved changes warning for forms
+    const formsWithUnsavedWarning = document.querySelectorAll('form[data-unsaved-warning]');
+    formsWithUnsavedWarning.forEach(form => {
+        initUnsavedChangesWarning(form);
+    });
 });
 

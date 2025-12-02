@@ -8,58 +8,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
-        :root {
-            --bg-primary: #f5f5f4;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #e7e5e4;
-            --text-primary: #1c1917;
-            --text-secondary: #44403c;
-            --text-muted: #78716c;
-            --border: rgba(0, 0, 0, 0.15);
-            --accent: #0066ff;
-            --accent-hover: #0052cc;
-            --success: #16a34a;
-            --warning: #ca8a04;
-            --error: #dc2626;
-        }
-        
-        [data-theme="dark"] {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #171717;
-            --bg-tertiary: #262626;
-            --text-primary: #fafafa;
-            --text-secondary: #d4d4d4;
-            --text-muted: #a3a3a3;
-            --border: rgba(255, 255, 255, 0.15);
-            --accent: #00d4ff;
-            --accent-hover: #00b8e6;
-            --success: #22c55e;
-            --warning: #eab308;
-            --error: #ef4444;
-        }
-        
-        * {
-            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        
-        h1, h2, h3, h4, h5, h6 {
-            letter-spacing: -0.02em;
-        }
-        
+        /* Page-specific styles - design system variables are in design-system.css */
         .card {
             background: var(--bg-secondary);
-            border-radius: 12px;
+            border-radius: var(--radius-xl);
             border: 1px solid var(--border);
-            transition: all 150ms ease;
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         [data-theme="dark"] .card {
@@ -75,26 +33,26 @@
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--transition-fast) var(--ease-out);
             cursor: pointer;
         }
         
         .btn-primary:hover {
             background: var(--accent-hover);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            box-shadow: var(--shadow-md);
         }
         
         .btn-secondary {
             background: transparent;
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--transition-fast) var(--ease-out);
             cursor: pointer;
         }
         
@@ -112,9 +70,9 @@
             background: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         input::placeholder,
@@ -128,13 +86,7 @@
         select:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
-        }
-        
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 0 3px var(--accent-light);
         }
         
         .header {
@@ -264,8 +216,13 @@
             }
         }
     </script>
+    <script src="/static/js/accessibility.js"></script>
+    <script src="/static/js/form-validation.js"></script>
+    <script src="/static/js/input-masks.js"></script>
+    <script src="/static/js/modal-focus.js"></script>
 </head>
 <body class="min-h-screen">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <!-- Unified Navigation -->
@@ -340,7 +297,7 @@
     </header>
 
 
-    <div class="max-w-7xl mx-auto p-6">
+    <main id="main-content" class="max-w-7xl mx-auto p-6">
         <div class="card p-6">
             <div class="space-y-6">
                 {% for phase in curriculum_tree %}
@@ -392,33 +349,102 @@
                                                     <div id="add-form-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="hidden mb-3 p-3 bg-tertiary rounded-lg">
                                                         <form onsubmit="saveNewResource(event, {{ phase.index }}, {{ week.number }}, {{ day.number }})">
                                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                                                <input type="text" name="title" placeholder="Resource Title *" required class="md:col-span-2">
-                                                                <input type="url" name="url" placeholder="URL (optional)" class="md:col-span-2">
-                                                                <select name="resource_type" required>
-                                                                    <option value="link"><i class="fas fa-link"></i> Link</option>
-                                                                    <option value="course"><i class="fas fa-graduation-cap"></i> Course</option>
-                                                                    <option value="docs"><i class="fas fa-book"></i> Docs</option>
-                                                                    <option value="article"><i class="fas fa-file-alt"></i> Article</option>
-                                                                    <option value="video"><i class="fas fa-video"></i> Video</option>
-                                                                    <option value="project"><i class="fas fa-tools"></i> Project</option>
-                                                                    <option value="lab"><i class="fas fa-flask"></i> Lab</option>
-                                                                    <option value="tutorial"><i class="fas fa-book-open"></i> Tutorial</option>
-                                                                    <option value="action"><i class="fas fa-check"></i> Action</option>
-                                                                    <option value="deliverable"><i class="fas fa-box"></i> Deliverable</option>
-                                                                    <option value="note"><i class="fas fa-pen"></i> Note</option>
-                                                                </select>
-                                                                <input type="number" name="estimated_minutes" placeholder="Time (minutes)" min="0">
-                                                                <select name="difficulty">
-                                                                    <option value="">Difficulty</option>
-                                                                    <option value="easy">Easy</option>
-                                                                    <option value="medium">Medium</option>
-                                                                    <option value="hard">Hard</option>
-                                                                </select>
+                                                                <div class="form-group md:col-span-2">
+                                                                    <label for="title-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label required">Resource Title</label>
+                                                                    <input type="text" id="title-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="title" placeholder="Enter resource title" required class="w-full" maxlength="200">
+                                                                    <div class="char-counter" id="title-counter-{{ phase.index }}-{{ week.number }}-{{ day.number }}">0/200</div>
+                                                                    <div class="form-help-text">
+                                                                        <i class="fas fa-info-circle"></i>
+                                                                        <span>A descriptive title helps you find resources later</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group md:col-span-2">
+                                                                    <label for="url-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label">URL</label>
+                                                                    <input type="url" id="url-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="url" placeholder="https://example.com" class="w-full">
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label for="resource_type-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label required">Resource Type</label>
+                                                                    <select id="resource_type-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="resource_type" required class="w-full">
+                                                                        <option value="link"><i class="fas fa-link"></i> Link</option>
+                                                                        <option value="course"><i class="fas fa-graduation-cap"></i> Course</option>
+                                                                        <option value="docs"><i class="fas fa-book"></i> Docs</option>
+                                                                        <option value="article"><i class="fas fa-file-alt"></i> Article</option>
+                                                                        <option value="video"><i class="fas fa-video"></i> Video</option>
+                                                                        <option value="project"><i class="fas fa-tools"></i> Project</option>
+                                                                        <option value="lab"><i class="fas fa-flask"></i> Lab</option>
+                                                                        <option value="tutorial"><i class="fas fa-book-open"></i> Tutorial</option>
+                                                                        <option value="action"><i class="fas fa-check"></i> Action</option>
+                                                                        <option value="deliverable"><i class="fas fa-box"></i> Deliverable</option>
+                                                                        <option value="note"><i class="fas fa-pen"></i> Note</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label for="estimated_minutes-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label">Estimated Time (minutes)</label>
+                                                                    <input type="number" id="estimated_minutes-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="estimated_minutes" placeholder="60" min="0" class="w-full">
+                                                                    <div class="form-help-text">
+                                                                        <i class="fas fa-info-circle"></i>
+                                                                        <span>How long will this take to complete?</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <label for="difficulty-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label">Difficulty</label>
+                                                                    <select id="difficulty-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="difficulty" class="w-full">
+                                                                        <option value="">Select difficulty</option>
+                                                                        <option value="easy">Easy</option>
+                                                                        <option value="medium">Medium</option>
+                                                                        <option value="hard">Hard</option>
+                                                                    </select>
+                                                                </div>
                                                             </div>
-                                                            <textarea name="notes" placeholder="Notes (optional)" rows="2" class="w-full mb-3"></textarea>
+                                                            <div class="form-group">
+                                                                <label for="notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="form-label">Notes</label>
+                                                                <div class="rich-text-toolbar">
+                                                                    <button type="button" class="format-btn" onclick="formatText('notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}', 'bold')" title="Bold">
+                                                                        <i class="fas fa-bold"></i>
+                                                                    </button>
+                                                                    <button type="button" class="format-btn" onclick="formatText('notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}', 'italic')" title="Italic">
+                                                                        <i class="fas fa-italic"></i>
+                                                                    </button>
+                                                                    <button type="button" class="format-btn" onclick="formatText('notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}', 'link')" title="Link">
+                                                                        <i class="fas fa-link"></i>
+                                                                    </button>
+                                                                    <button type="button" class="format-btn" onclick="formatText('notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}', 'list')" title="List">
+                                                                        <i class="fas fa-list"></i>
+                                                                    </button>
+                                                                    <button type="button" class="format-btn" onclick="formatText('notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}', 'code')" title="Code">
+                                                                        <i class="fas fa-code"></i>
+                                                                    </button>
+                                                                </div>
+                                                                <textarea id="notes-{{ phase.index }}-{{ week.number }}-{{ day.number }}" name="notes" placeholder="Additional notes or instructions... (Supports Markdown: **bold**, *italic*, [link](url), - list)" rows="3" class="w-full rich-text-area" maxlength="500"></textarea>
+                                                                <div class="char-counter" id="notes-counter-{{ phase.index }}-{{ week.number }}-{{ day.number }}">0/500</div>
+                                                            </div>
+                                                            
+                                                            <!-- Tag Selection -->
+                                                            <div class="form-group">
+                                                                <label class="form-label">Tags</label>
+                                                                <div class="flex flex-wrap gap-2" id="tag-selection-{{ phase.index }}-{{ week.number }}-{{ day.number }}">
+                                                                    <!-- Tags will be loaded dynamically -->
+                                                                </div>
+                                                                <div class="form-help-text">
+                                                                    <i class="fas fa-info-circle"></i>
+                                                                    <span>Select tags to categorize this resource</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Duplicate Detection Warning -->
+                                                            <div id="duplicate-warning-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="duplicate-warning" style="display: none;">
+                                                                <i class="fas fa-exclamation-triangle"></i>
+                                                                <span>A similar resource may already exist. Please check before adding.</span>
+                                                            </div>
+                                                            
+                                                            <!-- File Upload Progress -->
+                                                            <div id="upload-progress-{{ phase.index }}-{{ week.number }}-{{ day.number }}" class="upload-progress" style="display: none;">
+                                                                <div class="upload-progress-bar" id="upload-progress-bar-{{ phase.index }}-{{ week.number }}-{{ day.number }}" style="width: 0%;"></div>
+                                                            </div>
+                                                            
                                                             <div class="flex gap-2">
-                                                                <button type="submit" class="btn-primary">Ship it</button>
-                                                                <button type="button" onclick="cancelAddResource({{ phase.index }}, {{ week.number }}, {{ day.number }})" class="btn-secondary">Nevermind</button>
+                                                                <button type="submit" class="btn-primary"><i class="fas fa-plus mr-1"></i>Add Resource</button>
+                                                                <button type="button" onclick="cancelAddResource({{ phase.index }}, {{ week.number }}, {{ day.number }})" class="btn-secondary">Cancel</button>
                                                             </div>
                                                         </form>
                                                     </div>
@@ -485,6 +511,40 @@
     </div>
     
     <script>
+        // Rich Text Formatting Functions
+        function formatText(textareaId, format) {
+            const textarea = document.getElementById(textareaId);
+            if (!textarea) return;
+            
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            let replacement = '';
+            
+            switch(format) {
+                case 'bold':
+                    replacement = selectedText ? `**${selectedText}**` : '****';
+                    break;
+                case 'italic':
+                    replacement = selectedText ? `*${selectedText}*` : '**';
+                    break;
+                case 'link':
+                    replacement = selectedText ? `[${selectedText}](url)` : '[text](url)';
+                    break;
+                case 'list':
+                    replacement = selectedText ? `- ${selectedText.split('\n').join('\n- ')}` : '- ';
+                    break;
+                case 'code':
+                    replacement = selectedText ? `\`${selectedText}\`` : '``';
+                    break;
+            }
+            
+            textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+            textarea.focus();
+            const newPos = start + replacement.length - (format === 'code' ? 1 : 0);
+            textarea.setSelectionRange(newPos, newPos);
+        }
+        
         function toggleCollapse(id) {
             const content = document.getElementById(id + '-content');
             const icon = document.getElementById(id + '-icon');
@@ -703,6 +763,7 @@
             generateBreadcrumbs();
         });
     </script>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -759,6 +820,199 @@
             }, 300);
         }
     </script>
+    
+    <script>
+        // Character counters
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[maxlength], textarea[maxlength]').forEach(input => {
+                const maxLength = parseInt(input.getAttribute('maxlength'));
+                const counterId = input.id + '-counter';
+                const counter = document.getElementById(counterId);
+                
+                if (counter) {
+                    function updateCounter() {
+                        const length = input.value.length;
+                        counter.textContent = `${length}/${maxLength}`;
+                        counter.classList.remove('warning', 'error');
+                        if (length > maxLength * 0.9) {
+                            counter.classList.add('warning');
+                        }
+                        if (length >= maxLength) {
+                            counter.classList.add('error');
+                        }
+                    }
+                    
+                    input.addEventListener('input', updateCounter);
+                    updateCounter();
+                }
+            });
+            
+            // Initialize tag selection
+            initTagSelection();
+            
+            // Initialize date/time pickers
+            initDatePickers();
+            
+            // Initialize file upload progress handlers
+            initFileUploadProgress();
+            
+            // Initialize duplicate detection
+            initDuplicateDetection();
+            
+            // Initialize sticky save bar
+            initStickySaveBar();
+        });
+        
+        // Tag selection initialization
+        function initTagSelection() {
+            const tagContainers = document.querySelectorAll('[id^="tag-selection-"]');
+            const exampleTags = ['JavaScript', 'Python', 'React', 'Database', 'API', 'Frontend', 'Backend', 'Full Stack'];
+            
+            tagContainers.forEach(container => {
+                exampleTags.forEach(tag => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'tag-chip';
+                    chip.textContent = tag;
+                    chip.setAttribute('data-tag', tag);
+                    chip.onclick = function() {
+                        this.classList.toggle('selected');
+                    };
+                    container.appendChild(chip);
+                });
+            });
+        }
+        
+        // Date/time picker initialization
+        function initDatePickers() {
+            document.querySelectorAll('input[type="date"], input[type="time"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    if (this.value) {
+                        this.classList.add('has-value');
+                    } else {
+                        this.classList.remove('has-value');
+                    }
+                });
+            });
+        }
+        
+        // File upload progress handler
+        function initFileUploadProgress() {
+            document.querySelectorAll('form').forEach(form => {
+                const fileInput = form.querySelector('input[type="file"]');
+                if (!fileInput) return;
+                
+                fileInput.addEventListener('change', function() {
+                    if (!this.files || this.files.length === 0) return;
+                    
+                    const formId = form.id || form.closest('[id]')?.id;
+                    const progressContainer = form.querySelector('.upload-progress');
+                    const progressBar = form.querySelector('.upload-progress-bar');
+                    
+                    if (progressContainer && progressBar) {
+                        progressContainer.style.display = 'block';
+                        
+                        // Simulate upload progress (in real implementation, use XMLHttpRequest with progress event)
+                        let progress = 0;
+                        const interval = setInterval(() => {
+                            progress += 10;
+                            progressBar.style.width = progress + '%';
+                            
+                            if (progress >= 100) {
+                                clearInterval(interval);
+                                setTimeout(() => {
+                                    progressContainer.style.display = 'none';
+                                    progressBar.style.width = '0%';
+                                }, 500);
+                            }
+                        }, 200);
+                    }
+                });
+            });
+        }
+        
+        // Duplicate detection
+        function initDuplicateDetection() {
+            document.querySelectorAll('input[name="title"]').forEach(input => {
+                let debounceTimer;
+                input.addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        const title = this.value.trim();
+                        if (title.length < 3) return;
+                        
+                        // Find the duplicate warning for this form
+                        const form = this.closest('form');
+                        const warning = form?.querySelector('.duplicate-warning');
+                        if (!warning) return;
+                        
+                        // Check for similar titles (simplified - in real implementation, check against database)
+                        const existingTitles = Array.from(document.querySelectorAll('.resource-item')).map(item => {
+                            const titleEl = item.querySelector('.resource-title');
+                            return titleEl ? titleEl.textContent.trim().toLowerCase() : '';
+                        });
+                        
+                        const isDuplicate = existingTitles.some(existing => 
+                            existing && existing.includes(title.toLowerCase()) && existing !== title.toLowerCase()
+                        );
+                        
+                        if (isDuplicate) {
+                            warning.style.display = 'flex';
+                        } else {
+                            warning.style.display = 'none';
+                        }
+                    }, 500);
+                });
+            });
+        }
+        
+        // Sticky save bar
+        function initStickySaveBar() {
+            const stickyBar = document.getElementById('sticky-save-bar');
+            if (!stickyBar) return;
+            
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                let hasChanges = false;
+                const originalData = new FormData(form);
+                
+                form.addEventListener('input', function() {
+                    hasChanges = true;
+                    stickyBar.style.display = 'flex';
+                });
+                
+                form.addEventListener('submit', function() {
+                    hasChanges = false;
+                    stickyBar.style.display = 'none';
+                });
+                
+                // Show sticky bar when scrolling past form
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (!entry.isIntersecting && entry.boundingClientRect.top < 0 && hasChanges) {
+                            stickyBar.style.display = 'flex';
+                        } else if (entry.isIntersecting || !hasChanges) {
+                            stickyBar.style.display = 'none';
+                        }
+                    });
+                }, { threshold: 0 });
+                
+                observer.observe(form);
+            });
+        }
+    </script>
+    
+    <!-- Sticky Save Button Bar -->
+    <div class="sticky-save-bar" id="sticky-save-bar" style="display: none;">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-exclamation-circle text-warning"></i>
+            <span class="text-sm text-secondary">You have unsaved changes</span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="document.querySelector('form')?.requestSubmit()" class="btn-primary">Save Changes</button>
+            <button onclick="document.getElementById('sticky-save-bar').style.display='none'" class="btn-secondary">Dismiss Warning</button>
+        </div>
+    </div>
 </body>
 </html>
 

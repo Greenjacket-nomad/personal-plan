@@ -1,0 +1,50 @@
+{% macro mood_calendar(mood_data, current_month=None, current_year=None) %}
+<div class="mood-calendar-container">
+    <div class="mood-calendar-header">
+        <button class="mood-calendar-nav" onclick="changeMoodCalendarMonth(-1)">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <h3 class="mood-calendar-title" id="mood-calendar-month-year">
+            {{ current_month or 'January' }} {{ current_year or '2024' }}
+        </h3>
+        <button class="mood-calendar-nav" onclick="changeMoodCalendarMonth(1)">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+    
+    <div class="mood-calendar-grid" id="mood-calendar-grid">
+        <!-- Calendar days will be populated by JavaScript -->
+    </div>
+    
+    <div class="mood-calendar-legend">
+        <div class="legend-item">
+            <span class="legend-color great"></span>
+            <span>Great</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color okay"></span>
+            <span>Okay</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color struggling"></span>
+            <span>Struggling</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color fire"></span>
+            <span>Fire</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-color none"></span>
+            <span>No Entry</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Mood calendar data passed from backend
+    window.moodCalendarData = {{ mood_data|tojson if mood_data else '{}' }};
+    window.moodCalendarMonth = {{ current_month or 'null' }};
+    window.moodCalendarYear = {{ current_year or 'null' }};
+</script>
+{% endmacro %}
+

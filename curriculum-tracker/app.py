@@ -22,6 +22,8 @@ from flask_wtf.csrf import CSRFProtect
 from services.auth import User
 from routes.main import main_bp
 from routes.api import api_bp
+from routes.export import export_bp
+from routes.auth import auth_bp
 
 APP_DIR = Path(__file__).parent
 
@@ -61,6 +63,8 @@ def create_app():
     # Register blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(export_bp)
+    app.register_blueprint(auth_bp)
     
     return app
 

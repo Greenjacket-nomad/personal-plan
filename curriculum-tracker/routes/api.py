@@ -6,8 +6,8 @@ JSON API endpoints and form handling routes.
 
 import psycopg2
 import uuid
-from datetime import datetime
-from flask import Blueprint, request, redirect, url_for, flash, jsonify
+from datetime import datetime, timedelta, timedelta
+from flask import Blueprint, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
 from constants import STATUS_CYCLE
 
@@ -26,6 +26,50 @@ from services.structure import (
 
 # Create blueprint
 api_bp = Blueprint('api', __name__)
+
+
+@api_bp.route("/journal/mood-calendar")
+@login_required
+def mood_calendar():
+    """Get mood data for calendar visualization."""
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    
+    if not year or not month:
+        # Default to current month
+        now = datetime.now()
+        year = now.year
+        month = now.month
+    
+    # Get mood data for the month
+    conn = get_db()
+    cur = get_db_cursor(conn)
+    
+    # Query entries for the month
+    start_date = f"{year}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{month + 1:02d}-01"
+    
+    cur.execute(
+        "SELECT date, mood FROM journal_entries WHERE user_id = %s AND date >= %s AND date < %s AND mood IS NOT NULL",
+        (current_user.id, start_date, end_date)
+    )
+    entries = cur.fetchall()
+    cur.close()
+    
+    # Convert to dictionary format
+    moods = {}
+    for entry in entries:
+        date_str = entry['date'].strftime('%Y-%m-%d') if hasattr(entry['date'], 'strftime') else str(entry['date'])
+        moods[date_str] = entry['mood']
+    
+    return jsonify({
+        'moods': moods,
+        'year': year,
+        'month': month
+    })
 
 
 @api_bp.route("/log", methods=["POST"])
@@ -1228,4 +1272,77 @@ def api_reorder_structure():
         return jsonify({"error": str(e)}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/resources/recommendations")
+@login_required
+def api_resource_recommendations():
+    """Get intelligent resource recommendations based on viewing context."""
+    resource_id = request.args.get('resource_id', type=int)
+    
+    conn = get_db()
+    cur = get_db_cursor(conn)
+    
+    recommendations = {
+        'related': [],
+        'helpful': [],
+        'continue': []
+    }
+    
+    try:
+        # Related Resources: Same tags or type as current resource
+        if resource_id:
+            cur.execute("""
+                SELECT r.id, r.title, r.resource_type, r.url
+                FROM resources r
+                WHERE r.user_id = %s
+                AND r.id != %s
+                AND (
+                    r.resource_type = (SELECT resource_type FROM resources WHERE id = %s)
+                    OR EXISTS (
+                        SELECT 1 FROM resource_tags rt1
+                        JOIN resource_tags rt2 ON rt1.tag_id = rt2.tag_id
+                        WHERE rt1.resource_id = r.id
+                        AND rt2.resource_id = %s
+                    )
+                )
+                AND r.status != 'complete'
+                ORDER BY r.created_at DESC
+                LIMIT 5
+            """, (current_user.id, resource_id, resource_id, resource_id))
+            related = cur.fetchall()
+            recommendations['related'] = [dict(r) for r in related]
+        
+        # Helpful Resources: Most accessed/favorited resources
+        cur.execute("""
+            SELECT r.id, r.title, r.resource_type, r.url,
+                   COUNT(DISTINCT CASE WHEN r.is_favorite THEN 1 END) as favorite_count
+            FROM resources r
+            WHERE r.user_id = %s
+            AND r.status != 'complete'
+            GROUP BY r.id, r.title, r.resource_type, r.url
+            ORDER BY favorite_count DESC, r.created_at DESC
+            LIMIT 5
+        """, (current_user.id,))
+        helpful = cur.fetchall()
+        recommendations['helpful'] = [dict(r) for r in helpful]
+        
+        # Continue Learning: Next resources in sequence (by phase/week/day)
+        cur.execute("""
+            SELECT r.id, r.title, r.resource_type, r.url, r.phase_index, r.week, r.day
+            FROM resources r
+            WHERE r.user_id = %s
+            AND r.status = 'not_started'
+            AND r.phase_index IS NOT NULL
+            ORDER BY r.phase_index ASC, r.week ASC, r.day ASC, r.sort_order ASC
+            LIMIT 5
+        """, (current_user.id,))
+        continue_learning = cur.fetchall()
+        recommendations['continue'] = [dict(r) for r in continue_learning]
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating recommendations: {e}")
+    
+    cur.close()
+    return jsonify(recommendations)
 

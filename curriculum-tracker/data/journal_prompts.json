@@ -1,0 +1,80 @@
+{
+    "prompts": [
+        {
+            "id": "daily-reflection",
+            "title": "Daily Reflection",
+            "category": "reflection",
+            "template": "## What I Learned Today\n\n\n\n## Challenges I Faced\n\n\n\n## Plans for Tomorrow\n\n"
+        },
+        {
+            "id": "weekly-review",
+            "title": "Weekly Review",
+            "category": "review",
+            "template": "## This Week's Highlights\n\n\n\n## What Went Well\n\n\n\n## What Could Be Improved\n\n\n\n## Goals for Next Week\n\n"
+        },
+        {
+            "id": "project-retrospective",
+            "title": "Project Retrospective",
+            "category": "review",
+            "template": "## Project: [Project Name]\n\n## What I Accomplished\n\n\n\n## What I Learned\n\n\n\n## What I Would Do Differently\n\n\n\n## Key Takeaways\n\n"
+        },
+        {
+            "id": "gratitude",
+            "title": "Gratitude Journal",
+            "category": "reflection",
+            "template": "## Today I'm Grateful For\n\n1. \n2. \n3. \n\n## Why These Matter\n\n"
+        },
+        {
+            "id": "problem-solving",
+            "title": "Problem-Solving Session",
+            "category": "learning",
+            "template": "## Problem I'm Working On\n\n\n\n## What I've Tried\n\n\n\n## What I Learned\n\n\n\n## Next Steps\n\n"
+        },
+        {
+            "id": "goal-setting",
+            "title": "Goal Setting",
+            "category": "planning",
+            "template": "## My Goal\n\n\n\n## Why This Goal Matters\n\n\n\n## Steps to Achieve It\n\n1. \n2. \n3. \n\n## Timeline\n\n"
+        },
+        {
+            "id": "code-review",
+            "title": "Code Review Notes",
+            "category": "learning",
+            "template": "## Code I Reviewed\n\n\n\n## What I Learned\n\n\n\n## Best Practices Noted\n\n\n\n## Questions I Have\n\n"
+        },
+        {
+            "id": "meeting-notes",
+            "title": "Meeting/Study Session Notes",
+            "category": "notes",
+            "template": "## Topic/Agenda\n\n\n\n## Key Points\n\n\n\n## Action Items\n\n\n\n## Follow-up\n\n"
+        }
+    ],
+    "categories": [
+        {
+            "id": "reflection",
+            "name": "Reflection",
+            "icon": "fa-mirror"
+        },
+        {
+            "id": "review",
+            "name": "Review",
+            "icon": "fa-clipboard-check"
+        },
+        {
+            "id": "learning",
+            "name": "Learning",
+            "icon": "fa-lightbulb"
+        },
+        {
+            "id": "planning",
+            "name": "Planning",
+            "icon": "fa-calendar-check"
+        },
+        {
+            "id": "notes",
+            "name": "Notes",
+            "icon": "fa-sticky-note"
+        }
+    ]
+}
+

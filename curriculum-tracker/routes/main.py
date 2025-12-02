@@ -9,7 +9,7 @@ import psycopg2
 import calendar
 import uuid
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app, send_from_directory, stream_with_context
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, jsonify, current_app, send_from_directory, stream_with_context, send_file
 from flask_login import login_user, logout_user, login_required, current_user
 from constants import STATUS_CYCLE
 
@@ -37,6 +37,17 @@ from services.progress import log_activity
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
+
+
+@main_bp.route("/static/data/<path:filename>")
+def serve_data_file(filename):
+    """Serve data files like journal prompts JSON."""
+    from pathlib import Path
+    data_dir = Path(__file__).parent.parent / "data"
+    file_path = data_dir / filename
+    if file_path.exists() and file_path.is_file():
+        return send_file(file_path)
+    return jsonify({"error": "File not found"}), 404
 
 
 @main_bp.route("/login", methods=["GET", "POST"])
@@ -288,6 +299,82 @@ def dashboard(view_phase=None, view_week=None):
     # Get projected end date
     projected_end_date = get_projected_end_date() if start_date else None
     
+    # Generate time-appropriate greeting
+    current_hour = datetime.now().hour
+    if current_hour < 12:
+        greeting = "Good morning"
+    elif current_hour < 17:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
+    
+    # Generate recommendations for What's Next
+    recommendations = []
+    
+    # 1. Incomplete high-priority items
+    cur = get_db_cursor(conn)
+    cur.execute("""
+        SELECT r.*, p.phase_index, p.week, p.day
+        FROM resources r
+        JOIN (
+            SELECT phase_index, week, day, MIN(sort_order) as min_order
+            FROM resources
+            WHERE user_id = %s AND status != 'complete'
+            GROUP BY phase_index, week, day
+        ) p ON r.phase_index = p.phase_index AND r.week = p.week AND r.day = p.day
+        WHERE r.user_id = %s 
+        AND r.status != 'complete'
+        AND r.sort_order = p.min_order
+        AND (r.scheduled_date IS NULL OR r.scheduled_date <= CURRENT_DATE)
+        ORDER BY r.scheduled_date ASC NULLS LAST, r.phase_index ASC, r.week ASC, r.day ASC
+        LIMIT 3
+    """, (current_user.id, current_user.id))
+    incomplete_resources = cur.fetchall()
+    
+    for res in incomplete_resources[:2]:
+        res_dict = dict(res)
+        # Handle scheduled_date - it may be a date object or string
+        scheduled_date = res_dict.get('scheduled_date')
+        if scheduled_date:
+            if isinstance(scheduled_date, str):
+                scheduled_date = datetime.strptime(scheduled_date, '%Y-%m-%d').date()
+            elif hasattr(scheduled_date, 'date'):
+                scheduled_date = scheduled_date.date()
+        
+        priority = 'high' if scheduled_date and scheduled_date <= datetime.now().date() else 'medium'
+        recommendations.append({
+            'title': res_dict.get('title', 'Untitled Resource'),
+            'type': 'resource',
+            'priority': priority,
+            'description': f"Phase {res_dict.get('phase_index', 0) + 1}, Week {res_dict.get('week', 0)}, Day {res_dict.get('day', 0)}",
+            'action_url': f"/view/{res_dict.get('phase_index', 0)}/{res_dict.get('week', 0)}#resource-{res_dict.get('id')}"
+        })
+    
+    # 2. Approaching deadlines (within 3 days)
+    cur.execute("""
+        SELECT * FROM resources
+        WHERE user_id = %s
+        AND status != 'complete'
+        AND scheduled_date IS NOT NULL
+        AND scheduled_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '3 days'
+        ORDER BY scheduled_date ASC
+        LIMIT 2
+    """, (current_user.id,))
+    approaching = cur.fetchall()
+    
+    for res in approaching:
+        res_dict = dict(res)
+        if len(recommendations) < 4:  # Limit total recommendations
+            recommendations.append({
+                'title': res_dict.get('title', 'Untitled Resource'),
+                'type': 'resource',
+                'priority': 'high',
+                'description': f"Due: {res_dict.get('scheduled_date')}",
+                'action_url': f"/view/{res_dict.get('phase_index', 0)}/{res_dict.get('week', 0)}#resource-{res_dict.get('id')}"
+            })
+    
+    cur.close()
+    
     # Get resources for expected position (if available)
     expected_resources = []
     if today_position and today_position.get('status') != 'not_started':
@@ -316,7 +403,8 @@ def dashboard(view_phase=None, view_week=None):
         hours_today=hours_today, expected_resources=expected_resources, curriculum=curriculum,
         start_date=start_date, projected_end_date=projected_end_date,
         burndown_data=get_burndown_data() if start_date else None,
-        overdue_days=get_overdue_days() if start_date else [])
+        overdue_days=get_overdue_days() if start_date else [],
+        greeting=greeting, recommendations=recommendations)
 
 
 @main_bp.route("/resources")
@@ -420,16 +508,32 @@ def activity():
     )
     logs = cur.fetchall()
     cur.close()
+    # Convert RealDictRow objects to dictionaries for JSON serialization
+    logs = [dict(log) for log in logs]
     return render_template("activity.html", logs=logs)
 
 
 @main_bp.route("/journal")
+@login_required
 def journal():
     """Show all journal entries."""
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM journal_entries ORDER BY date DESC")
+    cur.execute("SELECT * FROM journal_entries WHERE user_id = %s ORDER BY date DESC", (current_user.id,))
     entries = cur.fetchall()
+    
+    # Get "On this day" entries - entries from previous years on the same month/day
+    today = datetime.now()
+    cur.execute("""
+        SELECT * FROM journal_entries 
+        WHERE user_id = %s 
+        AND EXTRACT(MONTH FROM date::date) = %s 
+        AND EXTRACT(DAY FROM date::date) = %s
+        AND EXTRACT(YEAR FROM date::date) < %s
+        ORDER BY date DESC
+        LIMIT 5
+    """, (current_user.id, today.month, today.day, today.year))
+    on_this_day_entries = cur.fetchall()
     cur.close()
     
     # Get curriculum and today position for pre-populating dropdowns
@@ -446,10 +550,12 @@ def journal():
         })
     
     return render_template("journal.html", entries=entries, today=datetime.now().strftime("%Y-%m-%d"),
-                          phases=phases_data, today_position=today_position, editing=None)
+                          phases=phases_data, today_position=today_position, editing=None,
+                          on_this_day_entries=[dict(e) for e in on_this_day_entries])
 
 
 @main_bp.route("/journal", methods=["POST"])
+@login_required
 def save_journal():
     """Save or update today's journal entry."""
     date = request.form.get("date", datetime.now().strftime("%Y-%m-%d"))
@@ -504,11 +610,12 @@ def save_journal():
 
 
 @main_bp.route("/journal/<int:entry_id>/edit", methods=["GET", "POST"])
+@login_required
 def edit_journal(entry_id):
     """Edit a journal entry."""
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM journal_entries WHERE id = %s", (entry_id,))
+    cur.execute("SELECT * FROM journal_entries WHERE id = %s AND user_id = %s", (entry_id, current_user.id))
     entry = cur.fetchone()
     cur.close()
     
@@ -548,7 +655,7 @@ def edit_journal(entry_id):
     
     # GET: Show edit form
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM journal_entries ORDER BY date DESC")
+    cur.execute("SELECT * FROM journal_entries WHERE user_id = %s ORDER BY date DESC", (current_user.id,))
     entries = cur.fetchall()
     cur.close()
     
@@ -565,11 +672,12 @@ def edit_journal(entry_id):
 
 
 @main_bp.route("/journal/<int:entry_id>/delete", methods=["POST"])
+@login_required
 def delete_journal(entry_id):
     """Delete a journal entry."""
     conn = get_db()
     cur = get_db_cursor(conn)
-    cur.execute("SELECT * FROM journal_entries WHERE id = %s", (entry_id,))
+    cur.execute("SELECT * FROM journal_entries WHERE id = %s AND user_id = %s", (entry_id, current_user.id))
     entry = cur.fetchone()
     
     if not entry:
@@ -577,7 +685,7 @@ def delete_journal(entry_id):
         flash("Journal entry not found.", "error")
         return redirect(url_for("main.journal"))
     
-    cur.execute("DELETE FROM journal_entries WHERE id = %s", (entry_id,))
+    cur.execute("DELETE FROM journal_entries WHERE id = %s AND user_id = %s", (entry_id, current_user.id))
     cur.close()
     conn.commit()
     flash("Reflection yeeted into the void", "success")
@@ -593,6 +701,7 @@ def calendar_view(year=None, month=None):
 
 
 @main_bp.route("/curriculum/edit")
+@login_required
 def curriculum_editor():
     """Show curriculum editor page with tree structure."""
     curriculum = load_curriculum()
@@ -671,6 +780,7 @@ def curriculum_editor():
 
 
 @main_bp.route("/reports")
+@login_required
 def reports():
     """Show time reports and analytics."""
     from services.reporting import get_time_reports
@@ -776,6 +886,7 @@ def export_data():
 
 
 @main_bp.route("/settings/start-date", methods=["POST"])
+@login_required
 def update_start_date():
     """Update start date and recalculate schedule."""
     date_str = request.form.get("start_date")
@@ -790,6 +901,7 @@ def update_start_date():
 
 
 @main_bp.route("/reset", methods=["POST"])
+@login_required
 def reset():
     conn = get_db()
     cur = get_db_cursor(conn)
@@ -818,6 +930,7 @@ def serve_file(filename):
 
 
 @main_bp.route("/attachment/<int:attachment_id>/delete", methods=["POST"])
+@login_required
 def delete_attachment(attachment_id):
     """Delete an attachment."""
     conn = get_db()

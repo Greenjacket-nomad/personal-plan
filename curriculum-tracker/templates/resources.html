@@ -8,118 +8,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        /* CSS Variable System - Same as dashboard */
-        :root {
-            --bg-primary: #f5f5f4;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #e7e5e4;
-            --text-primary: #1c1917;
-            --text-secondary: #44403c;
-            --text-muted: #78716c;
-            --border: rgba(0, 0, 0, 0.15);
-            --accent: #0066ff;
-            --accent-hover: #0052cc;
-            --success: #16a34a;
-            --warning: #ca8a04;
-            --error: #dc2626;
-            --phase-1: #2563eb;
-            --phase-2: #7c3aed;
-            --phase-3: #0d9488;
-            --phase-4: #ea580c;
-        }
-        
-        [data-theme="dark"] {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #171717;
-            --bg-tertiary: #262626;
-            --text-primary: #fafafa;
-            --text-secondary: #d4d4d4;
-            --text-muted: #a3a3a3;
-            --border: rgba(255, 255, 255, 0.15);
-            --accent: #00d4ff;
-            --accent-hover: #00b8e6;
-            --success: #22c55e;
-            --warning: #eab308;
-            --error: #ef4444;
-            --phase-1: #3b82f6;
-            --phase-2: #8b5cf6;
-            --phase-3: #14b8a6;
-            --phase-4: #f97316;
-        }
-        
-        * {
-            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-        
+        /* Page-specific styles - component standardization will be done in Phase 1.3-1.5 */
         /* Dynamic tag colors - set via JavaScript */
         .tag-dynamic[data-color] {
             background-color: transparent;
-        }
-        
-        h1, h2, h3, h4, h5, h6 {
-            letter-spacing: -0.02em;
-        }
-        
-        .glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        
-        [data-theme="light"] .glass {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .card {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            transition: all 150ms ease;
-        }
-        
-        [data-theme="dark"] .card {
-            background: rgba(26, 26, 26, 0.8);
-            backdrop-filter: blur(10px);
-        }
-        
-        .card:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
         }
         
         .btn-primary {
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--transition-fast) var(--ease-out);
             cursor: pointer;
         }
         
         .btn-primary:hover {
             background: var(--accent-hover);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            box-shadow: var(--shadow-md);
         }
         
         .btn-secondary {
             background: transparent;
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--transition-fast) var(--ease-out);
             cursor: pointer;
         }
         
@@ -138,9 +59,9 @@
             background: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         input::placeholder,
@@ -154,19 +75,19 @@
         select:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 0 3px var(--accent-light);
         }
         
         .tag {
             display: inline-flex;
             align-items: center;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            background: rgba(0, 212, 255, 0.1);
+            padding: var(--spacing-xs) var(--spacing-md);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+            font-weight: var(--font-weight-medium);
+            background: var(--accent-light);
             color: var(--accent);
-            border: 1px solid rgba(0, 212, 255, 0.2);
+            border: 1px solid var(--border-light);
         }
         
         .header {
@@ -219,14 +140,14 @@
         .resource-completed { text-decoration: line-through; color: var(--text-muted); }
         .resource-link { color: var(--accent); }
         
-        .btn-favorite { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-favorite { color: var(--text-muted); transition: all var(--transition-fast) var(--ease-out); }
         .btn-favorite.active { color: var(--warning); }
         .btn-favorite:hover { color: var(--warning); }
         
-        .btn-delete { color: var(--text-muted); transition: all 150ms ease; }
+        .btn-delete { color: var(--text-muted); transition: all var(--transition-fast) var(--ease-out); }
         .btn-delete:hover { color: var(--error); }
         
-        .details-summary { color: var(--text-secondary); transition: all 150ms ease; }
+        .details-summary { color: var(--text-secondary); transition: all var(--transition-fast) var(--ease-out); }
         .details-summary:hover { color: var(--text-primary); }
         .details-content { border-left: 2px solid var(--border); }
         
@@ -241,14 +162,14 @@
         .btn-success:hover { opacity: 0.9; }
         
         .stat-number { font-weight: 700; }
-        .color-input { border: 1px solid var(--border); border-radius: 8px; }
+        .color-input { border: 1px solid var(--border); border-radius: var(--radius-lg); }
         
         /* Navigation Styles */
         .nav-item {
             color: var(--text-primary);
-            padding: 0.5rem 0.75rem;
-            border-radius: 8px;
-            transition: all 150ms ease;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-lg);
+            transition: all var(--transition-fast) var(--ease-out);
             display: inline-flex;
             align-items: center;
             text-decoration: none;
@@ -267,7 +188,7 @@
         
         .header a.text-2xl:hover {
             transform: scale(1.05);
-            transition: transform 150ms ease;
+            transition: transform var(--transition-fast) var(--ease-out);
         }
         
         #breadcrumbs {
@@ -295,9 +216,9 @@
             font-size: 1.5rem;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 0.5rem;
-            transition: all 150ms ease;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm);
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         .theme-toggle:hover {
@@ -334,8 +255,24 @@
             updateThemeIcon();
         });
     </script>
+    <script src="/static/js/accessibility.js"></script>
+    <script src="/static/js/resource-views.js"></script>
+    <script src="/static/js/modal-system.js"></script>
 </head>
     <body class="min-h-screen">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    {% set current_page = 'resources' %}
+    {% set user_name = current_user.username if current_user else 'User' %}
+    {% include 'components/_sidebar_nav.html' %}
+    
+    <!-- Mobile Tab Bar (Mobile) -->
+    {% set current_page = 'resources' %}
+    {% include 'components/_mobile_tabbar.html' %}
+    
+    <!-- Main Content Wrapper -->
+    <div class="main-content-wrapper">
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <!-- Unified Navigation -->
@@ -413,56 +350,92 @@
     </header>
 
 
-    <div class="max-w-7xl mx-auto p-6">
-        <!-- Search & Filter -->
-        <div class="card p-4 mb-6">
-            <form method="GET" action="/resources" class="flex flex-wrap gap-4 items-end">
+    <main id="main-content" class="max-w-7xl mx-auto p-6">
+        <!-- Filters Toggle Button (Mobile) -->
+        <button class="filters-toggle-btn md:hidden mb-4" onclick="toggleFiltersSidebar()">
+            <i class="fas fa-filter mr-2"></i>Filters
+        </button>
+        
+        <!-- Resources Layout with Sidebar -->
+        <div class="resources-layout">
+            <!-- Filters Sidebar -->
+            {% include 'components/_resource_filters.html' %}
+            
+            <!-- Collections Sidebar -->
+            {% include 'components/_resource_collections.html' %}
+            
+            <!-- Main Content Area -->
+            <div class="resources-main-content flex-1">
+                <!-- Search & Filter -->
+                <div class="card p-4 mb-6">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
                 <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs mb-1 text-secondary">Search</label>
-                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search resources..." class="w-full">
+                    <label for="resource-search" class="block text-xs mb-1 text-secondary">Search Resources</label>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-muted"></i>
+                        <input type="text" id="resource-search" name="q" value="{{ search_query }}" placeholder="e.g., React tutorial, API documentation" class="w-full pl-10" onkeyup="highlightSearchTerms(this.value)" aria-label="Search resources">
+                    </div>
                 </div>
-                <div class="w-40">
-                    <label class="block text-xs mb-1 text-secondary">Type</label>
-                    <select name="type" class="w-full">
-                        <option value="">All Types</option>
-                        <option value="link" {% if filter_type == 'link' %}selected{% endif %}><i class="fas fa-link"></i> Links</option>
-                        <option value="video" {% if filter_type == 'video' %}selected{% endif %}><i class="fas fa-video"></i> Videos</option>
-                        <option value="article" {% if filter_type == 'article' %}selected{% endif %}><i class="fas fa-file-alt"></i> Articles</option>
-                        <option value="docs" {% if filter_type == 'docs' %}selected{% endif %}><i class="fas fa-book"></i> Docs</option>
-                        <option value="course" {% if filter_type == 'course' %}selected{% endif %}><i class="fas fa-graduation-cap"></i> Courses</option>
-                        <option value="note" {% if filter_type == 'note' %}selected{% endif %}><i class="fas fa-pen"></i> Notes</option>
-                    </select>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-secondary">View:</span>
+                    <div class="view-toggle">
+                        <button class="view-toggle-button active" onclick="setViewMode('list')" data-view="list" title="List View">
+                            <i class="fas fa-list"></i>
+                        </button>
+                        <button class="view-toggle-button" onclick="setViewMode('grid')" data-view="grid" title="Grid View">
+                            <i class="fas fa-th"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="w-36">
-                    <label class="block text-xs mb-1 text-secondary">Phase</label>
-                    <select name="phase" class="w-full">
-                        <option value="">All Phases</option>
-                        {% for p in phases %}
-                        <option value="{{ p.index }}" {% if filter_phase == p.index|string %}selected{% endif %}>{{ p.name[:20] }}</option>
-                        {% endfor %}
-                    </select>
+                
+                <!-- Result Count -->
+                <div class="text-sm text-secondary mb-4">
+                    <span id="filter-result-count">{{ resources|length if resources else 0 }} resources</span>
                 </div>
-                <div class="w-36">
-                    <label class="block text-xs mb-1 text-secondary">Tag</label>
-                    <select name="tag" class="w-full">
-                        <option value="">All Tags</option>
-                        {% for t in all_tags %}
-                        <option value="{{ t.name }}" {% if filter_tag == t.name %}selected{% endif %}>{{ t.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="w-36">
-                    <label class="block text-xs mb-1 text-secondary">Status</label>
-                    <select name="status" class="w-full">
-                        <option value="">All</option>
-                        <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}><i class="fas fa-check"></i> Completed</option>
-                        <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}><i class="fas fa-clock"></i> Pending</option>
-                        <option value="favorites" {% if filter_status == 'favorites' %}selected{% endif %}><i class="fas fa-star"></i> Favorites</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn-primary px-5 py-2"><i class="fas fa-search mr-1"></i>Search</button>
-                <a href="/resources" class="btn-secondary px-3 py-2">Nevermind</a>
-            </form>
+            </div>
+            
+            <!-- Visual Filter Chips -->
+            <div class="resource-filter-chips">
+                <button class="resource-filter-chip {% if not filter_type and not filter_tag and not filter_status %}active{% endif %}" onclick="clearFilters()">
+                    <span>All</span>
+                    <span class="count">{{ resources|length if resources else 0 }}</span>
+                </button>
+                {% for t in all_tags %}
+                    {% if loop.index <= 10 %}
+                <button class="resource-filter-chip {% if filter_tag == t.name %}active{% endif %}" onclick="filterByTag('{{ t.name }}')" style="background: {{ t.color }}20; border-color: {{ t.color }}; color: {{ t.color }};">
+                    <span>{{ t.name }}</span>
+                    <span class="count">{{ resources|selectattr('tags', 'equalto', [t.name])|list|length if resources else 0 }}</span>
+                </button>
+                    {% endif %}
+                {% endfor %}
+                <button class="resource-filter-chip {% if filter_type == 'video' %}active{% endif %}" onclick="filterByType('video')">
+                    <i class="fas fa-video"></i>
+                    <span>Videos</span>
+                </button>
+                <button class="resource-filter-chip {% if filter_type == 'article' %}active{% endif %}" onclick="filterByType('article')">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Articles</span>
+                </button>
+                <button class="resource-filter-chip {% if filter_status == 'completed' %}active{% endif %}" onclick="filterByStatus('completed')">
+                    <i class="fas fa-check"></i>
+                    <span>Completed</span>
+                </button>
+                <button class="resource-filter-chip {% if filter_status == 'favorites' %}active{% endif %}" onclick="filterByStatus('favorites')">
+                    <i class="fas fa-star"></i>
+                    <span>Favorites</span>
+                </button>
+            </div>
+            
+            <!-- Sort Display -->
+            <div class="sort-display mt-4">
+                <span>Sorted by:</span>
+                <select class="text-sm" onchange="setSortOrder(this.value)">
+                    <option value="recent" {% if not request.args.get('sort') or request.args.get('sort') == 'recent' %}selected{% endif %}>Most Recent</option>
+                    <option value="alphabetical" {% if request.args.get('sort') == 'alphabetical' %}selected{% endif %}>Alphabetical</option>
+                    <option value="type" {% if request.args.get('sort') == 'type' %}selected{% endif %}>Type</option>
+                    <option value="phase" {% if request.args.get('sort') == 'phase' %}selected{% endif %}>Phase</option>
+                </select>
+            </div>
         </div>
 
         <!-- Import Section -->
@@ -491,19 +464,88 @@
                 <span class="text-secondary">No tags yet</span>
                 {% endif %}
             </div>
-            <form action="/add-tag" method="POST" class="flex gap-3">
-                <input type="text" name="name" placeholder="New tag name" required class="">
-                <input type="color" name="color" value="#667eea" class="w-12 h-10 cursor-pointer color-input">
-                <button type="submit" class="btn-primary px-4 py-2"><i class="fas fa-plus mr-1"></i>Add</button>
+            <form action="/add-tag" method="POST" class="flex gap-3 items-end">
+                <div class="flex-1">
+                    <label for="tag-name" class="block text-sm text-secondary mb-1">Tag Name</label>
+                    <input type="text" id="tag-name" name="name" placeholder="e.g., JavaScript, React, Backend" required class="w-full">
+                </div>
+                <div>
+                    <label for="tag-color" class="block text-sm text-secondary mb-1">Color</label>
+                    <input type="color" id="tag-color" name="color" value="#667eea" class="w-12 h-10 cursor-pointer color-input">
+                </div>
+                <button type="submit" class="btn-primary px-4 py-2"><i class="fas fa-plus mr-1"></i>Add Tag</button>
             </form>
         </div>
 
+        <!-- Recently Added Section -->
+        {% if resources %}
+        {% set sorted_resources = resources|sort(attribute='created_at', reverse=True)|list %}
+    {% set recent_resources = [] %}
+    {% for r in sorted_resources %}
+        {% if loop.index <= 5 %}
+            {% set _ = recent_resources.append(r) %}
+        {% endif %}
+    {% endfor %}
+        {% if recent_resources|length > 0 %}
+        <div class="card p-4 mb-6 border-2 border-accent">
+            <h3 class="font-bold mb-3 text-primary">
+                <i class="fas fa-sparkles mr-2"></i>Recently Added
+            </h3>
+            <div class="flex flex-wrap gap-2">
+                {% for r in recent_resources %}
+                <a href="#resource-{{ r.id }}" class="inline-flex items-center gap-2 px-3 py-1 bg-accent bg-opacity-10 rounded-full text-sm hover:bg-opacity-20 transition-all">
+                    <span class="new-badge">New</span>
+                    <span>{% if r.title|length > 30 %}{{ r.title|truncate(30, True, '...') }}{% else %}{{ r.title }}{% endif %}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        
+        <!-- Resource Preview Modal -->
+        {% include 'components/_resource_preview_modal.html' %}
+        
+        <!-- Recommendations Sidebar -->
+        <aside class="resources-sidebar recommendations-sidebar">
+            <div class="card p-4 sticky top-4">
+                <h3 class="font-bold text-primary mb-4">
+                    <i class="fas fa-lightbulb mr-2"></i>Recommendations
+                </h3>
+                
+                <!-- Related Resources -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-secondary mb-3">Related Resources</h4>
+                    <div id="related-resources" class="space-y-2">
+                        <p class="text-xs text-muted">Based on your current viewing context</p>
+                    </div>
+                </div>
+                
+                <!-- Others Also Found Helpful -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-semibold text-secondary mb-3">Others Also Found Helpful</h4>
+                    <div id="helpful-resources" class="space-y-2">
+                        <p class="text-xs text-muted">Popular resources in your curriculum</p>
+                    </div>
+                </div>
+                
+                <!-- Continue Learning -->
+                <div>
+                    <h4 class="text-sm font-semibold text-secondary mb-3">Continue Learning</h4>
+                    <div id="continue-learning" class="space-y-2">
+                        <p class="text-xs text-muted">Suggested next steps</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
         <!-- Resources List -->
         <div class="card p-6">
             {% if resources %}
-            <div class="space-y-3">
+            <div class="space-y-3 resources-list" id="resources-container">
                 {% for r in resources %}
-                <div class="flex items-start gap-3 p-3 card rounded resource-card {% if r.id in overdue_resource_ids %}border-l-4{% endif %}" {% if r.id in overdue_resource_ids %}style="border-left-color: var(--error);"{% endif %}>
+                {% set is_recent = r.created_at and (now() - r.created_at).days < 7 %}
+                <div class="flex items-start gap-3 p-3 card rounded resource-card {% if r.id in overdue_resource_ids %}border-l-4{% endif %}" {% if r.id in overdue_resource_ids %}style="border-left-color: var(--error);"{% endif %} id="resource-{{ r.id }}" data-resource-type="{{ r.resource_type }}" data-resource-title="{{ r.title|lower }}" data-status="{{ r.get('status', 'not_started') }}" data-is-favorite="{{ 'true' if r.is_favorite else 'false' }}" data-created-at="{{ r.created_at.isoformat() if r.created_at else '' }}" data-tags="{% if r.tags %}{{ r.tags|join(',') }}{% endif %}">
                     <form action="/toggle-resource/{{ r.id }}?redirect=resources" method="POST" class="toggle-resource-form" data-resource-id="{{ r.id }}" data-current-status="{{ r.get('status', 'not_started') }}">
                         {% set status = r.get('status', 'not_started') %}
                         <button type="button" class="w-8 h-8 rounded-full flex items-center justify-center transition-all {% if status == 'complete' %}resource-status-complete{% elif status == 'in_progress' %}resource-status-progress{% elif status == 'skipped' %}resource-status-skipped{% else %}resource-status-default{% endif %}"
@@ -544,9 +586,18 @@
                                 {% endif %}
                                 {% if r.url %}
                                 <a href="{{ r.url }}" target="_blank" class="text-base font-semibold hover:underline block transition-all {% if status == 'complete' %}resource-completed{% else %}resource-link{% endif %} inline-edit-display">
-                                    <span>{{ r.title }}</span>
+                                    <span class="resource-title-text">{{ r.title }}</span>
+                                    <i class="fas fa-external-link-alt text-xs ml-2 text-muted" title="External link"></i>
                                     <i class="fas fa-edit text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"></i>
                                 </a>
+                                <!-- Link Preview -->
+                                <div class="resource-link-preview" data-url="{{ r.url }}">
+                                    <img class="resource-favicon" src="" alt="Favicon" data-url="{{ r.url }}" onerror="this.style.display='none'">
+                                    <div class="resource-link-preview-content">
+                                        <div class="resource-link-preview-title">{{ r.title }}</div>
+                                        <div class="resource-link-preview-url">{{ r.url }}</div>
+                                    </div>
+                                </div>
                                 {% else %}
                                 <span class="text-base font-semibold block {% if status == 'complete' %}resource-completed{% else %}text-primary{% endif %} inline-edit-display cursor-pointer group">
                                     <span>{{ r.title }}</span>
@@ -556,9 +607,23 @@
                                     <input type="text" value="{{ r.title }}" class="inline-edit-input hidden w-full text-base font-semibold" data-resource-id="{{ r.id }}" data-field="title">
                                 </div>
                             </div>
-                            {% if resource_hours.get(r.id) %}
-                            <span class="tag text-xs px-2 py-1 whitespace-nowrap">{{ "%.1f"|format(resource_hours[r.id]) }}h</span>
-                            {% endif %}
+                            <div class="flex items-center gap-2">
+                                {% if resource_hours.get(r.id) %}
+                                <span class="tag text-xs px-2 py-1 whitespace-nowrap">{{ "%.1f"|format(resource_hours[r.id]) }}h</span>
+                                {% endif %}
+                                {% if r.file_size %}
+                                <span class="file-size-badge">
+                                    <i class="fas fa-file"></i>
+                                    <span>{{ r.file_size }}</span>
+                                </span>
+                                {% endif %}
+                                {% if r.viewed_at %}
+                                <span class="resource-viewed-indicator" title="Viewed on {{ r.viewed_at }}">
+                                    <i class="fas fa-eye"></i>
+                                    <span>Viewed</span>
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <div class="inline-edit-notes mt-2" data-resource-id="{{ r.id }}">
@@ -651,8 +716,8 @@
                             <form enctype="multipart/form-data" onsubmit="uploadAttachment(event, {{ r.id }})">
                                 <input type="file" name="file" required class="text-sm mb-2">
                                 <div class="flex gap-2">
-                                    <button type="submit" class="btn-primary text-xs">Ship it</button>
-                                    <button type="button" onclick="toggleAttachmentForm({{ r.id }})" class="btn-secondary text-xs">Nevermind</button>
+                                    <button type="submit" class="btn-primary text-xs"><i class="fas fa-upload mr-1"></i>Upload File</button>
+                                    <button type="button" onclick="toggleAttachmentForm({{ r.id }})" class="btn-secondary text-xs">Cancel</button>
                                 </div>
                             </form>
                         </div>
@@ -664,15 +729,108 @@
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-12">
-                <i class="fas fa-folder-open text-6xl mb-4 empty-state-icon"></i>
-                <p class="empty-state">Nothing here yet—time to add some!</p>
-                {% if search_query or filter_type or filter_phase or filter_tag or filter_status %}
-                <a href="/resources" class="transition-all text-accent">Clear filters</a>
-                {% endif %}
-            </div>
+            {% set icon = 'fa-folder-open' %}
+            {% set title = 'No resources found' %}
+            {% set message = 'Start adding resources to your curriculum to see them here.' %}
+            {% set action_url = '/curriculum/board' %}
+            {% set action_text = 'Add Resource' %}
+            {% include 'components/_empty_state.html' %}
             {% endif %}
         </div>
+        
+        <script>
+            // View mode toggle
+            function setViewMode(mode) {
+                const container = document.getElementById('resources-container');
+                const buttons = document.querySelectorAll('.view-toggle-button');
+                
+                buttons.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.view === mode) {
+                        btn.classList.add('active');
+                    }
+                });
+                
+                if (container) {
+                    if (mode === 'grid') {
+                        container.classList.remove('resources-list');
+                        container.classList.add('resources-grid');
+                    } else {
+                        container.classList.remove('resources-grid');
+                        container.classList.add('resources-list');
+                    }
+                }
+                
+                localStorage.setItem('resources-view-mode', mode);
+            }
+            
+            // Load saved view mode
+            document.addEventListener('DOMContentLoaded', function() {
+                const savedMode = localStorage.getItem('resources-view-mode') || 'list';
+                setViewMode(savedMode);
+            });
+            
+            // Filter functions
+            function filterByTag(tag) {
+                window.location.href = `/resources?tag=${encodeURIComponent(tag)}`;
+            }
+            
+            function filterByType(type) {
+                window.location.href = `/resources?type=${encodeURIComponent(type)}`;
+            }
+            
+            function filterByStatus(status) {
+                window.location.href = `/resources?status=${encodeURIComponent(status)}`;
+            }
+            
+            function clearFilters() {
+                window.location.href = '/resources';
+            }
+            
+            function setSortOrder(order) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('sort', order);
+                window.location.href = url.toString();
+            }
+            
+            // Search highlighting
+            function highlightSearchTerms(searchTerm) {
+                if (!searchTerm) {
+                    document.querySelectorAll('.search-highlight').forEach(el => {
+                        el.outerHTML = el.textContent;
+                    });
+                    return;
+                }
+                
+                const terms = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+                const titleElements = document.querySelectorAll('.resource-title-text');
+                
+                titleElements.forEach(el => {
+                    let text = el.textContent;
+                    terms.forEach(term => {
+                        const regex = new RegExp(`(${term})`, 'gi');
+                        text = text.replace(regex, '<span class="search-highlight">$1</span>');
+                    });
+                    el.innerHTML = text;
+                });
+            }
+            
+            // Description toggle
+            function toggleDescription(resourceId) {
+                const desc = document.getElementById(`description-${resourceId}`);
+                const toggle = document.getElementById(`toggle-desc-${resourceId}`);
+                
+                if (desc && toggle) {
+                    if (desc.classList.contains('expanded')) {
+                        desc.classList.remove('expanded');
+                        toggle.textContent = 'Show more';
+                    } else {
+                        desc.classList.add('expanded');
+                        toggle.textContent = 'Show less';
+                    }
+                }
+            }
+        </script>
 
         <!-- Stats -->
         {% if resources %}
@@ -898,7 +1056,7 @@
                         data.attachments.forEach(att => {
                             const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(att.file_type);
                             html += `<div class="flex items-center gap-2 text-sm p-2 rounded bg-tertiary">
-                                ${isImage ? `<img src="/uploads/${att.filename}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file"></i>`}
+                                ${isImage ? `<img src="/uploads/${att.filename}" alt="${att.original_filename || 'Attachment image'}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file" aria-label="File attachment"></i>`}
                                 <a href="/uploads/${att.filename}" target="_blank" class="flex-1 text-primary hover:text-accent">${att.original_filename}</a>
                                 <form action="/attachment/${att.id}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?')">
                                     <button type="submit" class="text-error"><i class="fas fa-trash text-xs"></i></button>
@@ -1053,6 +1211,7 @@
             generateBreadcrumbs();
         });
     </script>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -1109,5 +1268,98 @@
             }, 300);
         }
     </script>
-</body>
+    <script src="/static/js/resource-filters.js"></script>
+    <script src="/static/js/resource-preview.js"></script>
+    <script>
+        // Load and display recommendations
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecommendations();
+        });
+        
+        async function loadRecommendations() {
+            try {
+                // Get current viewing context (if any resource is selected/viewed)
+                const viewedResourceId = new URLSearchParams(window.location.search).get('view');
+                
+                // Fetch recommendations
+                const response = await fetch('/api/resources/recommendations' + (viewedResourceId ? `?resource_id=${viewedResourceId}` : ''));
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                
+                // Populate related resources
+                if (data.related && data.related.length > 0) {
+                    const container = document.getElementById('related-resources');
+                    container.innerHTML = data.related.slice(0, 3).map(r => `
+                        <div class="recommendation-item" onclick="viewResource(${r.id})">
+                            <div class="recommendation-item-title">${escapeHtml(r.title)}</div>
+                            <div class="recommendation-item-meta">${r.resource_type || 'Resource'}</div>
+                        </div>
+                    `).join('');
+                }
+                
+                // Populate helpful resources
+                if (data.helpful && data.helpful.length > 0) {
+                    const container = document.getElementById('helpful-resources');
+                    container.innerHTML = data.helpful.slice(0, 3).map(r => `
+                        <div class="recommendation-item" onclick="viewResource(${r.id})">
+                            <div class="recommendation-item-title">${escapeHtml(r.title)}</div>
+                            <div class="recommendation-item-meta">${r.resource_type || 'Resource'}</div>
+                        </div>
+                    `).join('');
+                }
+                
+                // Populate continue learning
+                if (data.continue && data.continue.length > 0) {
+                    const container = document.getElementById('continue-learning');
+                    container.innerHTML = data.continue.slice(0, 3).map(r => `
+                        <div class="recommendation-item" onclick="viewResource(${r.id})">
+                            <div class="recommendation-item-title">${escapeHtml(r.title)}</div>
+                            <div class="recommendation-item-meta">${r.resource_type || 'Resource'}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading recommendations:', error);
+            }
+        }
+        
+        function viewResource(resourceId) {
+            // Scroll to resource or open preview
+            const resourceEl = document.getElementById(`resource-${resourceId}`);
+            if (resourceEl) {
+                resourceEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                resourceEl.classList.add('highlight-flash');
+                setTimeout(() => resourceEl.classList.remove('highlight-flash'), 2000);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+    <script src="/static/js/resource-collections.js"></script>
+    <script>
+        // Extract domain from URL and set favicon
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.resource-favicon[data-url]').forEach(function(img) {
+                const url = img.getAttribute('data-url');
+                if (url) {
+                    try {
+                        const urlObj = new URL(url);
+                        const domain = urlObj.hostname.replace('www.', '');
+                        img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+                    } catch (e) {
+                        // Invalid URL, hide favicon
+                        img.style.display = 'none';
+                    }
+                }
+            });
+        });
+    </script>
+    </div> <!-- End resources-layout -->
+    </div> <!-- End main-content-wrapper -->
+    </body>
 </html>

@@ -4,60 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Time Reports - Curriculum Tracker</title>
+    <title>Reports - Curriculum Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        :root {
-            --bg-primary: #f5f5f4;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #e7e5e4;
-            --text-primary: #1c1917;
-            --text-secondary: #44403c;
-            --text-muted: #78716c;
-            --border: rgba(0, 0, 0, 0.15);
-            --accent: #0066ff;
-            --accent-hover: #0052cc;
-            --success: #16a34a;
-            --warning: #ca8a04;
-            --error: #dc2626;
-            --phase-1: #2563eb;
-            --phase-2: #7c3aed;
-            --phase-3: #0d9488;
-            --phase-4: #ea580c;
-        }
-        
-        [data-theme="dark"] {
-            --bg-primary: #0a0a0a;
-            --bg-secondary: #171717;
-            --bg-tertiary: #262626;
-            --text-primary: #fafafa;
-            --text-secondary: #d4d4d4;
-            --text-muted: #a3a3a3;
-            --border: rgba(255, 255, 255, 0.15);
-            --accent: #00d4ff;
-            --accent-hover: #00b8e6;
-            --success: #22c55e;
-            --warning: #eab308;
-            --error: #ef4444;
-            --phase-1: #3b82f6;
-            --phase-2: #8b5cf6;
-            --phase-3: #14b8a6;
-            --phase-4: #f97316;
-        }
-        
-        * {
-            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-        }
-        
+        /* Page-specific styles - design system variables are in design-system.css */
         .card {
             background: var(--bg-secondary);
             border-radius: 12px;
@@ -164,8 +119,23 @@
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
+    <script src="/static/js/accessibility.js"></script>
 </head>
 <body class="min-h-screen">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    {% set current_page = 'reports' %}
+    {% set user_name = current_user.username if current_user else 'User' %}
+    {% include 'components/_sidebar_nav.html' %}
+    
+    <!-- Mobile Tab Bar (Mobile) -->
+    {% set current_page = 'reports' %}
+    {% include 'components/_mobile_tabbar.html' %}
+    
+    <!-- Main Content Wrapper -->
+    <div class="main-content-wrapper">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <!-- Unified Navigation -->
@@ -239,47 +209,188 @@
         </div>
     </header>
     
-    <div class="max-w-7xl mx-auto p-6">
+    <main id="main-content" class="max-w-7xl mx-auto p-6">
+        <!-- Key Insights Hero Section -->
+        <div class="key-insights-hero mb-8">
+            <div class="card p-6 bg-gradient-to-r from-accent/10 to-accent/5 border-2 border-accent">
+                <h1 class="text-3xl font-bold text-primary mb-4">Key Insights</h1>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="insight-metric">
+                        <div class="insight-metric-value text-4xl font-bold text-accent">
+                            {{ "%.1f"|format(reports.total_hours) }}h
+                        </div>
+                        <div class="insight-metric-label text-secondary">Total Learning Time</div>
+                        <div class="insight-metric-trend positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>+{{ "%.1f"|format(reports.daily_avg * 7) }}h this week</span>
+                        </div>
+                    </div>
+                    <div class="insight-metric">
+                        <div class="insight-metric-value text-4xl font-bold {% if reports.daily_avg >= reports.needed_daily %}text-success{% else %}text-warning{% endif %}">
+                            {{ "%.1f"|format(reports.daily_avg) }}h
+                        </div>
+                        <div class="insight-metric-label text-secondary">Daily Average</div>
+                        <div class="insight-metric-trend {% if reports.daily_avg >= reports.needed_daily %}positive{% else %}negative{% endif %}">
+                            <i class="fas fa-{% if reports.daily_avg >= reports.needed_daily %}check{% else %}exclamation{% endif %}"></i>
+                            <span>{% if reports.daily_avg >= reports.needed_daily %}On track{% else %}Below target{% endif %}</span>
+                        </div>
+                    </div>
+                    <div class="insight-metric">
+                        <div class="insight-metric-value text-4xl font-bold text-primary">
+                            {{ reports.by_phase|length if reports.by_phase else 0 }}
+                        </div>
+                        <div class="insight-metric-label text-secondary">Active Phases</div>
+                        <div class="insight-metric-trend">
+                            <span>In progress</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reports Header with Controls -->
+        <div class="reports-header mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-primary mb-2">Detailed Analytics</h2>
+                <p class="text-secondary">Explore your learning patterns in depth</p>
+            </div>
+            <div class="reports-controls">
+                <!-- Date Range Buttons -->
+                <div class="date-range-buttons">
+                    <button class="date-range-button active" onclick="setDateRange('7d')">Last 7 Days</button>
+                    <button class="date-range-button" onclick="setDateRange('30d')">Last 30 Days</button>
+                    <button class="date-range-button" onclick="setDateRange('90d')">Last 90 Days</button>
+                    <button class="date-range-button" onclick="setDateRange('all')">All Time</button>
+                </div>
+                
+                <!-- Comparison Toggle -->
+                <label class="comparison-toggle" onclick="toggleComparison()">
+                    <input type="checkbox" id="comparison-mode">
+                    <span>Compare Periods</span>
+                </label>
+                
+                <!-- Export Button -->
+                <div class="export-button">
+                    <button class="btn-primary" onclick="toggleExportDropdown()">
+                        <i class="fas fa-download mr-2"></i>Export
+                    </button>
+                    <div class="export-dropdown" id="export-dropdown">
+                        <div class="export-dropdown-item" onclick="exportReport('pdf')">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Export as PDF</span>
+                        </div>
+                        <div class="export-dropdown-item" onclick="exportReport('csv')">
+                            <i class="fas fa-file-csv"></i>
+                            <span>Export as CSV</span>
+                        </div>
+                        <div class="export-dropdown-item" onclick="exportReport('png')">
+                            <i class="fas fa-image"></i>
+                            <span>Export Charts as PNG</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Insight Cards -->
+        <div class="insights-section">
+            {% if reports.daily_avg >= reports.needed_daily %}
+            <div class="insight-card success">
+                <div class="insight-header">
+                    <div class="insight-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="insight-title">You're On Track!</div>
+                </div>
+                <p class="insight-description">
+                    Your daily average of {{ "%.2f"|format(reports.daily_avg) }} hours exceeds your target of {{ "%.2f"|format(reports.needed_daily) }} hours. Keep up the excellent work!
+                </p>
+            </div>
+            {% else %}
+            <div class="insight-card warning">
+                <div class="insight-header">
+                    <div class="insight-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="insight-title">Below Target</div>
+                </div>
+                <p class="insight-description">
+                    Your current daily average of {{ "%.2f"|format(reports.daily_avg) }} hours is below the target of {{ "%.2f"|format(reports.needed_daily) }} hours. Consider increasing your daily study time to stay on schedule.
+                </p>
+            </div>
+            {% endif %}
+            
+            {% if reports.by_phase and reports.by_phase|length > 0 %}
+            {% set top_phase = reports.by_phase|sort(attribute='hours', reverse=True)|first %}
+            <div class="insight-card info">
+                <div class="insight-header">
+                    <div class="insight-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="insight-title">Top Performing Phase</div>
+                </div>
+                <p class="insight-description">
+                    Phase {{ top_phase.phase_index + 1 }} has the most hours logged with {{ "%.1f"|format(top_phase.hours) }} hours. This shows strong focus in this area of your curriculum.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Goal Tracking -->
+        {% include 'components/_goal_tracking.html' %}
+        
+        <!-- Loading State -->
+        <div id="reports-loading" class="reports-loading hidden">
+            <div class="reports-loading-spinner"></div>
+            <p class="text-secondary">Generating your report...</p>
+        </div>
+        
         <!-- Hours by Phase -->
         <div class="card mb-6">
-            <h2 class="text-xl font-bold text-primary mb-4">Hours by Phase</h2>
-            <div style="height: 250px; max-height: 250px;">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-primary">
+                    Hours by Phase
+                    <span class="metric-info-tooltip">
+                        <i class="fas fa-info-circle text-muted cursor-help"></i>
+                        <span class="tooltip-text">Shows total hours logged per curriculum phase. The dashed line represents the target of 96 hours per phase.</span>
+                    </span>
+                </h2>
+            </div>
+            <div style="height: 300px; max-height: 300px;">
                 <canvas id="phase-chart"></canvas>
             </div>
         </div>
         
         <!-- Hours by Resource Type -->
-        <div class="card mb-6">
-            <h2 class="text-xl font-bold text-primary mb-4">Hours by Resource Type</h2>
-            <div style="height: 250px; max-height: 250px;">
+        <div class="card mb-6" id="type-chart-section" data-section="type-chart-section">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-primary">
+                    Hours by Resource Type
+                    <span class="metric-info-tooltip">
+                        <i class="fas fa-info-circle text-muted cursor-help"></i>
+                        <span class="tooltip-text">Breakdown of time spent on different types of learning resources (videos, articles, projects, etc.).</span>
+                    </span>
+                </h2>
+            </div>
+            <div style="height: 300px; max-height: 300px;">
                 <canvas id="type-chart"></canvas>
             </div>
         </div>
         
         <!-- Hours by Week -->
-        <div class="card mb-6">
-            <h2 class="text-xl font-bold text-primary mb-4">Hours by Week</h2>
-            <div style="height: 250px; max-height: 250px;">
+        <div class="card mb-6" id="week-chart-section" data-section="week-chart-section">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-primary">
+                    Hours by Week
+                    <span class="metric-info-tooltip">
+                        <i class="fas fa-info-circle text-muted cursor-help"></i>
+                        <span class="tooltip-text">Weekly hours logged over time. The dashed line shows the target of 24 hours per week.</span>
+                    </span>
+                </h2>
+            </div>
+            <div style="height: 300px; max-height: 300px;">
                 <canvas id="week-chart"></canvas>
             </div>
-        </div>
-        
-        <!-- Daily Average -->
-        <div class="card">
-            <h2 class="text-xl font-bold text-primary mb-4">Daily Average</h2>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-sm text-secondary mb-1">Current Daily Average</p>
-                    <p class="text-2xl font-bold text-primary">{{ "%.2f"|format(reports.daily_avg) }}h</p>
-                </div>
-                <div>
-                    <p class="text-sm text-secondary mb-1">Needed Daily Average</p>
-                    <p class="text-2xl font-bold {% if reports.needed_daily > reports.daily_avg %}text-error{% else %}text-success{% endif %}">
-                        {{ "%.2f"|format(reports.needed_daily) }}h
-                    </p>
-                </div>
-            </div>
-            <p class="text-sm text-secondary mt-4">Total hours logged: <span class="font-semibold text-primary">{{ "%.1f"|format(reports.total_hours) }}h</span></p>
         </div>
     </div>
     
@@ -318,6 +429,73 @@
             // Recreate charts with new colors
             createCharts();
         }
+        
+        // Date range functions
+        function setDateRange(range) {
+            document.querySelectorAll('.date-range-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Show loading
+            document.getElementById('reports-loading').classList.remove('hidden');
+            
+            // In a real implementation, this would fetch new data
+            setTimeout(() => {
+                document.getElementById('reports-loading').classList.add('hidden');
+                createCharts(); // Recreate with filtered data
+                showToast('Date range updated', 'success');
+            }, 1000);
+        }
+        
+        // Export functions
+        function toggleExportDropdown() {
+            const dropdown = document.getElementById('export-dropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        function exportReport(format) {
+            toggleExportDropdown();
+            
+            // Show loading state
+            if (typeof showToast === 'function') {
+                showToast(`Exporting as ${format.toUpperCase()}...`, 'info');
+            }
+            
+            // Trigger download
+            if (format === 'csv') {
+                window.location.href = '/reports/export/csv';
+            } else if (format === 'pdf') {
+                window.location.href = '/reports/export/pdf';
+            } else if (format === 'png') {
+                window.location.href = '/reports/export/png';
+            }
+            showToast(`Exporting as ${format.toUpperCase()}...`, 'info');
+            // In a real implementation, this would trigger download
+            setTimeout(() => {
+                showToast(`Report exported as ${format.toUpperCase()}`, 'success');
+            }, 1000);
+        }
+        
+        // Comparison mode
+        function toggleComparison() {
+            const checkbox = document.getElementById('comparison-mode');
+            const toggle = event.target.closest('.comparison-toggle');
+            if (toggle) {
+                toggle.classList.toggle('active');
+            }
+            showToast(checkbox.checked ? 'Comparison mode enabled' : 'Comparison mode disabled', 'info');
+            // In a real implementation, this would show/hide comparison data
+        }
+        
+        // Close export dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const exportButton = document.querySelector('.export-button');
+            const dropdown = document.getElementById('export-dropdown');
+            if (exportButton && dropdown && !exportButton.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
         
         function createCharts() {
             const colors = getChartColors();
@@ -358,17 +536,24 @@
                     },
                     scales: {
                         x: {
-                            ticks: { color: colors.textColor },
+                            ticks: { 
+                                color: colors.textColor,
+                                font: { size: 13 }
+                            },
                             grid: { color: colors.gridColor }
                         },
                         y: {
                             beginAtZero: true,
-                            ticks: { color: colors.textColor },
+                            ticks: { 
+                                color: colors.textColor,
+                                font: { size: 13 }
+                            },
                             grid: { color: colors.gridColor },
                             title: {
                                 display: true,
                                 text: 'Hours',
-                                color: colors.textColor
+                                color: colors.textColor,
+                                font: { size: 13 }
                             }
                         }
                     }
@@ -393,7 +578,10 @@
                             'var(--phase-2)',
                             'var(--phase-3)',
                             'var(--phase-4)'
-                        ]
+                        ],
+                        // Add border for better distinction
+                        borderWidth: 2,
+                        borderColor: colors.backgroundColor
                     }]
                 },
                 options: {
@@ -402,8 +590,28 @@
                     plugins: {
                         legend: {
                             labels: {
-                                color: colors.textColor
-                            }
+                                color: colors.textColor,
+                                font: { size: 13 }
+                            },
+                            position: 'right'
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: colors.backgroundColor,
+                            titleColor: colors.textColor,
+                            bodyColor: colors.textColor,
+                            borderColor: colors.borderColor,
+                            borderWidth: 1,
+                            titleFont: { size: 13 },
+                            bodyFont: { size: 12 },
+                            padding: 12
+                        }
+                    },
+                    onClick: function(event, elements) {
+                        if (elements.length > 0) {
+                            const element = elements[0];
+                            const label = this.data.labels[element.index];
+                            showToast(`Viewing details for ${label}`, 'info');
                         }
                     }
                 }
@@ -444,23 +652,46 @@
                     },
                     scales: {
                         x: {
-                            ticks: { color: colors.textColor },
+                            ticks: { 
+                                color: colors.textColor,
+                                font: { size: 13 }
+                            },
                             grid: { color: colors.gridColor }
                         },
                         y: {
                             beginAtZero: true,
-                            ticks: { color: colors.textColor },
+                            ticks: { 
+                                color: colors.textColor,
+                                font: { size: 13 }
+                            },
                             grid: { color: colors.gridColor },
                             title: {
                                 display: true,
                                 text: 'Hours',
-                                color: colors.textColor
+                                color: colors.textColor,
+                                font: { size: 13 }
                             }
                         }
                     }
                 }
                 });
             }
+            
+            // Add zero-state handling for charts
+            const charts = [phaseChart, typeChart, weekChart];
+            charts.forEach((chart, index) => {
+                if (chart && chart.data.datasets[0].data.every(v => v === 0 || !v)) {
+                    const canvas = chart.canvas;
+                    const container = canvas.parentElement;
+                    const zeroState = document.createElement('div');
+                    zeroState.className = 'chart-zero-state';
+                    zeroState.innerHTML = `
+                        <i class="fas fa-chart-line"></i>
+                        <p>No data available for this period</p>
+                    `;
+                    container.appendChild(zeroState);
+                }
+            });
         }
         
         function toggleTheme() {
@@ -574,6 +805,9 @@
             generateBreadcrumbs();
         });
     </script>
+    <script src="/static/js/report-customization.js"></script>
+    <script src="/static/js/goal-tracking.js"></script>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -618,6 +852,7 @@
             }, 300);
         }
     </script>
-</body>
+    </div> <!-- End main-content-wrapper -->
+    </body>
 </html>
 

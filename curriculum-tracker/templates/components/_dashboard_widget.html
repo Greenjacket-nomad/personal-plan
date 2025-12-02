@@ -1,0 +1,157 @@
+{# Dashboard Widget Component
+   Usage:
+   {% include 'components/_dashboard_widget.html' with {
+       'id': 'widget-id',
+       'title': 'Widget Title',
+       'icon': 'fas fa-chart-line',
+       'action_url': '/reports',
+       'action_text': 'View Details',
+       'collapsible': true,
+       'default_collapsed': false
+   } %}
+   
+   Widget content goes between {% block widget_content %} and {% endblock %}
+#}
+<div id="{{ id }}" class="dashboard-widget card">
+    <div class="widget-header">
+        <div class="widget-header-content">
+            {% if icon %}
+            <div class="widget-icon">
+                <i class="{{ icon }}"></i>
+            </div>
+            {% endif %}
+            <div class="widget-title-group">
+                <h3 class="widget-title">{{ title }}</h3>
+            </div>
+        </div>
+        <div class="widget-actions">
+            {% if collapsible %}
+            <button type="button" class="widget-toggle" onclick="toggleWidget('{{ id }}')" aria-label="Toggle widget">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            {% endif %}
+            {% if action_url %}
+            <a href="{{ action_url }}" class="widget-action-link" aria-label="{{ action_text|default('View details') }}">
+                <i class="fas fa-arrow-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="widget-content{% if default_collapsed and collapsible %} widget-collapsed{% endif %}">
+        {% block widget_content %}{% endblock %}
+    </div>
+</div>
+
+<style>
+.dashboard-widget {
+    margin-bottom: var(--spacing-lg);
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+}
+
+.widget-header-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex: 1;
+}
+
+.widget-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-lg);
+}
+
+.widget-title-group {
+    flex: 1;
+}
+
+.widget-title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.widget-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.widget-toggle,
+.widget-action-link {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    transition: all var(--transition-fast) var(--ease-out);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.widget-toggle:hover,
+.widget-action-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.widget-content {
+    padding: var(--spacing-lg);
+    transition: max-height var(--transition-slow) var(--ease-out),
+                opacity var(--transition-slow) var(--ease-out),
+                padding var(--transition-slow) var(--ease-out);
+    overflow: hidden;
+}
+
+.widget-collapsed {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.widget-toggle .fa-chevron-down {
+    transition: transform var(--transition-base) var(--ease-out);
+}
+
+.widget-collapsed ~ .widget-header .widget-toggle .fa-chevron-down {
+    transform: rotate(-90deg);
+}
+</style>
+
+<script>
+function toggleWidget(widgetId) {
+    const widget = document.getElementById(widgetId);
+    if (!widget) return;
+    
+    const content = widget.querySelector('.widget-content');
+    const toggle = widget.querySelector('.widget-toggle');
+    
+    if (content.classList.contains('widget-collapsed')) {
+        content.classList.remove('widget-collapsed');
+        toggle.setAttribute('aria-expanded', 'true');
+    } else {
+        content.classList.add('widget-collapsed');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+}
+</script>
+

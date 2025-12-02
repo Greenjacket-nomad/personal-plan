@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
@@ -18,7 +19,7 @@
             --bg-tertiary: #e7e5e4;
             --text-primary: #1c1917;
             --text-secondary: #44403c;
-            --text-muted: #78716c;
+            --text-muted: #6b6560; /* Improved contrast: 4.6:1 on bg-primary, 5.2:1 on bg-secondary (meets WCAG AA) */
             --border: rgba(0, 0, 0, 0.15);
             --accent: #0066ff;
             --accent-hover: #0052cc;
@@ -70,9 +71,9 @@
         
         .card {
             background: var(--bg-secondary);
-            border-radius: 12px;
+            border-radius: var(--radius-xl);
             border: 1px solid var(--border);
-            transition: all 150ms ease;
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         [data-theme="dark"] .card {
@@ -84,16 +85,16 @@
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            transition: all 150ms ease;
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            font-weight: var(--font-weight-medium);
+            transition: all var(--transition-fast) var(--ease-out);
             cursor: pointer;
         }
         
         .btn-primary:hover {
             background: var(--accent-hover);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            box-shadow: var(--shadow-md);
         }
         
         /* Board-specific styles will be in static/style.css */
@@ -141,8 +142,10 @@
             updateThemeIcon();
         });
     </script>
+    <script src="/static/js/accessibility.js"></script>
 </head>
 <body class="min-h-screen flex flex-col">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
     <header class="header py-4 px-8 border-b border-primary sticky top-0 z-50">
         <div class="flex items-center justify-between">
             <!-- Left: Logo + Breadcrumbs -->
@@ -207,7 +210,126 @@
     </header>
 
     <!-- Board Container -->
-    <div class="board-container flex-1 flex overflow-hidden">
+    <main id="main-content" class="board-container flex-1 flex overflow-hidden">
+        <!-- Board Controls Header -->
+        <div class="board-controls glass sticky top-0 z-50 p-4 border-b border-primary">
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-semibold text-primary">Curriculum Board</h2>
+                    <div class="h-6 w-px bg-border"></div>
+                    <!-- Swimlane Toggle -->
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-secondary">Group by:</label>
+                        <select id="swimlane-mode" onchange="toggleSwimlaneMode(this.value)" class="text-sm px-3 py-1 rounded border border-primary bg-secondary text-primary">
+                            <option value="none">None</option>
+                            <option value="category">Category</option>
+                            <option value="priority">Priority</option>
+                            <option value="status">Status</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <!-- Filter Toggle -->
+                    <button id="filter-toggle" onclick="toggleBoardFilters()" class="btn-secondary px-3 py-1 text-sm" aria-label="Toggle filters">
+                        <i class="fas fa-filter mr-1"></i>Filters
+                        <span id="active-filter-count" class="ml-1 px-1.5 py-0.5 bg-accent text-white rounded-full text-xs hidden">0</span>
+                    </button>
+                    
+                    <!-- Focus Mode Toggle -->
+                    <button id="focus-mode-toggle" onclick="toggleFocusMode()" class="btn-secondary px-3 py-1 text-sm" aria-label="Toggle focus mode">
+                        <i class="fas fa-eye mr-1"></i>Focus Mode
+                    </button>
+                    
+                    <!-- View Options -->
+                    <div class="flex items-center gap-1 border border-primary rounded-lg p-1">
+                        <button onclick="setBoardView('compact')" class="px-2 py-1 text-xs hover:bg-tertiary rounded" title="Compact view">
+                            <i class="fas fa-compress"></i>
+                        </button>
+                        <button onclick="setBoardView('normal')" class="px-2 py-1 text-xs hover:bg-tertiary rounded active" title="Normal view">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button onclick="setBoardView('detailed')" class="px-2 py-1 text-xs hover:bg-tertiary rounded" title="Detailed view">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Panel (Hidden by default) -->
+            <div id="board-filters" class="hidden mt-4 pt-4 border-t border-primary">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <label class="text-sm text-secondary">Status:</label>
+                    <div class="flex gap-2">
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="status" value="not_started" checked onchange="applyBoardFilters()">
+                            <span>Not Started</span>
+                        </label>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="status" value="in_progress" checked onchange="applyBoardFilters()">
+                            <span>In Progress</span>
+                        </label>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="status" value="complete" checked onchange="applyBoardFilters()">
+                            <span>Complete</span>
+                        </label>
+                    </div>
+                    
+                    <div class="h-4 w-px bg-border mx-2"></div>
+                    
+                    <label class="text-sm text-secondary">Difficulty:</label>
+                    <div class="flex gap-2">
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="difficulty" value="easy" checked onchange="applyBoardFilters()">
+                            <span>Easy</span>
+                        </label>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="difficulty" value="medium" checked onchange="applyBoardFilters()">
+                            <span>Medium</span>
+                        </label>
+                        <label class="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" class="filter-checkbox" data-filter="difficulty" value="hard" checked onchange="applyBoardFilters()">
+                            <span>Hard</span>
+                        </label>
+                    </div>
+                    
+                    <div class="h-4 w-px bg-border mx-2"></div>
+                    
+                    <button onclick="clearBoardFilters()" class="text-sm text-muted hover:text-primary">
+                        <i class="fas fa-times mr-1"></i>Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Color Legend -->
+        <div class="board-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--success);"></div>
+                <span>Easy</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--warning);"></div>
+                <span>Medium</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--error);"></div>
+                <span>Hard</span>
+            </div>
+            <div class="legend-item">
+                <i class="fas fa-check-circle text-success"></i>
+                <span>Complete</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color status-not-started" style="background: #3b82f6;"></div>
+                <span>Not Started</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color status-in-progress" style="background: #f59e0b;"></div>
+                <span>In Progress</span>
+            </div>
+        </div>
+        
         <!-- Main Board Area -->
         <div id="board-content" class="flex-1 overflow-x-auto overflow-y-auto">
             <!-- Loading Skeleton -->
@@ -247,7 +369,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -311,7 +433,7 @@
                 </div>
                 
                 <div class="flex gap-3 justify-end">
-                    <button type="button" onclick="closeEditResourceModal()" class="btn-secondary">Cancel</button>
+                    <button type="button" onclick="closeEditResourceModal()" class="btn-secondary">Cancel Edit</button>
                     <button type="submit" class="btn-primary">Save Changes</button>
                 </div>
             </form>
@@ -319,7 +441,132 @@
     </div>
     
     <!-- Scripts -->
+    <script src="/static/js/accessibility.js"></script>
     <script src="/static/js/board.js"></script>
+    <script src="/static/js/board-swimlanes.js"></script>
+    
+    <script>
+        // Board Filtering and Focus Mode
+        let focusModeActive = false;
+        let activeFilters = {
+            status: ['not_started', 'in_progress', 'complete'],
+            difficulty: ['easy', 'medium', 'hard']
+        };
+        
+        function toggleBoardFilters() {
+            const panel = document.getElementById('board-filters');
+            panel.classList.toggle('hidden');
+        }
+        
+        function applyBoardFilters() {
+            const checkboxes = document.querySelectorAll('.filter-checkbox:checked');
+            activeFilters = {
+                status: [],
+                difficulty: []
+            };
+            
+            checkboxes.forEach(cb => {
+                const filterType = cb.dataset.filter;
+                const value = cb.value;
+                if (!activeFilters[filterType]) {
+                    activeFilters[filterType] = [];
+                }
+                activeFilters[filterType].push(value);
+            });
+            
+            // Update filter count badge
+            const totalActive = checkboxes.length;
+            const badge = document.getElementById('active-filter-count');
+            if (totalActive < 6) { // Less than all filters
+                badge.textContent = totalActive;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+            
+            // Apply filters to resources
+            filterResources();
+        }
+        
+        function filterResources() {
+            const resources = document.querySelectorAll('.resource-item');
+            resources.forEach(resource => {
+                const status = resource.dataset.status || 'not_started';
+                const difficulty = resource.dataset.difficulty || 'medium';
+                
+                const statusMatch = activeFilters.status.includes(status);
+                const difficultyMatch = activeFilters.difficulty.includes(difficulty);
+                
+                if (statusMatch && difficultyMatch) {
+                    resource.style.display = '';
+                    if (focusModeActive) {
+                        resource.style.opacity = '1';
+                    }
+                } else {
+                    if (focusModeActive) {
+                        resource.style.opacity = '0.2';
+                        resource.style.pointerEvents = 'none';
+                    } else {
+                        resource.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        function clearBoardFilters() {
+            document.querySelectorAll('.filter-checkbox').forEach(cb => {
+                cb.checked = true;
+            });
+            activeFilters = {
+                status: ['not_started', 'in_progress', 'complete'],
+                difficulty: ['easy', 'medium', 'hard']
+            };
+            document.getElementById('active-filter-count').classList.add('hidden');
+            filterResources();
+        }
+        
+        function toggleFocusMode() {
+            focusModeActive = !focusModeActive;
+            const button = document.getElementById('focus-mode-toggle');
+            
+            if (focusModeActive) {
+                button.classList.add('active');
+                button.innerHTML = '<i class="fas fa-eye-slash mr-1"></i>Focus Mode';
+            } else {
+                button.classList.remove('active');
+                button.innerHTML = '<i class="fas fa-eye mr-1"></i>Focus Mode';
+            }
+            
+            filterResources();
+        }
+        
+        function setBoardView(view) {
+            document.querySelectorAll('[onclick*="setBoardView"]').forEach(btn => {
+                btn.classList.remove('active', 'bg-accent', 'text-white');
+            });
+            event.target.classList.add('active', 'bg-accent', 'text-white');
+            
+            const board = document.getElementById('board-phases');
+            board.className = `p-6 space-y-6 ${view === 'compact' ? 'compact-view' : view === 'detailed' ? 'detailed-view' : ''}`;
+            
+            localStorage.setItem('board-view', view);
+        }
+        
+        // Load saved view preference
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedView = localStorage.getItem('board-view') || 'normal';
+            if (savedView !== 'normal') {
+                setBoardView(savedView);
+            }
+        });
+        
+        // Enhanced swimlane mode toggle
+        function toggleSwimlaneMode(mode) {
+            if (window.toggleSwimlaneMode) {
+                window.toggleSwimlaneMode(mode);
+            }
+        }
+    </script>
     
     <script>
         // Initialize board when DOM is ready

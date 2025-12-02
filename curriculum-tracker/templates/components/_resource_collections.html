@@ -1,0 +1,134 @@
+<div class="resource-collections-sidebar">
+    <div class="collections-header">
+        <h3>Collections</h3>
+        <button class="btn-icon" onclick="toggleCollectionsSidebar()" title="Close">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="collections-content">
+        <button class="btn-primary w-full mb-4" onclick="showCreateCollectionModal()">
+            <i class="fas fa-plus mr-1"></i>New Collection
+        </button>
+        
+        <div class="collections-list" id="collections-list">
+            <!-- Collections will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Create Collection Modal -->
+{% set id = 'create-collection-modal' %}
+{% set title = 'Create Collection' %}
+{% set size = 'small' %}
+{% set close_button = true %}
+{% set footer_align = 'space-between' %}
+{% include 'components/_modal.html' %}
+{% block modal_body %}
+<form id="create-collection-form" class="space-y-4">
+    {% set id = 'collection-name' %}
+    {% set name = 'collection-name' %}
+    {% set label = 'Collection Name' %}
+    {% set type = 'text' %}
+    {% set placeholder = 'e.g., React Resources' %}
+    {% set required = true %}
+    {% include 'components/_form_field.html' %}
+    {% set id = 'collection-description' %}
+    {% set name = 'collection-description' %}
+    {% set label = 'Description (Optional)' %}
+    {% set type = 'textarea' %}
+    {% set placeholder = 'Describe this collection...' %}
+    {% set required = false %}
+    {% include 'components/_form_field.html' %}
+    {% set id = 'collection-color' %}
+    {% set name = 'collection-color' %}
+    {% set label = 'Color' %}
+    {% set type = 'color' %}
+    {% set value = '#0066ff' %}
+    {% include 'components/_form_field.html' %}
+</form>
+{% endblock %}
+{% block modal_footer_content %}
+<button type="button" class="btn-secondary" onclick="hideCreateCollectionModal()">Cancel</button>
+<button type="submit" form="create-collection-form" class="btn-primary">Create</button>
+{% endblock %}
+
+<style>
+.resource-collections-sidebar {
+    width: 280px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-lg);
+    max-height: calc(100vh - var(--spacing-xl));
+    overflow-y: auto;
+}
+
+.collections-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+}
+
+.collections-header h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.collections-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.collection-item {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast) var(--ease-out);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.collection-item:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent);
+}
+
+.collection-item.active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+}
+
+.collection-color {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+
+.collection-name {
+    flex: 1;
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+}
+
+.collection-count {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    background: var(--bg-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+}
+</style>
+

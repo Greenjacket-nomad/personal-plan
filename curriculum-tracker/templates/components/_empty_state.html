@@ -1,0 +1,24 @@
+{# Empty State Component
+   Usage: {% include 'components/_empty_state.html' with {
+       icon: 'fa-inbox',
+       title: 'No items yet',
+       message: 'Get started by adding your first item.',
+       action_text: 'Add Item',
+       action_url: '/add'
+   } %}
+#}
+<div class="empty-state">
+    {% if icon %}
+    <div class="empty-state-icon mb-4">
+        <i class="fas {{ icon }} text-6xl"></i>
+    </div>
+    {% endif %}
+    <h3 class="text-xl font-bold text-primary mb-2">{{ title or 'Nothing here yet' }}</h3>
+    <p class="text-secondary mb-6 max-w-md mx-auto">{{ message or 'Your content will appear here once you start adding items.' }}</p>
+    {% if action_url and action_text %}
+    <a href="{{ action_url }}" class="btn-primary">
+        <i class="fas fa-plus mr-2"></i>{{ action_text }}
+    </a>
+    {% endif %}
+</div>
+

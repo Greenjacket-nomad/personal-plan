@@ -1,0 +1,71 @@
+{# Form Field Component with Floating Labels
+   Usage:
+   {% include 'components/_form_field.html' with {
+       'id': 'field-id',
+       'name': 'field-name',
+       'label': 'Field Label',
+       'type': 'text',
+       'placeholder': 'Enter value...',
+       'required': true,
+       'help_text': 'Optional help text',
+       'error': 'Error message if any',
+       'value': 'Current value'
+   } %}
+#}
+<div class="form-field-wrapper">
+    <div class="form-field-container">
+        {% if label %}
+        <label for="{{ id }}" class="form-label{% if value or error %} form-label-floating{% endif %}">
+            {{ label }}{% if required %}<span class="required-indicator" aria-label="required">*</span>{% endif %}
+        </label>
+        {% endif %}
+        <div class="form-input-wrapper">
+            {% if type == 'textarea' %}
+            <textarea 
+                id="{{ id }}"
+                name="{{ name }}"
+                class="form-input{% if error %} form-input-error{% endif %}"
+                placeholder="{{ placeholder|default('') }}"
+                {% if required %}required{% endif %}
+                {% if value %}value="{{ value }}"{% endif %}
+                aria-describedby="{% if error %}{{ id }}-error{% endif %}{% if help_text %} {{ id }}-help{% endif %}"
+                aria-invalid="{% if error %}true{% else %}false{% endif %}"
+            >{{ value|default('') }}</textarea>
+            {% else %}
+            <input 
+                type="{{ type|default('text') }}"
+                id="{{ id }}"
+                name="{{ name }}"
+                class="form-input{% if error %} form-input-error{% endif %}"
+                placeholder="{{ placeholder|default('') }}"
+                {% if required %}required{% endif %}
+                {% if value %}value="{{ value }}"{% endif %}
+                aria-describedby="{% if error %}{{ id }}-error{% endif %}{% if help_text %} {{ id }}-help{% endif %}"
+                aria-invalid="{% if error %}true{% else %}false{% endif %}"
+            />
+            {% endif %}
+            {% if error %}
+            <div class="form-input-icon form-input-icon-error" aria-hidden="true">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            {% endif %}
+            {% if not error and value %}
+            <div class="form-input-icon form-input-icon-success" aria-hidden="true">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            {% endif %}
+        </div>
+        {% if error %}
+        <div id="{{ id }}-error" class="form-error-message" role="alert">
+            <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+        {% if help_text and not error %}
+        <div id="{{ id }}-help" class="form-help-text">
+            {{ help_text }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+

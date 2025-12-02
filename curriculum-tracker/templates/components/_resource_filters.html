@@ -1,0 +1,125 @@
+<aside class="resource-filters-sidebar">
+    <div class="filters-header">
+        <h3>Filters</h3>
+        <button class="filters-close-btn" onclick="toggleFiltersSidebar()" aria-label="Close filters">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="filters-content">
+        <!-- Resource Type Filter -->
+        <div class="filter-section">
+            <h4 class="filter-section-title">
+                <i class="fas fa-tag"></i>
+                Type
+            </h4>
+            <div class="filter-options">
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="video" onchange="applyFilters()">
+                    <span><i class="fas fa-video"></i> Videos</span>
+                    <span class="filter-count" id="count-type-video">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="article" onchange="applyFilters()">
+                    <span><i class="fas fa-file-alt"></i> Articles</span>
+                    <span class="filter-count" id="count-type-article">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="course" onchange="applyFilters()">
+                    <span><i class="fas fa-graduation-cap"></i> Courses</span>
+                    <span class="filter-count" id="count-type-course">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="project" onchange="applyFilters()">
+                    <span><i class="fas fa-tools"></i> Projects</span>
+                    <span class="filter-count" id="count-type-project">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="docs" onchange="applyFilters()">
+                    <span><i class="fas fa-book"></i> Documentation</span>
+                    <span class="filter-count" id="count-type-docs">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-type" value="tutorial" onchange="applyFilters()">
+                    <span><i class="fas fa-book-open"></i> Tutorials</span>
+                    <span class="filter-count" id="count-type-tutorial">0</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Tags Filter -->
+        <div class="filter-section">
+            <h4 class="filter-section-title">
+                <i class="fas fa-tags"></i>
+                Tags
+            </h4>
+            <div class="filter-options" id="tag-filters">
+                <!-- Tags will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Status Filter -->
+        <div class="filter-section">
+            <h4 class="filter-section-title">
+                <i class="fas fa-check-circle"></i>
+                Status
+            </h4>
+            <div class="filter-options">
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-status" value="completed" onchange="applyFilters()">
+                    <span><i class="fas fa-check"></i> Completed</span>
+                    <span class="filter-count" id="count-status-completed">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-status" value="in_progress" onchange="applyFilters()">
+                    <span><i class="fas fa-circle-notch"></i> In Progress</span>
+                    <span class="filter-count" id="count-status-in_progress">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-status" value="not_started" onchange="applyFilters()">
+                    <span><i class="far fa-circle"></i> Not Started</span>
+                    <span class="filter-count" id="count-status-not_started">0</span>
+                </label>
+                <label class="filter-option">
+                    <input type="checkbox" name="filter-status" value="favorites" onchange="applyFilters()">
+                    <span><i class="fas fa-star"></i> Favorites</span>
+                    <span class="filter-count" id="count-status-favorites">0</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Date Added Filter -->
+        <div class="filter-section">
+            <h4 class="filter-section-title">
+                <i class="fas fa-calendar"></i>
+                Date Added
+            </h4>
+            <div class="filter-options">
+                <label class="filter-option">
+                    <input type="radio" name="filter-date" value="today" onchange="applyFilters()">
+                    <span>Today</span>
+                </label>
+                <label class="filter-option">
+                    <input type="radio" name="filter-date" value="week" onchange="applyFilters()">
+                    <span>This Week</span>
+                </label>
+                <label class="filter-option">
+                    <input type="radio" name="filter-date" value="month" onchange="applyFilters()">
+                    <span>This Month</span>
+                </label>
+                <label class="filter-option">
+                    <input type="radio" name="filter-date" value="all" checked onchange="applyFilters()">
+                    <span>All Time</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Clear Filters -->
+        <div class="filter-actions">
+            <button class="btn-secondary w-full" onclick="clearAllFilters()">
+                <i class="fas fa-times mr-1"></i>Clear All Filters
+            </button>
+        </div>
+    </div>
+</aside>
+

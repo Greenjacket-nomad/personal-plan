@@ -1,0 +1,155 @@
+{# Progress Visualization Component
+   Usage:
+   {% include 'components/_progress_visualization.html' with {
+       'type': 'sparkline', // sparkline, donut, bar
+       'data': [10, 20, 15, 25, 30],
+       'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+       'color': 'accent',
+       'title': 'Weekly Progress'
+   } %}
+#}
+<div class="progress-visualization">
+    {% if title %}
+    <h4 class="visualization-title">{{ title }}</h4>
+    {% endif %}
+    <div class="visualization-container visualization-{{ type }}">
+        {% if type == 'sparkline' %}
+        <svg class="sparkline-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
+            <polyline class="sparkline-line" 
+                     points="{% for value in data %}{{ loop.index0 * (200 / (data|length - 1)) }},{{ 50 - (value / max_value * 50) if max_value else value }}{% if not loop.last %} {% endif %}{% endfor %}"
+                     fill="none" 
+                     stroke="var(--{{ color|default('accent') }})" 
+                     stroke-width="2"/>
+        </svg>
+        {% elif type == 'donut' %}
+        <div class="donut-chart">
+            <svg class="donut-svg" viewBox="0 0 100 100">
+                <circle class="donut-background" cx="50" cy="50" r="40" fill="none" stroke="var(--bg-tertiary)" stroke-width="8"/>
+                <circle class="donut-foreground" cx="50" cy="50" r="40" fill="none" 
+                        stroke="var(--{{ color|default('accent') }})" 
+                        stroke-width="8"
+                        stroke-dasharray="{{ (percentage * 251.33 / 100)|round }} 251.33"
+                        stroke-dashoffset="0"
+                        transform="rotate(-90 50 50)"/>
+            </svg>
+            <div class="donut-content">
+                <span class="donut-value">{{ percentage }}%</span>
+            </div>
+        </div>
+        {% elif type == 'bar' %}
+        <div class="bar-chart">
+            {% for value in data %}
+            <div class="bar-item">
+                <div class="bar-label">{{ labels[loop.index0] if labels else loop.index0 + 1 }}</div>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: {{ (value / max_value * 100) if max_value else value }}%; background: var(--{{ color|default('accent') }});"></div>
+                </div>
+                <div class="bar-value">{{ value }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.progress-visualization {
+    padding: var(--spacing-md);
+}
+
+.visualization-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-muted);
+    margin: 0 0 var(--spacing-md) 0;
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+}
+
+.visualization-container {
+    position: relative;
+}
+
+.sparkline-chart {
+    width: 100%;
+    height: 60px;
+}
+
+.sparkline-line {
+    transition: stroke-dasharray var(--transition-slow) var(--ease-out);
+}
+
+.donut-chart {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+}
+
+.donut-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.donut-foreground {
+    transition: stroke-dasharray var(--transition-slow) var(--ease-out);
+}
+
+.donut-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.donut-value {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+}
+
+.bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.bar-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.bar-label {
+    width: 40px;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.bar-container {
+    flex: 1;
+    height: 20px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: var(--radius-md);
+    transition: width var(--transition-slow) var(--ease-out);
+}
+
+.bar-value {
+    width: 40px;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-align: left;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+}
+</style>
+

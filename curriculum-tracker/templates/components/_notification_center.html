@@ -1,0 +1,250 @@
+<div class="notification-center">
+    <button class="notification-bell" onclick="toggleNotificationCenter()" aria-label="Notifications" id="notification-bell-btn">
+        <i class="fas fa-bell"></i>
+        <span class="notification-badge" id="notification-badge-count">0</span>
+    </button>
+    
+    <div class="notification-dropdown hidden" id="notification-dropdown">
+        <div class="notification-header">
+            <h3>Notifications</h3>
+            <div class="notification-actions">
+                <button class="btn-icon" onclick="markAllNotificationsRead()" title="Mark all as read">
+                    <i class="fas fa-check-double"></i>
+                </button>
+                <button class="btn-icon" onclick="toggleNotificationCenter()" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="notification-list" id="notification-list">
+            <!-- Notifications will be populated by JavaScript -->
+            <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>No notifications</p>
+            </div>
+        </div>
+        
+        <div class="notification-footer">
+            <a href="/notifications" class="btn-secondary btn-sm w-full">View All Notifications</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.notification-center {
+    position: relative;
+}
+
+.notification-bell {
+    position: relative;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.notification-bell:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--error);
+    color: white;
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-bold);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.2;
+    transform: translate(25%, -25%);
+}
+
+.notification-badge:empty {
+    display: none;
+}
+
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + var(--spacing-sm));
+    right: 0;
+    width: 360px;
+    max-width: 90vw;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-dropdown);
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-dropdown.hidden {
+    display: none;
+}
+
+.notification-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+}
+
+.notification-header h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.notification-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-md);
+    transition: color var(--transition-fast) var(--ease-out);
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+}
+
+.notification-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.notification-item {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--transition-fast) var(--ease-out);
+    display: flex;
+    gap: var(--spacing-md);
+    position: relative;
+}
+
+.notification-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.notification-item.unread {
+    background: var(--accent-light);
+}
+
+.notification-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-lg);
+}
+
+.notification-icon.success {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.notification-icon.info {
+    background: var(--info-light);
+    color: var(--info);
+}
+
+.notification-icon.warning {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.notification-icon.error {
+    background: var(--error-light);
+    color: var(--error);
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.notification-message {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: var(--line-height-normal);
+    margin-bottom: var(--spacing-xs);
+}
+
+.notification-time {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.notification-empty {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.notification-empty i {
+    font-size: var(--text-3xl);
+    margin-bottom: var(--spacing-md);
+    opacity: 0.3;
+}
+
+.notification-footer {
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .notification-dropdown {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        max-height: 70vh;
+    }
+}
+</style>
+

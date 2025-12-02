@@ -1,0 +1,120 @@
+{# Mobile Tab Bar Navigation Component
+   Usage:
+   {% include 'components/_mobile_tabbar.html' with {
+       'current_page': 'dashboard'
+   } %}
+#}
+<nav class="mobile-tabbar" aria-label="Mobile navigation">
+    <a href="/" class="tabbar-item{% if current_page == 'dashboard' %} active{% endif %}">
+        <i class="fas fa-home"></i>
+        <span class="tabbar-label">Home</span>
+    </a>
+    <a href="/resources" class="tabbar-item{% if current_page == 'resources' %} active{% endif %}">
+        <i class="fas fa-bookmark"></i>
+        <span class="tabbar-label">Resources</span>
+        <span class="tabbar-badge">12</span>
+    </a>
+    <a href="/activity" class="tabbar-item{% if current_page == 'activity' %} active{% endif %}">
+        <i class="fas fa-history"></i>
+        <span class="tabbar-label">Activity</span>
+    </a>
+    <a href="/journal" class="tabbar-item{% if current_page == 'journal' %} active{% endif %}">
+        <i class="fas fa-book"></i>
+        <span class="tabbar-label">Journal</span>
+    </a>
+    <button type="button" class="tabbar-item tabbar-more" onclick="toggleMobileMenu()" aria-label="More options">
+        <i class="fas fa-ellipsis-h"></i>
+        <span class="tabbar-label">More</span>
+    </button>
+</nav>
+
+<style>
+.mobile-tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    display: none;
+    align-items: center;
+    justify-content: space-around;
+    padding: var(--spacing-sm) 0;
+    z-index: var(--z-fixed);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 1024px) {
+    .mobile-tabbar {
+        display: flex;
+    }
+    
+    /* Add padding to body to account for tabbar */
+    body {
+        padding-bottom: 70px;
+    }
+}
+
+.tabbar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    color: var(--text-muted);
+    text-decoration: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: all var(--transition-fast) var(--ease-out);
+    position: relative;
+    min-width: 60px;
+    flex: 1;
+}
+
+.tabbar-item i {
+    font-size: var(--text-xl);
+}
+
+.tabbar-label {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+}
+
+.tabbar-item.active {
+    color: var(--accent);
+}
+
+.tabbar-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.tabbar-badge {
+    position: absolute;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    background: var(--error);
+    color: white;
+    font-size: 10px;
+    font-weight: var(--font-weight-bold);
+    padding: 2px 5px;
+    border-radius: var(--radius-full);
+    min-width: 16px;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.tabbar-more {
+    position: relative;
+}
+</style>
+

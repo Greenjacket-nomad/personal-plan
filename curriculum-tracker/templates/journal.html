@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/design-system.css">
     <link rel="stylesheet" href="/static/style.css">
     <style>
         :root {
@@ -16,7 +17,7 @@
             --bg-tertiary: #e7e5e4;
             --text-primary: #1c1917;
             --text-secondary: #44403c;
-            --text-muted: #78716c;
+            --text-muted: #6b6560; /* Improved contrast: 4.6:1 on bg-primary, 5.2:1 on bg-secondary (meets WCAG AA) */
             --border: rgba(0, 0, 0, 0.15);
             --accent: #0066ff;
             --accent-hover: #0052cc;
@@ -69,9 +70,9 @@
         
         .card {
             background: var(--bg-secondary);
-            border-radius: 12px;
+            border-radius: var(--radius-xl);
             border: 1px solid var(--border);
-            transition: all 150ms ease;
+            transition: all var(--transition-fast) var(--ease-out);
         }
         
         [data-theme="dark"] .card {
@@ -238,8 +239,22 @@
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
+    <script src="/static/js/accessibility.js"></script>
 </head>
     <body class="min-h-screen">
+    <a href="#main-content" id="skip-to-main" class="skip-to-main">Skip to main content</a>
+    
+    <!-- Sidebar Navigation (Desktop) -->
+    {% set current_page = 'journal' %}
+    {% set user_name = current_user.username if current_user else 'User' %}
+    {% include 'components/_sidebar_nav.html' %}
+    
+    <!-- Mobile Tab Bar (Mobile) -->
+    {% set current_page = 'journal' %}
+    {% include 'components/_mobile_tabbar.html' %}
+    
+    <!-- Main Content Wrapper -->
+    <div class="main-content-wrapper">
     <header class="header py-6 px-8">
         <div class="max-w-7xl mx-auto">
             <!-- Unified Navigation -->
@@ -314,13 +329,38 @@
     </header>
 
 
-    <div class="max-w-4xl mx-auto p-6">
+    <main id="main-content" class="max-w-4xl mx-auto p-6">
         <!-- Today's Entry Form / Edit Form -->
-        <div class="card p-6 mb-6">
-                    <h2 class="font-bold mb-4 text-primary"><i class="fas fa-pen mr-2"></i>{% if editing %}Edit Entry{% else %}Today's Reflection{% endif %}</h2>
-            <form action="{% if editing %}/journal/{{ editing.id }}/edit{% else %}/journal{% endif %}" method="POST">
+        <div class="card p-6 mb-6" id="journal-form">
+            <h2 class="font-bold mb-4 text-primary"><i class="fas fa-pen mr-2"></i>{% if editing %}Edit Entry{% else %}Today's Reflection{% endif %}</h2>
+            
+            <!-- Formatting Toolbar (Sticky) -->
+            <div class="formatting-toolbar mb-4">
+                <button type="button" class="formatting-button" onclick="formatText('bold')" title="Bold (Ctrl+B)">
+                    <i class="fas fa-bold"></i>
+                </button>
+                <button type="button" class="formatting-button" onclick="formatText('italic')" title="Italic (Ctrl+I)">
+                    <i class="fas fa-italic"></i>
+                </button>
+                <button type="button" class="formatting-button" onclick="formatText('underline')" title="Underline (Ctrl+U)">
+                    <i class="fas fa-underline"></i>
+                </button>
+                <div class="border-l border-primary mx-2"></div>
+                <button type="button" class="formatting-button" onclick="formatText('list')" title="Bullet List">
+                    <i class="fas fa-list-ul"></i>
+                </button>
+                <button type="button" class="formatting-button" onclick="formatText('link')" title="Insert Link">
+                    <i class="fas fa-link"></i>
+                </button>
+                <div class="border-l border-primary mx-2"></div>
+                <button type="button" id="writing-mode-toggle" class="formatting-button" onclick="toggleWritingMode()" title="Distraction-free Writing Mode (Ctrl+W)">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+            
+            <form action="{% if editing %}/journal/{{ editing.id }}/edit{% else %}/journal{% endif %}" method="POST" id="journal-form-element">
                 <input type="hidden" name="date" value="{{ editing.date if editing else today }}">
-                <textarea name="content" rows="6" placeholder="What did I learn today?&#10;What was challenging?&#10;What's the plan for tomorrow?">{% if editing %}{{ editing.content or '' }}{% endif %}</textarea>
+                <textarea name="content" id="journal-content" rows="6" placeholder="What did I learn today?&#10;What was challenging?&#10;What's the plan for tomorrow?" oninput="handleAutoSave()">{% if editing %}{{ editing.content or '' }}{% endif %}</textarea>
                 
                 <div class="flex items-center gap-4 mb-4 mt-3">
                     <label class="text-sm text-secondary">Mood:</label>
@@ -372,9 +412,9 @@
                 </div>
                 
                 <div class="flex gap-3">
-                    <button type="submit" class="btn-primary px-6 py-2" onclick="celebrateJournalSave()"><i class="fas fa-save mr-2"></i>Ship it</button>
+                    <button type="submit" class="btn-primary px-6 py-2" onclick="celebrateJournalSave()"><i class="fas fa-save mr-2"></i>Save Entry</button>
                     {% if editing %}
-                    <a href="/journal" class="btn-secondary px-6 py-2">Nevermind</a>
+                    <a href="/journal" class="btn-secondary px-6 py-2">Cancel Edit</a>
                     {% endif %}
                 </div>
                 
@@ -390,8 +430,8 @@
                         <form enctype="multipart/form-data" onsubmit="uploadJournalAttachment(event, {% if editing %}{{ editing.id }}{% else %}null{% endif %})">
                             <input type="file" name="file" required class="text-sm mb-2">
                             <div class="flex gap-2">
-                                <button type="submit" class="btn-primary text-xs">Ship it</button>
-                                <button type="button" onclick="toggleJournalAttachmentForm()" class="btn-secondary text-xs">Nevermind</button>
+                                <button type="submit" class="btn-primary text-xs"><i class="fas fa-upload mr-1"></i>Upload File</button>
+                                <button type="button" onclick="toggleJournalAttachmentForm()" class="btn-secondary text-xs">Cancel</button>
                             </div>
                         </form>
                     </div>
@@ -402,39 +442,185 @@
             </form>
         </div>
 
+        <!-- Mood Calendar -->
+        <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-primary"><i class="fas fa-calendar-alt mr-2"></i>Mood Calendar</h2>
+                <button class="btn-secondary btn-sm" onclick="toggleMoodCalendar()">
+                    <i class="fas fa-eye" id="mood-calendar-toggle-icon"></i>
+                    <span id="mood-calendar-toggle-text">Hide</span>
+                </button>
+            </div>
+            <div id="mood-calendar-section">
+                {% from 'components/_mood_calendar.html' import mood_calendar %}
+                {% set mood_data = {} %}
+                {% for entry in entries %}
+                    {% if entry.mood %}
+                        {% if entry.date %}
+                            {% if entry.date is string %}
+                                {% set date_key = entry.date %}
+                            {% else %}
+                                {% set date_key = entry.date.strftime('%Y-%m-%d') %}
+                            {% endif %}
+                        {% else %}
+                            {% set date_key = entry.date %}
+                        {% endif %}
+                        {% set _ = mood_data.update({date_key: entry.mood}) %}
+                    {% endif %}
+                {% endfor %}
+                {{ mood_calendar(mood_data) }}
+            </div>
+        </div>
+        
+        <!-- On This Day Section -->
+        {% if on_this_day_entries and on_this_day_entries|length > 0 %}
+        <div class="card p-6 mb-6 border-2 border-accent">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-primary">
+                    <i class="fas fa-calendar-day mr-2"></i>On This Day
+                </h2>
+            </div>
+            <p class="text-sm text-secondary mb-4">
+                Entries from previous years on {{ today|strftime('%B %d') if today else 'this day' }}
+            </p>
+            <div class="space-y-3">
+                {% for entry in on_this_day_entries %}
+                <div class="on-this-day-entry p-3 bg-tertiary rounded-lg border-l-4 border-accent">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-accent">
+                            {% if entry.date %}
+                                {% if entry.date is string %}
+                                    {{ entry.date[:4] }}
+                                {% else %}
+                                    {{ entry.date.year }}
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                        {% if entry.mood %}
+                        <span class="text-xs text-muted">
+                            <i class="fas fa-smile"></i> {{ entry.mood|title }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-secondary line-clamp-2">
+                        {{ entry.content[:200] }}{% if entry.content|length > 200 %}...{% endif %}
+                    </p>
+                    <a href="/journal/{{ entry.id }}/edit" class="text-xs text-accent hover:underline mt-2 inline-block">
+                        View full entry →
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Past Entries -->
         <div class="card p-6">
-            <h2 class="font-bold mb-4 text-primary"><i class="fas fa-book-open mr-2"></i>Past Entries</h2>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-primary"><i class="fas fa-book-open mr-2"></i>Past Entries</h2>
+                <div class="flex items-center gap-2">
+                    <div class="view-toggle">
+                        <button class="view-toggle-button active" onclick="setJournalView('list')" data-view="list" title="List View">
+                            <i class="fas fa-list"></i>
+                        </button>
+                        <button class="view-toggle-button" onclick="setJournalView('grid')" data-view="grid" title="Grid View">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button class="view-toggle-button" onclick="setJournalView('timeline')" data-view="timeline" title="Timeline View">
+                            <i class="fas fa-stream"></i>
+                        </button>
+                    </div>
+                    <button class="btn-secondary btn-sm" onclick="toggleExportMenu()" title="Export Journal">
+                        <i class="fas fa-download mr-1"></i>Export
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Export Menu -->
+            <div id="journal-export-menu" class="journal-export-menu hidden">
+                <div class="export-menu-header">
+                    <h4>Export Journal</h4>
+                    <button class="btn-icon" onclick="toggleExportMenu()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="export-menu-content">
+                    <div class="form-field-group">
+                        <label>Date Range</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="export-date-from" class="form-input">
+                            <input type="date" id="export-date-to" class="form-input">
+                        </div>
+                    </div>
+                    <div class="export-options">
+                        <button class="btn-primary w-full mb-2" onclick="exportJournal('markdown')">
+                            <i class="fas fa-file-alt mr-1"></i>Export as Markdown
+                        </button>
+                        <button class="btn-primary w-full mb-2" onclick="exportJournal('json')">
+                            <i class="fas fa-code mr-1"></i>Export as JSON
+                        </button>
+                        <button class="btn-secondary w-full" onclick="toggleExportMenu()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="journal-search-bar">
+                <label for="journal-search" class="block text-sm text-secondary mb-2">Search Journal Entries</label>
+                <div class="relative">
+                    <i class="fas fa-search journal-search-icon"></i>
+                    <input type="text" id="journal-search" class="journal-search-input" placeholder="e.g., learned about React hooks" onkeyup="filterJournalEntries(this.value)" aria-label="Search journal entries">
+                    <span class="text-xs text-muted absolute right-3 top-1/2 transform -translate-y-1/2">Press / to focus</span>
+                </div>
+            </div>
+            
             {% if entries %}
-            <div class="space-y-4">
+            <div class="space-y-4 journal-entries-list journal-list-view" id="journal-entries-list">
                 {% for entry in entries %}
-                <div class="p-4 glass rounded-lg journal-entry">
+                {% set word_count = (entry.content or '')|length // 5 %}
+                <div class="p-4 glass rounded-lg journal-entry journal-entry-card" data-entry-id="{{ entry.id }}" data-content="{{ (entry.content or '')|lower }}" data-date="{{ entry.date }}">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
-                            <span class="font-semibold text-primary">{{ entry.date }}</span>
-                            {% if entry.phase_index is not none %}
-                            <span class="text-sm text-secondary ml-2">
-                                <i class="fas fa-link mr-1"></i>Linked to: Phase {{ entry.phase_index + 1 }}, Week {{ entry.week }}, Day {{ entry.day }}
-                            </span>
-                            {% endif %}
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-semibold text-primary">{{ entry.date }}</span>
+                                {% if entry.mood %}
+                                <span class="text-xl" title="Mood: {{ entry.mood|title }}">
+                                    {% if entry.mood == 'great' %}<i class="fas fa-smile text-success"></i>
+                                    {% elif entry.mood == 'okay' %}<i class="fas fa-meh text-warning"></i>
+                                    {% elif entry.mood == 'struggling' %}<i class="fas fa-tired text-error"></i>
+                                    {% elif entry.mood == 'fire' %}<i class="fas fa-fire-alt text-warning"></i>{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="journal-metadata">
+                                <div class="journal-metadata-item">
+                                    <i class="fas fa-file-alt"></i>
+                                    <span>{{ word_count }} words</span>
+                                </div>
+                                {% if entry.phase_index is not none %}
+                                <div class="journal-metadata-item">
+                                    <i class="fas fa-link"></i>
+                                    <span>Phase {{ entry.phase_index + 1 }}, Week {{ entry.week }}, Day {{ entry.day }}</span>
+                                </div>
+                                {% endif %}
+                                <div class="journal-metadata-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>{{ entry.date }}</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            {% if entry.mood %}
-                            <span class="text-2xl">
-                                {% if entry.mood == 'great' %}<i class="fas fa-smile"></i>
-                                {% elif entry.mood == 'okay' %}<i class="fas fa-meh"></i>
-                                {% elif entry.mood == 'struggling' %}<i class="fas fa-tired"></i>
-                                {% elif entry.mood == 'fire' %}<i class="fas fa-fire-alt"></i>{% endif %}
-                            </span>
-                            {% endif %}
                             <a href="/journal/{{ entry.id }}/edit" class="btn-secondary px-3 py-1 text-sm"><i class="fas fa-edit mr-1"></i>Edit</a>
-                            <form action="/journal/{{ entry.id }}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?');">
-                                <button type="submit" class="btn-secondary btn-delete-danger px-3 py-1 text-sm"><i class="fas fa-trash mr-1"></i>Yeet</button>
-                            </form>
+                            <button onclick="showDeleteConfirmation({{ entry.id }}, '{{ entry.date }}')" class="btn-secondary btn-delete-danger px-3 py-1 text-sm"><i class="fas fa-trash mr-1"></i>Delete</button>
                         </div>
                     </div>
                     {% if entry.content %}
-                    <p class="whitespace-pre-wrap text-primary">{{ entry.content }}</p>
+                    <div class="journal-entry-preview text-primary">
+                        {{ entry.content }}
+                    </div>
+                    <button onclick="expandEntry({{ entry.id }})" class="text-sm text-accent mt-2 hover:underline">Read more</button>
                     {% else %}
                     <p class="italic text-muted">No content</p>
                     {% endif %}
@@ -444,9 +630,40 @@
             {% else %}
             <div class="text-center py-12 text-secondary">
                 <i class="fas fa-book text-6xl mb-4 opacity-20"></i>
-                <p>Nothing here yet—time to start reflecting!</p>
+                <h3 class="text-lg font-semibold text-primary mb-2">Your journey begins here!</h3>
+                <p class="mb-4">Start reflecting on your learning journey. Your entries will appear here.</p>
+                <a href="#journal-form" class="btn-primary inline-flex items-center">
+                    <i class="fas fa-plus mr-2"></i>Write Your First Entry
+                </a>
             </div>
             {% endif %}
+        </div>
+        
+        <!-- Floating Action Button -->
+        <button class="fab" onclick="document.getElementById('journal-form').scrollIntoView({behavior: 'smooth'})" aria-label="New journal entry" title="New Entry">
+            <i class="fas fa-plus"></i>
+        </button>
+        
+        <!-- Auto-save Indicator -->
+        <div id="auto-save-indicator" class="auto-save-indicator">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Saving...</span>
+        </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-confirmation-modal" class="delete-confirmation-modal hidden">
+            <div class="delete-confirmation-content">
+                <h3 class="text-xl font-bold"><i class="fas fa-exclamation-triangle mr-2"></i>Delete Journal Entry?</h3>
+                <p>Are you sure you want to delete the entry from <strong id="delete-entry-date"></strong>? This action cannot be undone.</p>
+                <div class="delete-confirmation-actions">
+                    <button onclick="hideDeleteConfirmation()" class="btn-secondary">Cancel Delete</button>
+                    <form id="delete-entry-form" method="POST" class="inline">
+                        <button type="submit" class="btn-primary" style="background: var(--error);">
+                            <i class="fas fa-trash mr-2"></i>Delete Entry
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
     <script src="/static/celebrations.js"></script>
@@ -513,7 +730,7 @@
                         data.attachments.forEach(att => {
                             const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(att.file_type);
                             html += `<div class="flex items-center gap-2 text-sm p-2 rounded bg-tertiary">
-                                ${isImage ? `<img src="/uploads/${att.filename}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file"></i>`}
+                                ${isImage ? `<img src="/uploads/${att.filename}" alt="${att.original_filename || 'Attachment image'}" class="w-8 h-8 object-cover rounded">` : `<i class="fas fa-file" aria-label="File attachment"></i>`}
                                 <a href="/uploads/${att.filename}" target="_blank" class="flex-1 text-primary hover:text-accent">${att.original_filename}</a>
                                 <form action="/attachment/${att.id}/delete" method="POST" class="inline" onsubmit="return confirm('Yeet this into the void?')">
                                     <button type="submit" class="text-error"><i class="fas fa-trash text-xs"></i></button>
@@ -626,7 +843,100 @@
         document.addEventListener('DOMContentLoaded', function() {
             generateBreadcrumbs();
         });
+        
+        // Auto-save functionality
+        let autoSaveTimeout;
+        function handleAutoSave() {
+            const indicator = document.getElementById('auto-save-indicator');
+            if (!indicator) return;
+            
+            // Clear existing timeout
+            clearTimeout(autoSaveTimeout);
+            
+            // Show saving indicator
+            indicator.classList.add('visible', 'saving');
+            indicator.classList.remove('saved');
+            indicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Saving...</span>';
+            
+            // Simulate auto-save (in real implementation, this would save to backend)
+            autoSaveTimeout = setTimeout(() => {
+                indicator.classList.remove('saving');
+                indicator.classList.add('saved');
+                indicator.innerHTML = '<i class="fas fa-check"></i><span>Saved</span>';
+                
+                // Hide after 2 seconds
+                setTimeout(() => {
+                    indicator.classList.remove('visible', 'saved');
+                }, 2000);
+            }, 1000);
+        }
+        
+        // Journal entry preview truncation
+        function expandEntry(entryId) {
+            const entry = document.querySelector(`[data-entry-id="${entryId}"]`);
+            if (!entry) return;
+            
+            const preview = entry.querySelector('.journal-entry-preview');
+            if (preview) {
+                preview.style.webkitLineClamp = 'unset';
+                preview.style.display = 'block';
+            }
+            
+            const button = entry.querySelector('button[onclick*="expandEntry"]');
+            if (button) {
+                button.style.display = 'none';
+            }
+        }
+        
+        // Delete confirmation
+        function showDeleteConfirmation(entryId, date) {
+            const modal = document.getElementById('delete-confirmation-modal');
+            const dateSpan = document.getElementById('delete-entry-date');
+            const form = document.getElementById('delete-entry-form');
+            
+            if (modal && dateSpan && form) {
+                dateSpan.textContent = date;
+                form.action = `/journal/${entryId}/delete`;
+                modal.classList.remove('hidden');
+            }
+        }
+        
+        function hideDeleteConfirmation() {
+            const modal = document.getElementById('delete-confirmation-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+        
+        // Journal search
+        function filterJournalEntries(query) {
+            const entries = document.querySelectorAll('.journal-entry-card');
+            const lowerQuery = query.toLowerCase();
+            
+            entries.forEach(entry => {
+                const content = entry.getAttribute('data-content') || '';
+                const date = entry.getAttribute('data-date') || '';
+                
+                if (content.includes(lowerQuery) || date.includes(lowerQuery)) {
+                    entry.style.display = '';
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+        }
+        
+        // Keyboard shortcut for search
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                const searchInput = document.getElementById('journal-search');
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            }
+        });
     </script>
+    </main>
     
     <!-- Toast Container -->
     <div id="toast-container"></div>
@@ -683,5 +993,107 @@
             }, 300);
         }
     </script>
+    <!-- Writing Mode -->
+    <div id="writing-mode" class="writing-mode">
+        <div class="writing-mode-header">
+            <h3>Writing Mode</h3>
+            <button type="button" onclick="toggleWritingMode()" class="btn-icon" aria-label="Exit writing mode">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="writing-mode-content">
+            <textarea id="writing-mode-textarea" placeholder="Start writing..."></textarea>
+        </div>
+        <div class="writing-mode-footer">
+            <div class="writing-stats">
+                <span id="word-count">0 words</span>
+                <span id="char-count">0 characters</span>
+            </div>
+            <div>
+                <button type="button" onclick="insertWritingModeContent()" class="btn-primary">
+                    <i class="fas fa-check mr-2"></i>Insert into Entry
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/journal-views.js"></script>
+    <script src="/static/js/mood-calendar.js"></script>
+    <script src="/static/js/journal-search.js"></script>
+    {% include 'components/_journal_prompts.html' %}
+    <script src="/static/js/journal-prompts.js"></script>
+    <script src="/static/js/journal-mentions.js"></script>
+    <script src="/static/js/journal-search.js"></script>
+    <script>
+        // Initialize journal mentions on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof initializeMentions === 'function') {
+                initializeMentions();
+            }
+        });
+        
+        function toggleExportMenu() {
+            const menu = document.getElementById('journal-export-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+        
+        function exportJournal(format) {
+            const dateFrom = document.getElementById('export-date-from')?.value || '';
+            const dateTo = document.getElementById('export-date-to')?.value || '';
+            
+            let url = `/journal/export/${format}?`;
+            if (dateFrom) url += `date_from=${dateFrom}&`;
+            if (dateTo) url += `date_to=${dateTo}`;
+            
+            window.location.href = url;
+            
+            if (typeof showToast === 'function') {
+                showToast(`Exporting journal as ${format.toUpperCase()}...`, 'info');
+            }
+        }
+    </script>
+    <script>
+        function toggleMoodCalendar() {
+            const section = document.getElementById('mood-calendar-section');
+            const icon = document.getElementById('mood-calendar-toggle-icon');
+            const text = document.getElementById('mood-calendar-toggle-text');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.className = 'fas fa-eye';
+                text.textContent = 'Hide';
+            } else {
+                section.style.display = 'none';
+                icon.className = 'fas fa-eye-slash';
+                text.textContent = 'Show';
+            }
+        }
+    </script>
+    <script>
+        // Word/character counter for writing mode
+        const writingTextarea = document.getElementById('writing-mode-textarea');
+        if (writingTextarea) {
+            writingTextarea.addEventListener('input', function() {
+                const text = this.value;
+                const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                const chars = text.length;
+                document.getElementById('word-count').textContent = words + ' words';
+                document.getElementById('char-count').textContent = chars + ' characters';
+            });
+        }
+        
+        function insertWritingModeContent() {
+            const content = document.getElementById('writing-mode-textarea').value;
+            const mainTextarea = document.getElementById('journal-content');
+            if (mainTextarea && content) {
+                mainTextarea.value = content;
+                toggleWritingMode();
+                mainTextarea.focus();
+            }
+        }
+    </script>
+    
+    </div> <!-- End main-content-wrapper -->
 </body>
 </html>

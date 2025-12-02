@@ -1,0 +1,25 @@
+{# Loading Skeleton Component
+   Usage: {% include 'components/_loading_skeleton.html' with {
+       type: 'card' or 'list' or 'table',
+       count: 3
+   } %}
+#}
+<div class="skeleton-container">
+    {% if type == 'card' %}
+        {% for i in range(count or 3) %}
+        <div class="skeleton-loader h-48 mb-4"></div>
+        {% endfor %}
+    {% elif type == 'list' %}
+        {% for i in range(count or 5) %}
+        <div class="skeleton-loader h-16 mb-3"></div>
+        {% endfor %}
+    {% elif type == 'table' %}
+        <div class="skeleton-loader h-12 mb-2"></div>
+        {% for i in range(count or 5) %}
+        <div class="skeleton-loader h-10 mb-2"></div>
+        {% endfor %}
+    {% else %}
+        <div class="skeleton-loader h-32"></div>
+    {% endif %}
+</div>
+

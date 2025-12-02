@@ -1,0 +1,292 @@
+{# Sidebar Navigation Component
+   Usage:
+   {% include 'components/_sidebar_nav.html' with {
+       'current_page': 'dashboard',
+       'user_name': 'Alex'
+   } %}
+#}
+<nav class="sidebar-nav" id="sidebar-nav" aria-label="Main navigation">
+    <div class="sidebar-header">
+        <a href="/" class="sidebar-logo">
+            <i class="fas fa-graduation-cap"></i>
+            <span class="sidebar-logo-text">Curriculum Tracker</span>
+        </a>
+        <button type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    </div>
+    
+    <div class="sidebar-content">
+        <div class="nav-section">
+            <div class="nav-section-label">Main</div>
+            <a href="/" class="nav-item{% if current_page == 'dashboard' %} active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span class="nav-item-text">Dashboard</span>
+            </a>
+            <a href="/curriculum/board" class="nav-item{% if current_page == 'board' %} active{% endif %}">
+                <i class="fas fa-columns"></i>
+                <span class="nav-item-text">Board</span>
+            </a>
+            <a href="/resources" class="nav-item{% if current_page == 'resources' %} active{% endif %}">
+                <i class="fas fa-bookmark"></i>
+                <span class="nav-item-text">Resources</span>
+                <span class="nav-badge">12</span>
+            </a>
+        </div>
+        
+        <div class="nav-section">
+            <div class="nav-section-label">Progress</div>
+            <a href="/activity" class="nav-item{% if current_page == 'activity' %} active{% endif %}">
+                <i class="fas fa-history"></i>
+                <span class="nav-item-text">Activity</span>
+            </a>
+            <a href="/journal" class="nav-item{% if current_page == 'journal' %} active{% endif %}">
+                <i class="fas fa-book"></i>
+                <span class="nav-item-text">Journal</span>
+            </a>
+            <a href="/reports" class="nav-item{% if current_page == 'reports' %} active{% endif %}">
+                <i class="fas fa-chart-bar"></i>
+                <span class="nav-item-text">Reports</span>
+            </a>
+        </div>
+        
+        <div class="nav-section">
+            <div class="nav-section-label">Settings</div>
+            <a href="/curriculum/edit" class="nav-item{% if current_page == 'editor' %} active{% endif %}">
+                <i class="fas fa-edit"></i>
+                <span class="nav-item-text">Edit Curriculum</span>
+            </a>
+        </div>
+    </div>
+    
+    <div class="sidebar-footer">
+        {% include 'components/_notification_center.html' %}
+        <div class="user-menu">
+            <div class="user-avatar">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="user-info">
+                <div class="user-name">{{ user_name|default('User') }}</div>
+                <div class="user-role">Student</div>
+            </div>
+            <a href="/logout" class="logout-btn" aria-label="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<style>
+.sidebar-nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 260px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: var(--z-fixed);
+    transition: transform var(--transition-slow) var(--ease-out);
+}
+
+.sidebar-nav.collapsed {
+    width: 80px;
+}
+
+.sidebar-nav.collapsed .sidebar-logo-text,
+.sidebar-nav.collapsed .nav-item-text,
+.sidebar-nav.collapsed .nav-section-label,
+.sidebar-nav.collapsed .user-info {
+    display: none;
+}
+
+.sidebar-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--text-lg);
+}
+
+.sidebar-logo i {
+    font-size: var(--text-xl);
+    color: var(--accent);
+}
+
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.sidebar-toggle:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.sidebar-nav.collapsed .sidebar-toggle i {
+    transform: rotate(180deg);
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md) 0;
+}
+
+.nav-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.nav-section-label {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all var(--transition-fast) var(--ease-out);
+    position: relative;
+    border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.nav-item.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-left-color: var(--accent);
+    font-weight: var(--font-weight-semibold);
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    font-size: var(--text-lg);
+}
+
+.nav-item-text {
+    flex: 1;
+}
+
+.nav-badge {
+    background: var(--accent);
+    color: white;
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    min-width: 20px;
+    text-align: center;
+}
+
+.sidebar-footer {
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border);
+}
+
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+}
+
+.user-role {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.logout-btn {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast) var(--ease-out);
+}
+
+.logout-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--error);
+}
+
+@media (max-width: 1024px) {
+    .sidebar-nav {
+        transform: translateX(-100%);
+    }
+    
+    .sidebar-nav.mobile-open {
+        transform: translateX(0);
+    }
+}
+</style>
+
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar-nav');
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+        // Save preference
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+}
+
+// Restore sidebar state
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('sidebar-nav');
+    if (sidebar && localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+    }
+});
+</script>
+

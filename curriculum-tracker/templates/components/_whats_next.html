@@ -1,0 +1,198 @@
+{# What's Next Recommendation Component
+   Usage:
+   {% include 'components/_whats_next.html' with {
+       'recommendations': [
+           {'title': 'Complete React Hooks', 'type': 'resource', 'priority': 'high', 'due_date': '2024-01-15'},
+           {'title': 'Review JavaScript Basics', 'type': 'review', 'priority': 'medium'}
+       ]
+   } %}
+#}
+<div class="whats-next-widget card">
+    <div class="widget-header">
+        <div class="widget-header-content">
+            <div class="widget-icon">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <h3 class="widget-title">What's Next</h3>
+        </div>
+    </div>
+    <div class="widget-content">
+        {% if recommendations and recommendations|length > 0 %}
+        <div class="recommendations-list">
+            {% for rec in recommendations %}
+            <div class="recommendation-item priority-{{ rec.priority|default('medium') }}">
+                <div class="recommendation-content">
+                    <div class="recommendation-header">
+                        <span class="recommendation-type-badge type-{{ rec.type|default('general') }}">
+                            <i class="fas fa-{{ 'book' if rec.type == 'resource' else 'check-circle' if rec.type == 'review' else 'star' }}"></i>
+                            {{ rec.type|title if rec.type else 'General' }}
+                        </span>
+                        {% if rec.priority == 'high' %}
+                        <span class="priority-badge priority-high">High Priority</span>
+                        {% endif %}
+                    </div>
+                    <h4 class="recommendation-title">{{ rec.title }}</h4>
+                    {% if rec.description %}
+                    <p class="recommendation-description">{{ rec.description }}</p>
+                    {% endif %}
+                    {% if rec.due_date %}
+                    <div class="recommendation-meta">
+                        <i class="fas fa-calendar"></i>
+                        <span>Due: {{ rec.due_date }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="recommendation-actions">
+                    {% if rec.action_url %}
+                    <a href="{{ rec.action_url }}" class="btn-primary btn-sm">
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    {% endif %}
+                    <button type="button" class="btn-icon" onclick="dismissRecommendation('{{ loop.index0 }}')" aria-label="Dismiss">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-recommendations">
+            <i class="fas fa-check-circle"></i>
+            <p>You're all caught up! Great work.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.recommendation-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--border);
+    transition: all var(--transition-base) var(--ease-out);
+}
+
+.recommendation-item:hover {
+    background: var(--accent-light);
+    border-left-color: var(--accent);
+    transform: translateX(4px);
+}
+
+.recommendation-item.priority-high {
+    border-left-color: var(--error);
+}
+
+.recommendation-item.priority-high:hover {
+    border-left-color: var(--error);
+    background: var(--error-light);
+}
+
+.recommendation-content {
+    flex: 1;
+}
+
+.recommendation-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.recommendation-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+}
+
+.recommendation-type-badge.type-resource {
+    color: var(--accent);
+    background: var(--accent-light);
+}
+
+.recommendation-type-badge.type-review {
+    color: var(--warning);
+    background: var(--warning-light);
+}
+
+.priority-badge {
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-semibold);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+    background: var(--error-light);
+    color: var(--error);
+}
+
+.recommendation-title {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--spacing-xs) 0;
+}
+
+.recommendation-description {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-sm) 0;
+    line-height: var(--line-height-relaxed);
+}
+
+.recommendation-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+}
+
+.recommendation-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+.empty-recommendations {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+}
+
+.empty-recommendations i {
+    font-size: var(--text-3xl);
+    margin-bottom: var(--spacing-md);
+    opacity: 0.3;
+}
+
+.btn-sm {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--text-sm);
+    min-height: 36px;
+}
+</style>
+
+<script>
+function dismissRecommendation(index) {
+    // Implementation for dismissing recommendations
+    console.log('Dismiss recommendation', index);
+    // Could use localStorage or send to server
+}
+</script>
+
