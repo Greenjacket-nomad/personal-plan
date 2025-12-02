@@ -9,36 +9,58 @@ from database import get_db, get_db_cursor
 
 
 def get_resources(phase_index=None, user_id=None):
-    """Get resources with tags in a single query (fixes N+1 problem)."""
+    """Get resources with tags in a single query (fixes N+1 problem).
+    
+    Uses HYBRID query: joins with new FK tables when day_id exists,
+    falls back to old phase_index/week/day columns for backward compatibility.
+    """
     if user_id is None:
         user_id = current_user.id
     
     conn = get_db()
     cur = get_db_cursor(conn)
     if phase_index is not None:
-        query = """
-            SELECT r.*, 
-                   STRING_AGG(t.name, '|||') as tag_names,
-                   STRING_AGG(t.color, '|||') as tag_colors
-            FROM resources r
-            LEFT JOIN resource_tags rt ON r.id = rt.resource_id
-            LEFT JOIN tags t ON rt.tag_id = t.id
-            WHERE r.user_id = %s AND (r.phase_index = %s OR r.phase_index IS NULL)
-            GROUP BY r.id
-            ORDER BY r.week, r.day, r.is_favorite DESC, r.created_at DESC
-        """
-        cur.execute(query, (user_id, phase_index))
-    else:
+        # HYBRID query: use new FK structure if available, fallback to old columns
         query = """
             SELECT r.*,
                    STRING_AGG(t.name, '|||') as tag_names,
-                   STRING_AGG(t.color, '|||') as tag_colors
+                   STRING_AGG(t.color, '|||') as tag_colors,
+                   COALESCE(p.title, 'Phase ' || r.phase_index::text) as phase_title,
+                   COALESCE(w.title, 'Week ' || r.week::text) as week_title,
+                   COALESCE(d.title, 'Day ' || r.day::text) as day_title
             FROM resources r
             LEFT JOIN resource_tags rt ON r.id = rt.resource_id
             LEFT JOIN tags t ON rt.tag_id = t.id
+            LEFT JOIN days d ON r.day_id = d.id AND d.user_id = r.user_id
+            LEFT JOIN weeks w ON d.week_id = w.id AND w.user_id = r.user_id
+            LEFT JOIN phases p ON w.phase_id = p.id AND p.user_id = r.user_id
+            WHERE r.user_id = %s AND (r.phase_index = %s OR r.phase_index IS NULL)
+            GROUP BY r.id, d.id, w.id, p.id
+            ORDER BY COALESCE(w.order_index, r.week), COALESCE(d.order_index, r.day), 
+                     r.is_favorite DESC, r.created_at DESC
+        """
+        cur.execute(query, (user_id, phase_index))
+    else:
+        # HYBRID query for all resources
+        query = """
+            SELECT r.*,
+                   STRING_AGG(t.name, '|||') as tag_names,
+                   STRING_AGG(t.color, '|||') as tag_colors,
+                   COALESCE(p.title, 'Phase ' || r.phase_index::text) as phase_title,
+                   COALESCE(w.title, 'Week ' || r.week::text) as week_title,
+                   COALESCE(d.title, 'Day ' || r.day::text) as day_title
+            FROM resources r
+            LEFT JOIN resource_tags rt ON r.id = rt.resource_id
+            LEFT JOIN tags t ON rt.tag_id = t.id
+            LEFT JOIN days d ON r.day_id = d.id AND d.user_id = r.user_id
+            LEFT JOIN weeks w ON d.week_id = w.id AND w.user_id = r.user_id
+            LEFT JOIN phases p ON w.phase_id = p.id AND p.user_id = r.user_id
             WHERE r.user_id = %s
-            GROUP BY r.id
-            ORDER BY r.phase_index, r.week, r.day, r.is_favorite DESC, r.created_at DESC
+            GROUP BY r.id, d.id, w.id, p.id
+            ORDER BY COALESCE(p.order_index, r.phase_index), 
+                     COALESCE(w.order_index, r.week), 
+                     COALESCE(d.order_index, r.day),
+                     r.is_favorite DESC, r.created_at DESC
         """
         cur.execute(query, (user_id,))
     

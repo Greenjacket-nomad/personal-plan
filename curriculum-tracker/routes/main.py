@@ -421,6 +421,13 @@ def resources_page():
         overdue_resource_ids=overdue_resource_ids)
 
 
+@main_bp.route("/curriculum/board")
+@login_required
+def curriculum_board():
+    """Show Kanban board view of curriculum structure."""
+    return render_template("curriculum_board.html")
+
+
 @main_bp.route("/activity")
 def activity():
     """Show activity history."""

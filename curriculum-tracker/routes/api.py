@@ -18,6 +18,11 @@ from services.progress import (
     get_progress, update_progress, log_activity
 )
 from services.resources import get_resources_by_week
+from services.structure import (
+    get_structure, create_phase, create_week, create_day,
+    update_structure_title, delete_structure_item,
+    get_or_create_inbox, reorder_structure
+)
 
 # Create blueprint
 api_bp = Blueprint('api', __name__)
@@ -237,6 +242,12 @@ def add_resource():
     resource_type = request.form.get("resource_type", "link")
     notes = request.form.get("notes", "").strip()
     topic = request.form.get("topic", "").strip()
+    
+    # New: Accept day_id parameter
+    day_id_str = request.form.get("day_id", "").strip()
+    day_id = int(day_id_str) if day_id_str and day_id_str.isdigit() else None
+    
+    # Legacy: Accept old phase/week/day parameters
     phase_index = request.form.get("phase_index", "").strip()
     week_str = request.form.get("week", "").strip()
     day_str = request.form.get("day", "").strip()
@@ -247,7 +258,7 @@ def add_resource():
         flash("Oops, title is required", "error")
         return redirect(request.referrer or url_for("main.dashboard"))
     
-    # Validate phase_index safely
+    # Validate legacy parameters safely
     phase_idx = None
     if phase_index and phase_index.isdigit():
         try:
@@ -259,13 +270,34 @@ def add_resource():
     day_val = int(day_str) if day_str and day_str.isdigit() else None
     estimated_minutes = int(estimated_minutes_str) if estimated_minutes_str and estimated_minutes_str.isdigit() else None
     
-    # Check for duplicate
     conn = get_db()
     cur = get_db_cursor(conn)
-    if phase_idx is not None and week_val is not None and day_val is not None:
+    
+    # Determine day_id: use provided, or look up from legacy params, or use inbox
+    if day_id is None:
+        if phase_idx is not None and week_val is not None and day_val is not None:
+            # Try to look up day_id from legacy parameters
+            cur.execute("""
+                SELECT d.id FROM days d
+                JOIN weeks w ON d.week_id = w.id
+                JOIN phases p ON w.phase_id = p.id
+                WHERE p.user_id = %s AND p.order_index = %s 
+                AND w.order_index = %s AND d.order_index = %s
+                LIMIT 1
+            """, (current_user.id, phase_idx, week_val, day_val))
+            day_row = cur.fetchone()
+            if day_row:
+                day_id = day_row['id']
+        
+        # If still no day_id, use inbox
+        if day_id is None:
+            day_id = get_or_create_inbox(current_user.id)
+    
+    # Check for duplicate (using day_id)
+    if day_id:
         cur.execute(
-            "SELECT id FROM resources WHERE user_id = %s AND phase_index = %s AND week = %s AND day = %s AND title = %s",
-            (current_user.id, phase_idx, week_val, day_val, title)
+            "SELECT id FROM resources WHERE user_id = %s AND day_id = %s AND title = %s",
+            (current_user.id, day_id, title)
         )
         existing = cur.fetchone()
         
@@ -275,10 +307,11 @@ def add_resource():
             return redirect(request.referrer or url_for("main.dashboard"))
     
     try:
+        # Insert with day_id (and optionally backfill legacy columns)
         cur.execute("""INSERT INTO resources 
-            (user_id, phase_index, week, day, title, topic, url, resource_type, notes, source, estimated_minutes, difficulty, user_modified) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'user', %s, %s, TRUE) RETURNING id""",
-            (current_user.id, phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
+            (user_id, day_id, phase_index, week, day, title, topic, url, resource_type, notes, source, estimated_minutes, difficulty, user_modified) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'user', %s, %s, TRUE) RETURNING id""",
+            (current_user.id, day_id, phase_idx, week_val, day_val, title, topic or None, url or None, resource_type, notes or None, estimated_minutes, difficulty or None))
         cur.close()
         conn.commit()
         flash(f"Locked in: {title}", "success")
@@ -585,20 +618,60 @@ def unblock_day():
 
 
 @api_bp.route("/api/resource", methods=["POST"])
+@login_required
 def api_add_resource():
     """Add new resource via API."""
     try:
-        phase_index = int(request.form.get("phase_index"))
-        week = int(request.form.get("week"))
-        day = int(request.form.get("day"))
-        title = request.form.get("title", "").strip()
-        url = request.form.get("url", "").strip() or None
-        resource_type = request.form.get("resource_type", "link")
-        notes = request.form.get("notes", "").strip() or None
-        estimated_minutes = request.form.get("estimated_minutes", "").strip()
-        difficulty = request.form.get("difficulty", "").strip() or None
+        # Accept JSON or form data
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form.to_dict()
         
-        estimated_minutes_val = int(estimated_minutes) if estimated_minutes and estimated_minutes.isdigit() else None
+        # New: Accept day_id parameter
+        day_id = data.get("day_id")
+        if day_id:
+            try:
+                day_id = int(day_id)
+            except (ValueError, TypeError):
+                day_id = None
+        
+        # Legacy: Accept old phase/week/day parameters
+        phase_index = data.get("phase_index")
+        week = data.get("week")
+        day = data.get("day")
+        
+        # Convert to int if provided
+        phase_idx = None
+        week_val = None
+        day_val = None
+        
+        if phase_index is not None:
+            try:
+                phase_idx = int(phase_index)
+            except (ValueError, TypeError):
+                pass
+        
+        if week is not None:
+            try:
+                week_val = int(week)
+            except (ValueError, TypeError):
+                pass
+        
+        if day is not None:
+            try:
+                day_val = int(day)
+            except (ValueError, TypeError):
+                pass
+        
+        title = data.get("title", "").strip()
+        url = data.get("url", "").strip() or None
+        resource_type = data.get("resource_type", "link")
+        notes = data.get("notes", "").strip() or None
+        estimated_minutes_str = data.get("estimated_minutes", "").strip()
+        difficulty = data.get("difficulty", "").strip() or None
+        
+        estimated_minutes_val = int(estimated_minutes) if estimated_minutes_str and estimated_minutes_str.isdigit() else None
         
         if not title:
             return jsonify({"success": False, "error": "Title is required"}), 400
@@ -606,17 +679,37 @@ def api_add_resource():
         conn = get_db()
         cur = get_db_cursor(conn)
         
+        # Determine day_id: use provided, or look up from legacy params, or use inbox
+        if day_id is None:
+            if phase_idx is not None and week_val is not None and day_val is not None:
+                # Try to look up day_id from legacy parameters
+                cur.execute("""
+                    SELECT d.id FROM days d
+                    JOIN weeks w ON d.week_id = w.id
+                    JOIN phases p ON w.phase_id = p.id
+                    WHERE p.user_id = %s AND p.order_index = %s 
+                    AND w.order_index = %s AND d.order_index = %s
+                    LIMIT 1
+                """, (current_user.id, phase_idx, week_val, day_val))
+                day_row = cur.fetchone()
+                if day_row:
+                    day_id = day_row['id']
+            
+            # If still no day_id, use inbox
+            if day_id is None:
+                day_id = get_or_create_inbox(current_user.id)
+        
         # Get max sort_order for this day
         cur.execute(
-            "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM resources WHERE phase_index = %s AND week = %s AND day = %s",
-            (phase_index, week, day)
+            "SELECT COALESCE(MAX(sort_order), 0) as max_order FROM resources WHERE day_id = %s",
+            (day_id,)
         )
         max_order = cur.fetchone()['max_order']
         
         cur.execute("""
-            INSERT INTO resources (user_id, phase_index, week, day, title, url, resource_type, notes, estimated_minutes, difficulty, sort_order, source)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'user') RETURNING id
-        """, (current_user.id, phase_index, week, day, title, url, resource_type, notes, estimated_minutes_val, difficulty, max_order + 1))
+            INSERT INTO resources (user_id, day_id, phase_index, week, day, title, url, resource_type, notes, estimated_minutes, difficulty, sort_order, source)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'user') RETURNING id
+        """, (current_user.id, day_id, phase_idx, week_val, day_val, title, url, resource_type, notes, estimated_minutes_val, difficulty, max_order + 1))
         new_id = cur.fetchone()['id']
         cur.close()
         conn.commit()
@@ -975,4 +1068,150 @@ def api_metric_resources():
     return jsonify({
         "resources": [dict(r) for r in resources]
     })
+
+
+# ============================================================================
+# Structure Management Endpoints (Phases/Weeks/Days)
+# ============================================================================
+
+@api_bp.route("/api/structure", methods=["GET"])
+@login_required
+def api_get_structure():
+    """Get full nested structure for Kanban board."""
+    try:
+        include_resources = request.args.get('include_resources', 'false').lower() == 'true'
+        structure_data = get_structure(current_user.id, include_resources=include_resources)
+        return jsonify(structure_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route("/api/structure/phase", methods=["POST"])
+@login_required
+def api_create_phase():
+    """Create a new phase."""
+    try:
+        data = request.json or {}
+        title = data.get("title", "").strip()
+        color = data.get("color")
+        
+        if not title:
+            return jsonify({"error": "Title is required"}), 400
+        
+        phase = create_phase(current_user.id, title, color)
+        return jsonify(phase), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/structure/week", methods=["POST"])
+@login_required
+def api_create_week():
+    """Create a new week."""
+    try:
+        data = request.json or {}
+        phase_id = data.get("phase_id")
+        title = data.get("title", "").strip()
+        
+        if not title:
+            return jsonify({"error": "Title is required"}), 400
+        if not phase_id:
+            return jsonify({"error": "phase_id is required"}), 400
+        
+        week = create_week(current_user.id, phase_id, title)
+        return jsonify(week), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/structure/day", methods=["POST"])
+@login_required
+def api_create_day():
+    """Create a new day."""
+    try:
+        data = request.json or {}
+        week_id = data.get("week_id")
+        title = data.get("title", "").strip()
+        
+        if not title:
+            return jsonify({"error": "Title is required"}), 400
+        if not week_id:
+            return jsonify({"error": "week_id is required"}), 400
+        
+        day = create_day(current_user.id, week_id, title)
+        return jsonify(day), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/structure/<string:type>/<int:item_id>", methods=["PUT"])
+@login_required
+def api_update_structure(type, item_id):
+    """Update structure item title (and color for phases)."""
+    try:
+        data = request.json or {}
+        title = data.get("title", "").strip()
+        color = data.get("color")
+        
+        if not title and color is None:
+            return jsonify({"error": "Title or color is required"}), 400
+        
+        if not title:
+            # Only updating color for phase
+            if type != "phase":
+                return jsonify({"error": "Title is required for this operation"}), 400
+            title = None
+        
+        model_map = {"phase": "phase", "week": "week", "day": "day"}
+        if type not in model_map:
+            return jsonify({"error": "Invalid type. Must be phase, week, or day"}), 400
+        
+        result = update_structure_title(model_map[type], item_id, current_user.id, title, color)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/structure/<string:type>/<int:item_id>", methods=["DELETE"])
+@login_required
+def api_delete_structure(type, item_id):
+    """Delete structure item. Cascades to children."""
+    try:
+        model_map = {"phase": "phase", "week": "week", "day": "day"}
+        if type not in model_map:
+            return jsonify({"error": "Invalid type. Must be phase, week, or day"}), 400
+        
+        delete_structure_item(model_map[type], item_id, current_user.id)
+        return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api_bp.route("/api/structure/reorder", methods=["PUT"])
+@login_required
+def api_reorder_structure():
+    """Reorder structure item (week or day) via drag-and-drop."""
+    try:
+        data = request.json or {}
+        item_type = data.get("type")
+        item_id = data.get("id")
+        new_parent_id = data.get("new_parent_id")
+        new_index = data.get("new_index")
+        
+        if not all([item_type, item_id is not None, new_parent_id is not None, new_index is not None]):
+            return jsonify({"error": "Missing required fields: type, id, new_parent_id, new_index"}), 400
+        
+        if item_type not in ["week", "day"]:
+            return jsonify({"error": "Type must be 'week' or 'day'"}), 400
+        
+        reorder_structure(item_type, item_id, new_parent_id, new_index, current_user.id)
+        return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 

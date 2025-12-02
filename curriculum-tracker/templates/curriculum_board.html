@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curriculum Board - Curriculum Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        /* CSS Variable System - Same as dashboard */
+        :root {
+            --bg-primary: #f5f5f4;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e7e5e4;
+            --text-primary: #1c1917;
+            --text-secondary: #44403c;
+            --text-muted: #78716c;
+            --border: rgba(0, 0, 0, 0.15);
+            --accent: #0066ff;
+            --accent-hover: #0052cc;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
+        }
+        
+        [data-theme="dark"] {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #171717;
+            --bg-tertiary: #262626;
+            --text-primary: #fafafa;
+            --text-secondary: #d4d4d4;
+            --text-muted: #a3a3a3;
+            --border: rgba(255, 255, 255, 0.15);
+            --accent: #00d4ff;
+            --accent-hover: #00b8e6;
+            --success: #22c55e;
+            --warning: #eab308;
+            --error: #ef4444;
+        }
+        
+        * {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow: hidden;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            letter-spacing: -0.02em;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        
+        [data-theme="light"] .glass {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 150ms ease;
+        }
+        
+        [data-theme="dark"] .card {
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            transition: all 150ms ease;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+        
+        /* Board-specific styles will be in static/style.css */
+    </style>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+        
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeIcon();
+        }
+        
+        function updateThemeIcon() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            const icon = document.querySelector('.theme-icon');
+            if (icon) {
+                icon.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            }
+        }
+        
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu) {
+                menu.classList.toggle('hidden');
+            }
+        }
+        
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = '/';
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            updateThemeIcon();
+        });
+    </script>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="header py-4 px-8 border-b border-primary sticky top-0 z-50">
+        <div class="flex items-center justify-between">
+            <!-- Left: Logo + Breadcrumbs -->
+            <div class="flex items-center gap-6">
+                <a href="/" class="text-xl font-bold text-primary hover:text-accent transition-all">
+                    <i class="fas fa-graduation-cap mr-2"></i>
+                    <span class="hidden md:inline">Curriculum Tracker</span>
+                </a>
+                <button onclick="goBack()" class="btn-secondary px-3 py-2 text-sm hidden md:block">
+                    <i class="fas fa-arrow-left mr-1"></i>Back
+                </button>
+                <div class="text-sm text-secondary hidden md:flex items-center gap-2">
+                    <a href="/">Dashboard</a>
+                    <i class="fas fa-chevron-right text-xs"></i>
+                    <span>Curriculum Board</span>
+                </div>
+            </div>
+            
+            <!-- Right: Navigation + Utilities -->
+            <div class="flex items-center gap-6">
+                <nav class="hidden md:flex items-center gap-4">
+                    <a href="/" class="nav-item">
+                        <i class="fas fa-home mr-1"></i>Dashboard
+                    </a>
+                    <a href="/curriculum/board" class="nav-item active">
+                        <i class="fas fa-th mr-1"></i>Board
+                    </a>
+                    <a href="/resources" class="nav-item">
+                        <i class="fas fa-list mr-1"></i>List
+                    </a>
+                    <a href="/journal" class="nav-item">
+                        <i class="fas fa-book-open mr-1"></i>Journal
+                    </a>
+                </nav>
+                
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleInbox()" class="btn-secondary px-3 py-2 text-sm relative" id="inbox-toggle">
+                        <i class="fas fa-inbox mr-1"></i>
+                        <span class="hidden md:inline">Inbox</span>
+                        <span id="inbox-count" class="ml-2 px-2 py-0.5 rounded-full text-xs bg-accent text-white hidden">0</span>
+                    </button>
+                    <button onclick="toggleTheme()" class="theme-toggle" title="Toggle dark mode">
+                        <span class="theme-icon"></span>
+                    </button>
+                </div>
+                
+                <button onclick="toggleMobileMenu()" class="md:hidden text-primary">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4">
+            <nav class="flex flex-col gap-3">
+                <a href="/" class="nav-item"><i class="fas fa-home mr-2"></i>Dashboard</a>
+                <a href="/curriculum/board" class="nav-item active"><i class="fas fa-th mr-2"></i>Board</a>
+                <a href="/resources" class="nav-item"><i class="fas fa-list mr-2"></i>List</a>
+                <a href="/journal" class="nav-item"><i class="fas fa-book-open mr-2"></i>Journal</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Board Container -->
+    <div class="board-container flex-1 flex overflow-hidden">
+        <!-- Main Board Area -->
+        <div id="board-content" class="flex-1 overflow-x-auto overflow-y-auto">
+            <!-- Loading Skeleton -->
+            <div id="board-skeleton" class="p-6">
+                <div class="space-y-4">
+                    <div class="skeleton-loader h-24 rounded-lg"></div>
+                    <div class="skeleton-loader h-24 rounded-lg"></div>
+                    <div class="skeleton-loader h-24 rounded-lg"></div>
+                </div>
+            </div>
+            
+            <!-- Board Content (loaded via JS) -->
+            <div id="board-phases" class="p-6 space-y-6 hidden">
+                <!-- Phases will be rendered here by board.js -->
+            </div>
+        </div>
+        
+        <!-- Inbox Drawer -->
+        <div id="inbox-drawer" class="inbox-drawer hidden w-80 border-l border-primary bg-secondary overflow-y-auto">
+            <div class="p-4 border-b border-primary sticky top-0 bg-secondary z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-primary">
+                        <i class="fas fa-inbox mr-2"></i>Inbox
+                    </h3>
+                    <button onclick="toggleInbox()" class="text-muted hover:text-primary">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-secondary">Drag resources here or add new unscheduled items</p>
+            </div>
+            
+            <div id="inbox-content" class="p-4 space-y-2">
+                <!-- Inbox resources loaded here -->
+                <div class="empty-state text-center py-12">
+                    <i class="fas fa-inbox text-4xl mb-2 text-muted opacity-30"></i>
+                    <p class="text-sm text-secondary">No unscheduled resources</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Scripts -->
+    <script src="/static/js/board.js"></script>
+    
+    <script>
+        // Initialize board when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof loadBoard === 'function') {
+                loadBoard();
+            }
+        });
+    </script>
+</body>
+</html>
